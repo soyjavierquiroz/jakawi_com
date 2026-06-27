@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "react-phone-number-input/style.css";
+
+:root {
+  --background: #FAF7EF;
+  --foreground: #111111;
+  --brand: #128C4A;
+  --brand-dark: #052E24;
+  --brand-soft: #DFF7E8;
+  --lime: #A3E635;
+  --yellow: #FACC15;
+  --clay: #C2410C;
+  --paper: #FFFFFF;
+  --muted: #F2EFE7;
+  --border: #E6E1D6;
+  --accent: #FACC15;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-lime: var(--lime);
+  --color-brand-yellow: var(--yellow);
+  --color-brand-clay: var(--clay);
+  --color-brand-paper: var(--paper);
+  --color-brand-muted: var(--muted);
+  --color-brand-border: var(--border);
+  --color-brand-accent: var(--accent);
+  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+::selection {
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+
+.smart-phone-input {
+  min-height: 52px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: #fff;
+  color: var(--foreground);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.smart-phone-input:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px rgb(18 140 74 / 0.1);
+}
+
+.smart-phone-input[data-invalid="true"] {
+  border-color: #b91c1c;
+}
+
+.smart-phone-input .PhoneInput {
+  min-height: 52px;
+  width: 100%;
+}
+
+.smart-phone-input .PhoneInputCountry {
+  margin-left: 0.875rem;
+  margin-right: 0.75rem;
+  align-self: stretch;
+}
+
+.smart-phone-input .PhoneInputCountrySelect {
+  cursor: pointer;
+}
+
+.smart-phone-input .PhoneInputCountryIcon {
+  width: 1.75rem;
+  height: 1.25rem;
+  border-radius: 0.125rem;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08);
+}
+
+.smart-phone-input .PhoneInputCountrySelectArrow {
+  color: var(--brand-dark);
+  opacity: 0.8;
+}
+
+.smart-phone-input__number,
+.smart-phone-input .PhoneInputInput {
+  min-width: 0;
+  height: 50px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 1rem;
+  outline: none;
+  padding: 0 1rem 0 0;
+}
+
+.smart-phone-input .PhoneInputInput::placeholder {
+  color: #a3a3a3;
+}

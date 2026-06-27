@@ -1,0 +1,21 @@
+export const brandConfig = {
+  name: "JAKAWI",
+  legalName: "JAKAWI",
+  tagline: "Tus redes ya generan atención. JAKAWI la convierte en pedidos.",
+  colors: {
+    background: "#FAF7EF",
+    foreground: "#111111",
+    primary: "#128C4A",
+    primaryDark: "#052E24",
+    primarySoft: "#DFF7E8",
+    lime: "#A3E635",
+    yellow: "#FACC15",
+    clay: "#C2410C",
+    paper: "#FFFFFF",
+    muted: "#F2EFE7",
+    border: "#E6E1D6",
+    dark: "#052E24",
+    soft: "#DFF7E8",
+    accent: "#FACC15",
+  },
+};

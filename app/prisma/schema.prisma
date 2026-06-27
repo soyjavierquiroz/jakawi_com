@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AnalyticsEventType {
+  STORE_VIEW
+  PRODUCT_VIEW
+  WHATSAPP_CLICK
+}
+
+enum LeadStatus {
+  BROWSING
+  ENGAGED
+  WHATSAPP_CLICKED
+  CONTACTED
+  WON
+  LOST
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum LeadEventType {
+  STORE_VIEW
+  PRODUCT_VIEW
+  CATEGORY_VIEW
+  CHAT_OPENED
+  AI_MESSAGE_SENT
+  CUSTOMER_MESSAGE_SENT
+  PRODUCT_RECOMMENDED
+  WHATSAPP_CLICKED
+  LEAD_CREATED
+  LEAD_UPDATED
+  LEAD_STATUS_CHANGED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  firstName    String?
+  lastName     String?
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  countryCode  String?
+  countryName  String?
+  city         String?
+  region       String?
+  ipHash       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions Session[]
+  stores   Store[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  ownerId     String
+  name        String
+  slug        String   @unique
+  description String?
+  whatsapp    String
+  instagram   String?
+  tiktok      String?
+  logoUrl     String?
+  coverUrl    String?
+  countryCode String?
+  countryName String?
+  city        String?
+  region      String?
+  themeColor  String   @default("#128C4A")
+  isPublished Boolean  @default(true)
+  plan        String   @default("LAUNCH")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner      User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  products   Product[]
+  categories Category[]
+  events     AnalyticsEvent[]
+  leads      Lead[]
+
+  @@index([ownerId])
+  @@index([slug])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  slug      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([storeId, slug])
+  @@index([storeId])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  storeId     String
+  categoryId  String?
+  name        String
+  slug        String
+  description String?
+  priceCents  Int
+  currency    String   @default("BOB")
+  imageUrl    String?
+  isVisible   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  events   AnalyticsEvent[]
+
+  @@unique([storeId, slug])
+  @@index([storeId, isVisible])
+  @@index([categoryId])
+  @@index([createdAt])
+}
+
+model AnalyticsEvent {
+  id        String             @id @default(cuid())
+  storeId   String
+  productId String?
+  type      AnalyticsEventType
+  ipHash    String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime           @default(now())
+
+  store   Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, createdAt])
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+}
+
+model Lead {
+  id                  String     @id @default(cuid())
+  leadCode            String     @unique
+  storeId             String
+  sessionId           String
+  customerName        String?
+  customerPhone       String?
+  source              String?
+  status              LeadStatus @default(BROWSING)
+  intentScore         Int        @default(10)
+  currentProductId    String?
+  selectedProductId   String?
+  selectedVariant     String?
+  city                String?
+  budget              String?
+  urgency             String?
+  objections          String[]   @default([])
+  conversationSummary String?
+  whatsappMessage     String?
+  whatsappClickedAt   DateTime?
+  viewedProducts      Json?
+  recommendedProducts Json?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  conversation Conversation?
+  events       LeadEvent[]
+
+  @@index([storeId, createdAt])
+  @@index([sessionId])
+  @@index([status])
+  @@index([intentScore])
+}
+
+model Conversation {
+  id           String   @id @default(cuid())
+  leadId       String   @unique
+  storeId      String
+  modelUsed    String?
+  tokensInput  Int      @default(0)
+  tokensOutput Int      @default(0)
+  costEstimate Decimal? @db.Decimal(10, 6)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lead     Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  messages ConversationMessage[]
+
+  @@index([leadId])
+  @@index([storeId, createdAt])
+}
+
+model ConversationMessage {
+  id             String      @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  content        String
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model LeadEvent {
+  id        String        @id @default(cuid())
+  leadId    String?
+  sessionId String
+  storeId   String
+  eventType LeadEventType
+  productId String?
+  metadata  Json?
+  createdAt DateTime      @default(now())
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, createdAt])
+  @@index([sessionId])
+  @@index([leadId])
+  @@index([eventType])
+}
