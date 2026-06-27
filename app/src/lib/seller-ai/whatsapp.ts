@@ -15,6 +15,7 @@ type ProductLike = { name: string; priceCents?: number | null; currency?: string
 
 export function buildWhatsappLeadMessage({
   lead,
+  store,
   product,
   summary,
 }: {
