@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
 import { normalizeCountryCode } from "@/config/countries";
 import { registerAction } from "@/lib/actions";
@@ -32,12 +32,7 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
   const storeSlug = slugTouched ? manualSlug : slugifyStoreName(storeName);
   const city = cityTouched ? cityInput : visitorData.city ?? "";
   const region = visitorData.region ?? "";
-
-  useEffect(() => {
-    if (!storeCountryTouched && visitorData.country_code) {
-      setStoreCountryCode(normalizeCountryCode(visitorData.country_code));
-    }
-  }, [storeCountryTouched, visitorData.country_code]);
+  const activeStoreCountryCode = storeCountryTouched ? storeCountryCode : normalizeCountryCode(visitorData.country_code ?? initialCountryCode);
 
   const slugError = useMemo(() => {
     if (!storeSlug) return null;
@@ -140,8 +135,8 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
           </label>
           <div className="md:col-span-2">
             <CountryCurrencyFields
-              key={storeCountryCode}
-              initialCountryCode={storeCountryCode}
+              key={activeStoreCountryCode}
+              initialCountryCode={activeStoreCountryCode}
               compact
               onCountryChange={(nextCountry) => {
                 setStoreCountryTouched(true);

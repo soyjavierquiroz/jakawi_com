@@ -39,11 +39,9 @@ export function formatMoney({
   amountCents,
   currency,
   countryCode,
-  locale,
   showCurrencyCodeWhenAmbiguous,
 }: FormatMoneyInput) {
   const normalizedCountry = normalizeCountryCode(countryCode);
-  const config = getCountryCommerceConfig(normalizedCountry);
   const normalizedCurrency = normalizeCurrency(currency, normalizedCountry);
   const decimals = getCurrencyDecimals(normalizedCurrency);
   const amount = amountCents / 100;
