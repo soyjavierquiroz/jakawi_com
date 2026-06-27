@@ -1,7 +1,9 @@
 import { Boxes, Eye, MessageCircle, Store as StoreIcon } from "lucide-react";
 import Link from "next/link";
 import { CopyButton } from "@/components/CopyButton";
+import { getCountryCommerceConfig } from "@/config/countries";
 import { dashboardConfig } from "@/config/dashboard";
+import { getPlanPriceForCountry } from "@/config/regional-pricing";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
 import { requireStore } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
@@ -19,6 +21,8 @@ export default async function DashboardPage() {
   ]);
   const publicUrl = getPublicStoreUrl(store.slug);
   const flow = getStorefrontFlow(store.plan);
+  const country = getCountryCommerceConfig(store.countryCode);
+  const regionalPlanPrice = getPlanPriceForCountry(flow.planCode, store.countryCode);
   const sellerAiLimitLabel =
     flow.sellerAiMonthlyConversations === null ? "incluido sin limite mensual" : `${flow.sellerAiMonthlyConversations} conversaciones/mes`;
 
@@ -52,10 +56,18 @@ export default async function DashboardPage() {
 
       <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
         <p className="text-sm font-semibold text-neutral-500">Plan actual</p>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <div className="mt-3 grid gap-3 md:grid-cols-5">
           <div>
             <p className="text-2xl font-black text-brand-dark">{flow.planName}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">{flow.planPriceLabel}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">{regionalPlanPrice.priceLabel}</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-brand-dark">{country.countryName}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">País</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-brand-dark">{store.currency ?? country.defaultCurrency}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Moneda</p>
           </div>
           <div>
             <p className="text-2xl font-black text-brand-dark">
