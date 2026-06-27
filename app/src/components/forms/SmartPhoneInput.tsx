@@ -12,6 +12,8 @@ type SmartPhoneInputProps = {
   name?: string;
   label?: string;
   value?: string;
+  size?: "default" | "compact";
+  theme?: "light";
   required?: boolean;
   describedBy?: string;
   onChange?: (value: string) => void;
@@ -26,6 +28,8 @@ export function SmartPhoneInput({
   name,
   label = registrationConfig.fields.phone.label,
   value,
+  size = "default",
+  theme = "light",
   required = false,
   describedBy,
   onChange,
@@ -65,11 +69,11 @@ export function SmartPhoneInput({
   }
 
   return (
-    <div className="space-y-2">
-      <label htmlFor={inputId} className="text-sm font-bold text-neutral-900">
+    <div className={size === "compact" ? "space-y-1.5" : "space-y-2"}>
+      <label htmlFor={inputId} className={size === "compact" ? "text-xs font-bold text-neutral-900" : "text-sm font-bold text-neutral-900"}>
         {label}
       </label>
-      <div className="smart-phone-input" data-invalid={!isValid}>
+      <div className="smart-phone-input" data-invalid={!isValid} data-size={size} data-theme={theme}>
         <PhoneInput
           id={inputId}
           value={phoneValue}
@@ -93,10 +97,10 @@ export function SmartPhoneInput({
           limitMaxLength
         />
       </div>
-      <div id={messageId} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-neutral-500">
+      <div id={messageId} className={size === "compact" ? "flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold leading-4 text-neutral-500" : "flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-neutral-500"}>
         {isLoading ? <span>Detectando país...</span> : null}
-        <span>Codigo +{countryCallingCode}</span>
-        {!isValid ? <span className="text-red-700">Ingresa un WhatsApp valido.</span> : null}
+        <span>Código +{countryCallingCode}</span>
+        {!isValid ? <span className="text-red-700">Escribe un WhatsApp válido.</span> : null}
       </div>
       {name ? <input type="hidden" name={name} value={phoneValue ?? ""} /> : null}
     </div>

@@ -9,6 +9,7 @@ import { z } from "zod";
 import { registrationConfig } from "@/config/registration";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
+import { canCreateMoreProducts, getProductLimit } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { uploadImage } from "@/lib/storage";
@@ -242,6 +243,12 @@ export async function saveProductAction(formData: FormData) {
       },
     });
   } else {
+    const currentCount = await getPrisma().product.count({ where: { storeId: store.id } });
+    if (!canCreateMoreProducts(store.plan, currentCount)) {
+      const limit = getProductLimit(store.plan);
+      redirect(`/app/productos/nuevo?error=${encodeURIComponent(`Tu plan permite hasta ${limit} productos.`)}`);
+    }
+
     const product = await getPrisma().product.create({
       data: {
         storeId: store.id,

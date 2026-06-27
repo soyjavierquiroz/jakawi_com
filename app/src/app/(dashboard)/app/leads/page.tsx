@@ -62,6 +62,7 @@ export default async function LeadsPage() {
                   <div>
                     <p className="font-mono text-sm font-black text-brand-dark">{lead.leadCode}</p>
                     <p className="text-xs font-semibold text-neutral-500">{lead.store.name}</p>
+                    {lead.customerPhone ? <p className="mt-1 text-xs font-bold text-neutral-600">{lead.customerPhone}</p> : null}
                   </div>
                   <div>
                     <h2 className="font-black">{product?.name ?? "Producto por confirmar"}</h2>

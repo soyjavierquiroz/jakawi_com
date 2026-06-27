@@ -109,6 +109,16 @@ export default async function LeadDetailPage({
                 <p className="mt-1 font-black">{lead.city ?? "Sin dato"}</p>
               </div>
             </div>
+            <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+              <div className="rounded-md bg-brand-muted p-3">
+                <p className="font-bold text-neutral-500">WhatsApp cliente</p>
+                <p className="mt-1 font-black">{lead.customerPhone ?? "Sin dato"}</p>
+              </div>
+              <div className="rounded-md bg-brand-muted p-3">
+                <p className="font-bold text-neutral-500">Nombre cliente</p>
+                <p className="mt-1 font-black">{lead.customerName ?? "Sin dato"}</p>
+              </div>
+            </div>
             <p className="mt-4 leading-7 text-neutral-700">{lead.conversationSummary ?? "El resumen se generará cuando el cliente continúe a WhatsApp."}</p>
           </section>
 

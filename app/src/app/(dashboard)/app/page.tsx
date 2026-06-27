@@ -5,6 +5,7 @@ import { dashboardConfig } from "@/config/dashboard";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
 import { requireStore } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
+import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 export default async function DashboardPage() {
   const { store } = await requireStore();
@@ -17,6 +18,9 @@ export default async function DashboardPage() {
     getPrisma().analyticsEvent.count({ where: { storeId: store.id, type: "WHATSAPP_CLICK", createdAt: { gte: since } } }),
   ]);
   const publicUrl = getPublicStoreUrl(store.slug);
+  const flow = getStorefrontFlow(store.plan);
+  const sellerAiLimitLabel =
+    flow.sellerAiMonthlyConversations === null ? "incluido sin limite mensual" : `${flow.sellerAiMonthlyConversations} conversaciones/mes`;
 
   const stats = [
     { label: dashboardConfig.stats.totalProducts, value: totalProducts, icon: Boxes },
@@ -43,6 +47,26 @@ export default async function DashboardPage() {
         <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
           <code className="flex-1 rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{publicUrl}</code>
           <CopyButton value={publicUrl} />
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
+        <p className="text-sm font-semibold text-neutral-500">Plan actual</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div>
+            <p className="text-2xl font-black text-brand-dark">{flow.planName}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">{flow.planPriceLabel}</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-brand-dark">
+              {totalProducts} / {flow.productLimit}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Productos</p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-brand-dark">{flow.sellerAiEnabled ? "Activo" : "No incluido"}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Seller AI: {flow.sellerAiEnabled ? sellerAiLimitLabel : "sin conversaciones"}</p>
+          </div>
         </div>
       </div>
 

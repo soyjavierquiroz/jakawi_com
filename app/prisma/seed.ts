@@ -43,6 +43,7 @@ async function main() {
       instagram: "megalosn",
       tiktok: "megalons",
       description: "Tienda demo creada con JAKAWI.",
+      plan: "PRO",
     },
     create: {
       ownerId: user.id,
@@ -55,6 +56,7 @@ async function main() {
       instagram: "megalosn",
       tiktok: "megalons",
       description: "Tienda demo creada con JAKAWI.",
+      plan: "PRO",
     },
   });
 

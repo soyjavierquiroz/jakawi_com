@@ -2,9 +2,12 @@ import { Camera, MessageCircle, Music2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
+import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
+import { VisitorProvider } from "@/context/VisitorContext";
 import { trackEvent } from "@/lib/analytics";
 import { formatMoney, reservedSlugs } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
+import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 export default async function PublicStorePage({
   params,
@@ -28,9 +31,10 @@ export default async function PublicStorePage({
 
   if (!store || !store.isPublished) notFound();
   await trackEvent("STORE_VIEW", store.id);
+  const flow = getStorefrontFlow(store.plan);
 
   return (
-    <main className="min-h-dvh bg-background pb-10">
+    <main className={flow.sellerAiEnabled ? "min-h-dvh bg-background pb-24" : "min-h-dvh bg-background pb-10"}>
       <section className="mx-auto max-w-lg bg-brand-paper shadow-sm">
         <div className="h-44 bg-brand-dark">
           {store.coverUrl ? <img src={store.coverUrl} alt="" className="h-full w-full object-cover" /> : null}
@@ -44,7 +48,7 @@ export default async function PublicStorePage({
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-brand-soft px-3 py-2 text-sm font-bold text-brand-dark">
               <MessageCircle className="size-4" />
-              Consulta por WhatsApp
+              {flow.sellerAiEnabled ? "Compra guiada con Seller AI" : "Consulta por WhatsApp"}
             </span>
             {store.instagram ? (
               <a href={`https://instagram.com/${store.instagram}`} target="_blank" className="inline-flex size-10 items-center justify-center rounded-full bg-brand-muted text-neutral-700">
@@ -78,24 +82,37 @@ export default async function PublicStorePage({
                 <h2 className="mt-3 line-clamp-2 min-h-10 text-sm font-black">{product.name}</h2>
               </Link>
               <p className="mt-1 font-black text-brand-dark">{formatMoney(product.priceCents, product.currency)}</p>
-              <a href={`/api/whatsapp/click?productId=${product.id}`} className="mt-3 flex h-10 items-center justify-center rounded-md bg-brand text-center text-xs font-bold text-white transition hover:bg-brand-dark sm:text-sm">
-                Quiero este producto
-              </a>
+              <ProductConversionCta
+                storeSlug={store.slug}
+                storePlan={store.plan}
+                productId={product.id}
+                productName={product.name}
+                productHref={`/${store.slug}/p/${product.slug}`}
+                fallbackWhatsappHref={`/api/whatsapp/click?productId=${product.id}`}
+                variant="card"
+                className="mt-3"
+              />
             </article>
           ))}
         </div>
 
         <footer className="py-8 text-center text-sm font-semibold text-neutral-500">Hecho con JAKAWI</footer>
       </section>
-      {store.products[0] ? (
-        <SellerAiWidget
-          storeSlug={store.slug}
-          storeName={store.name}
-          productId={store.products[0].id}
-          productName={store.products[0].name}
-          categoryName={store.products[0].category?.name}
-          whatsapp={store.whatsapp}
-        />
+      {flow.sellerAiEnabled && store.products[0] ? (
+        <VisitorProvider>
+          <SellerAiWidget
+            storeSlug={store.slug}
+            storeName={store.name}
+            productId={store.products[0].id}
+            productName={store.products[0].name}
+            categoryName={store.products[0].category?.name}
+            whatsapp={store.whatsapp}
+            planCode={flow.planCode}
+            mode={flow.sellerAiMode}
+            requirePhoneBeforeWhatsapp={flow.requirePhoneBeforeWhatsapp}
+            triggerLabel={flow.productPagePrimaryCta}
+          />
+        </VisitorProvider>
       ) : null}
     </main>
   );

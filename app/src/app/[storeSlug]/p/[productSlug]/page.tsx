@@ -1,10 +1,13 @@
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
+import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
+import { VisitorProvider } from "@/context/VisitorContext";
 import { trackEvent } from "@/lib/analytics";
 import { formatMoney } from "@/lib/format";
 import { getPrisma } from "@/lib/prisma";
+import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 export default async function PublicProductPage({
   params,
@@ -22,6 +25,7 @@ export default async function PublicProductPage({
   if (!product || !product.isVisible) notFound();
 
   await trackEvent("PRODUCT_VIEW", store.id, product.id);
+  const flow = getStorefrontFlow(store.plan);
 
   return (
     <main className="min-h-dvh bg-background px-4 py-6">
@@ -35,20 +39,34 @@ export default async function PublicProductPage({
           <h1 className="mt-4 text-3xl font-black">{product.name}</h1>
           <p className="mt-2 text-2xl font-black text-brand-dark">{formatMoney(product.priceCents, product.currency)}</p>
           <p className="mt-4 leading-7 text-neutral-600">{product.description ?? "Consulta disponibilidad por WhatsApp."}</p>
-          <a href={`/api/whatsapp/click?productId=${product.id}`} className="mt-6 flex h-12 items-center justify-center gap-2 rounded-md bg-brand font-bold text-white transition hover:bg-brand-dark">
-            <MessageCircle className="size-5" />
-            Preguntar por WhatsApp
-          </a>
+          <ProductConversionCta
+            storeSlug={store.slug}
+            storePlan={store.plan}
+            productId={product.id}
+            productName={product.name}
+            fallbackWhatsappHref={`/api/whatsapp/click?productId=${product.id}`}
+            variant="product-page"
+            className="mt-6"
+          />
         </div>
       </article>
-      <SellerAiWidget
-        storeSlug={store.slug}
-        storeName={store.name}
-        productId={product.id}
-        productName={product.name}
-        categoryName={product.category?.name}
-        whatsapp={store.whatsapp}
-      />
+      {flow.sellerAiEnabled ? (
+        <VisitorProvider>
+          <SellerAiWidget
+            storeSlug={store.slug}
+            storeName={store.name}
+            productId={product.id}
+            productName={product.name}
+            categoryName={product.category?.name}
+            whatsapp={store.whatsapp}
+            planCode={flow.planCode}
+            mode={flow.sellerAiMode}
+            requirePhoneBeforeWhatsapp={flow.requirePhoneBeforeWhatsapp}
+            initiallyHidden
+            triggerLabel={flow.productPagePrimaryCta}
+          />
+        </VisitorProvider>
+      ) : null}
     </main>
   );
 }

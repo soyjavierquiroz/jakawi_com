@@ -51,6 +51,47 @@ button {
   color: var(--brand-dark);
 }
 
+@keyframes seller-ai-pick-me {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 14px 35px rgb(0 0 0 / 0.18);
+  }
+  42% {
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: 0 18px 42px rgb(18 140 74 / 0.24);
+  }
+}
+
+.seller-ai-nudge {
+  animation: seller-ai-pick-me 900ms ease-in-out;
+}
+
+@keyframes jakawiTypingDot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.jakawi-typing-dot {
+  animation: jakawiTypingDot 1.2s infinite ease-in-out;
+}
+
+.jakawi-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.jakawi-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
 .smart-phone-input {
   min-height: 52px;
   width: 100%;
@@ -114,4 +155,31 @@ button {
 
 .smart-phone-input .PhoneInputInput::placeholder {
   color: #a3a3a3;
+}
+
+.smart-phone-input[data-size="compact"] {
+  min-height: 46px;
+  border-radius: 9999px;
+  background: #faf7ef;
+}
+
+.smart-phone-input[data-size="compact"] .PhoneInput {
+  min-height: 46px;
+}
+
+.smart-phone-input[data-size="compact"] .PhoneInputCountry {
+  margin-left: 0.875rem;
+  margin-right: 0.625rem;
+}
+
+.smart-phone-input[data-size="compact"] .PhoneInputCountryIcon {
+  width: 1.55rem;
+  height: 1.1rem;
+}
+
+.smart-phone-input[data-size="compact"] .smart-phone-input__number,
+.smart-phone-input[data-size="compact"] .PhoneInputInput {
+  height: 44px;
+  font-size: 15px;
+  padding-right: 0.875rem;
 }
