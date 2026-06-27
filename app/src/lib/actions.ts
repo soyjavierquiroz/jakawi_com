@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { normalizeCurrency } from "@/config/countries";
+import { getCountryCommerceConfig, normalizeCountryCode, normalizeCurrency } from "@/config/countries";
 import { registrationConfig } from "@/config/registration";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
@@ -15,6 +15,7 @@ import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { uploadImage } from "@/lib/storage";
 import { getVisitorInfoFromHeaders, hashIp } from "@/lib/visitor";
+import { normalizeStorePlanCode } from "@/lib/storefront-flow";
 
 const authSchema = z.object({
   email: z.string().email().transform((value) => value.toLowerCase().trim()),
@@ -58,10 +59,14 @@ export async function registerAction(formData: FormData) {
       .refine((value) => isValidPhoneNumber(value)),
     storeName: z.string().min(2),
     storeSlug: z.string().min(3).max(40).refine(isValidStoreSlug),
-    countryCode: z.string().min(2).max(2).optional().or(z.literal("")),
+    countryCode: z.string().min(2).max(5).optional().or(z.literal("")),
     countryName: z.string().max(80).optional().or(z.literal("")),
+    currency: z.string().min(3).max(3).optional().or(z.literal("")),
+    locale: z.string().max(20).optional().or(z.literal("")),
+    timezone: z.string().max(80).optional().or(z.literal("")),
     city: z.string().max(80).optional().or(z.literal("")),
     region: z.string().max(80).optional().or(z.literal("")),
+    plan: z.string().max(20).optional().or(z.literal("")),
   });
 
   const parsed = registrationSchema.safeParse({
@@ -74,8 +79,12 @@ export async function registerAction(formData: FormData) {
     storeSlug: field(formData, "storeSlug"),
     countryCode: field(formData, "countryCode"),
     countryName: field(formData, "countryName"),
+    currency: field(formData, "currency"),
+    locale: field(formData, "locale"),
+    timezone: field(formData, "timezone"),
     city: field(formData, "city"),
     region: field(formData, "region"),
+    plan: field(formData, "plan"),
   });
 
   if (!parsed.success) {
@@ -92,11 +101,16 @@ export async function registerAction(formData: FormData) {
   const firstName = parsed.data.firstName.trim();
   const lastName = parsed.data.lastName.trim();
   const name = `${firstName} ${lastName}`.trim();
-  const countryCode = cleanOptional(parsed.data.countryCode) ?? visitor.countryCode;
-  const countryName = cleanOptional(parsed.data.countryName) ?? visitor.countryName;
+  const countryCode = normalizeCountryCode(cleanOptional(parsed.data.countryCode) ?? visitor.countryCode);
+  const countryConfig = getCountryCommerceConfig(countryCode);
+  const countryName = cleanOptional(parsed.data.countryName) ?? countryConfig.countryName ?? visitor.countryName;
+  const currency = normalizeCurrency(parsed.data.currency, countryCode);
+  const locale = cleanOptional(parsed.data.locale) ?? countryConfig.locale;
+  const timezone = cleanOptional(parsed.data.timezone) ?? countryConfig.timezone;
   const city = cleanOptional(parsed.data.city) ?? visitor.city;
   const region = cleanOptional(parsed.data.region) ?? visitor.region;
   const ipHash = visitor.ip ? hashIp(visitor.ip) : null;
+  const plan = normalizeStorePlanCode(parsed.data.plan);
 
   try {
     const user = await getPrisma().user.create({
@@ -109,6 +123,7 @@ export async function registerAction(formData: FormData) {
         phone: parsed.data.phone,
         countryCode,
         countryName,
+        currency,
         city,
         region,
         ipHash,
@@ -119,10 +134,14 @@ export async function registerAction(formData: FormData) {
             whatsapp: parsed.data.phone,
             countryCode,
             countryName,
+            currency,
+            locale,
+            timezone,
             city,
             region,
             description: "Mi tienda creada con JAKAWI.",
             isPublished: true,
+            plan,
           },
         },
       },
@@ -165,6 +184,9 @@ export async function updateStoreAction(formData: FormData) {
   const slug = await uniqueStoreSlug(field(formData, "slug"), store.id);
   const cover = formData.get("cover");
   const logo = formData.get("logo");
+  const countryCode = normalizeCountryCode(field(formData, "countryCode") || store.countryCode);
+  const countryConfig = getCountryCommerceConfig(countryCode);
+  const currency = normalizeCurrency(field(formData, "currency") || store.currency, countryCode);
 
   const coverUrl = cover instanceof File ? await uploadImage(cover, `stores/${store.id}/cover`) : null;
   const logoUrl = logo instanceof File ? await uploadImage(logo, `stores/${store.id}/logo`) : null;
@@ -178,6 +200,11 @@ export async function updateStoreAction(formData: FormData) {
       whatsapp: normalizePhone(field(formData, "whatsapp")),
       instagram: cleanOptional(field(formData, "instagram")),
       tiktok: cleanOptional(field(formData, "tiktok")),
+      countryCode,
+      countryName: countryConfig.countryName,
+      currency,
+      locale: countryConfig.locale,
+      timezone: countryConfig.timezone,
       ...(coverUrl ? { coverUrl } : {}),
       ...(logoUrl ? { logoUrl } : {}),
     },

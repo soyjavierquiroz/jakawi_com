@@ -6,7 +6,7 @@ import { RegistrationForm } from "./RegistrationForm";
 export default async function RegistroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; country?: string; plan?: string }>;
 }) {
   const params = await searchParams;
 
@@ -17,7 +17,7 @@ export default async function RegistroPage({
         <h1 className="mt-8 text-3xl font-black sm:text-4xl">{registrationConfig.title}</h1>
         <p className="mt-2 text-base text-neutral-600 sm:text-lg">{registrationConfig.subtitle}</p>
         <VisitorProvider>
-          <RegistrationForm error={params.error} />
+          <RegistrationForm error={params.error} initialCountryCode={params.country} selectedPlan={params.plan} />
         </VisitorProvider>
       </div>
     </main>

@@ -1,3 +1,4 @@
+import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
 import { updateStoreAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
 
@@ -44,6 +45,14 @@ export default async function StoreSettingsPage({
             <input name="tiktok" defaultValue={store.tiktok ?? ""} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
           </label>
         </div>
+        <section className="rounded-md border border-brand-border bg-brand-muted p-4">
+          <h2 className="text-lg font-black text-brand-dark">País y moneda</h2>
+          <p className="mt-1 text-sm font-semibold text-neutral-600">Esto define cómo se muestran los precios en tu tienda pública.</p>
+          <div className="mt-4">
+            <CountryCurrencyFields initialCountryCode={store.countryCode} initialCurrency={store.currency} compact />
+          </div>
+          <p className="mt-3 text-xs font-semibold text-amber-700">Si cambias la moneda, revisa que tus precios sigan teniendo sentido.</p>
+        </section>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Foto de portada</span>

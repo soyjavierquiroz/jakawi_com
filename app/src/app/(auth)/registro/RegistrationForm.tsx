@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import type { Country } from "react-phone-number-input";
+import { useEffect, useMemo, useState } from "react";
+import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
+import { normalizeCountryCode } from "@/config/countries";
 import { registerAction } from "@/lib/actions";
 import { slugifyStoreName, isReservedSlug, isValidStoreSlug } from "@/lib/slug";
 import { SmartPhoneInput } from "@/components/forms/SmartPhoneInput";
@@ -11,27 +12,32 @@ import { useVisitor } from "@/context/VisitorContext";
 
 type RegistrationFormProps = {
   error?: string;
+  initialCountryCode?: string;
+  selectedPlan?: string;
 };
 
 const inputClass =
   "h-[52px] w-full rounded-md border border-brand-border bg-white px-4 text-base text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-brand focus:ring-4 focus:ring-brand/10";
 
-export function RegistrationForm({ error }: RegistrationFormProps) {
+export function RegistrationForm({ error, initialCountryCode, selectedPlan }: RegistrationFormProps) {
   const { visitorData } = useVisitor();
   const [storeName, setStoreName] = useState("");
   const [manualSlug, setManualSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [phoneIsValid, setPhoneIsValid] = useState(false);
-  const [phoneCountry, setPhoneCountry] = useState<string | null>(null);
-  const [countryNameInput, setCountryNameInput] = useState("");
-  const [countryNameTouched, setCountryNameTouched] = useState(false);
+  const [storeCountryCode, setStoreCountryCode] = useState(() => normalizeCountryCode(initialCountryCode));
+  const [storeCountryTouched, setStoreCountryTouched] = useState(Boolean(initialCountryCode));
   const [cityInput, setCityInput] = useState("");
   const [cityTouched, setCityTouched] = useState(false);
   const storeSlug = slugTouched ? manualSlug : slugifyStoreName(storeName);
-  const countryCode = phoneCountry ?? visitorData.country_code ?? registrationConfig.defaultCountry;
-  const countryName = countryNameTouched ? countryNameInput : visitorData.country_name ?? "Bolivia";
   const city = cityTouched ? cityInput : visitorData.city ?? "";
   const region = visitorData.region ?? "";
+
+  useEffect(() => {
+    if (!storeCountryTouched && visitorData.country_code) {
+      setStoreCountryCode(normalizeCountryCode(visitorData.country_code));
+    }
+  }, [storeCountryTouched, visitorData.country_code]);
 
   const slugError = useMemo(() => {
     if (!storeSlug) return null;
@@ -45,10 +51,6 @@ export function RegistrationForm({ error }: RegistrationFormProps) {
   function handleSlugChange(value: string) {
     setSlugTouched(true);
     setManualSlug(slugifyStoreName(value));
-  }
-
-  function handleCountryChange(nextCountry?: Country) {
-    if (nextCountry) setPhoneCountry(nextCountry);
   }
 
   return (
@@ -68,7 +70,7 @@ export function RegistrationForm({ error }: RegistrationFormProps) {
           </label>
         </div>
 
-        <SmartPhoneInput name="phone" required onValidityChange={setPhoneIsValid} onCountryChange={handleCountryChange} />
+        <SmartPhoneInput name="phone" required onValidityChange={setPhoneIsValid} />
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block space-y-2">
@@ -136,24 +138,22 @@ export function RegistrationForm({ error }: RegistrationFormProps) {
               className={inputClass}
             />
           </label>
-          <label className="block space-y-2">
-            <span className="text-sm font-bold">{registrationConfig.fields.country.label}</span>
-            <input
-              name="countryName"
-              value={countryName}
-              onChange={(event) => {
-                setCountryNameTouched(true);
-                setCountryNameInput(event.target.value);
+          <div className="md:col-span-2">
+            <CountryCurrencyFields
+              key={storeCountryCode}
+              initialCountryCode={storeCountryCode}
+              compact
+              onCountryChange={(nextCountry) => {
+                setStoreCountryTouched(true);
+                setStoreCountryCode(nextCountry);
               }}
-              placeholder={registrationConfig.fields.country.placeholder}
-              className={inputClass}
             />
-          </label>
+          </div>
         </div>
       </section>
 
-      <input type="hidden" name="countryCode" value={countryCode} />
       <input type="hidden" name="region" value={region} />
+      <input type="hidden" name="plan" value={selectedPlan ?? "TRIAL"} />
 
       <button
         disabled={!phoneIsValid || Boolean(slugError)}
