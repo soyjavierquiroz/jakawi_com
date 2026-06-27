@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { normalizeCurrency } from "@/config/countries";
 import { registrationConfig } from "@/config/registration";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
@@ -227,6 +228,7 @@ export async function saveProductAction(formData: FormData) {
   const image = formData.get("image");
   const categoryId = cleanOptional(field(formData, "categoryId"));
   const isVisible = formData.get("isVisible") === "on";
+  const storeCurrency = normalizeCurrency(store.currency, store.countryCode);
 
   if (productId) {
     const imageUrl = image instanceof File ? await uploadImage(image, `stores/${store.id}/products/${productId}`) : null;
@@ -237,6 +239,7 @@ export async function saveProductAction(formData: FormData) {
         slug,
         description: cleanOptional(field(formData, "description")),
         priceCents: priceToCents(formData.get("price")),
+        currency: storeCurrency,
         categoryId,
         isVisible,
         ...(imageUrl ? { imageUrl } : {}),
@@ -257,6 +260,7 @@ export async function saveProductAction(formData: FormData) {
         slug,
         description: cleanOptional(field(formData, "description")),
         priceCents: priceToCents(formData.get("price")),
+        currency: storeCurrency,
         isVisible,
       },
     });

@@ -1,15 +1,20 @@
 import type { Category, Product } from "@prisma/client";
 import Link from "next/link";
+import { normalizeCurrency } from "@/config/countries";
 import { saveProductAction } from "@/lib/actions";
 import { centsToInput } from "@/lib/format";
 
 export function ProductForm({
   product,
   categories,
+  currency,
 }: {
   product?: Product | null;
   categories: Category[];
+  currency?: string | null;
 }) {
+  const normalizedCurrency = normalizeCurrency(currency ?? product?.currency, "BO");
+
   return (
     <form action={saveProductAction} className="space-y-5 rounded-lg border border-brand-border bg-brand-paper p-6 shadow-sm">
       {product ? <input type="hidden" name="productId" value={product.id} /> : null}
@@ -37,7 +42,7 @@ export function ProductForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-2">
-          <span className="text-sm font-semibold text-neutral-700">Precio</span>
+          <span className="text-sm font-semibold text-neutral-700">Precio ({normalizedCurrency})</span>
           <input
             required
             name="price"

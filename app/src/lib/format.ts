@@ -1,5 +1,6 @@
 import slugify from "slugify";
 import { registrationConfig } from "@/config/registration";
+import { formatMoney as formatMoneyValue } from "@/lib/money";
 
 export const reservedSlugs = new Set<string>(registrationConfig.reservedSlugs);
 
@@ -14,9 +15,7 @@ export function normalizePhone(input: string) {
 }
 
 export function formatMoney(cents: number, currency = "BOB") {
-  const amount = cents / 100;
-  if (currency === "BOB") return `Bs. ${amount.toFixed(2)}`;
-  return `${currency} ${amount.toFixed(2)}`;
+  return formatMoneyValue({ amountCents: cents, currency });
 }
 
 export function priceToCents(value: FormDataEntryValue | null) {

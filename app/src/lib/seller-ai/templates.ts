@@ -1,9 +1,10 @@
 import { sellerAiConfig } from "@/config/seller-ai";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { getProductCategoryKind } from "@/lib/seller-ai/context";
 
 type CategoryLike = { name: string; slug?: string } | null;
 type ProductLike = { name: string; description?: string | null; priceCents?: number; currency?: string; category?: CategoryLike } | null;
+type StoreLike = { countryCode?: string | null; currency?: string | null; locale?: string | null } | null;
 type LeadLike = { city?: string | null; budget?: string | null; urgency?: string | null; objections?: string[] | null };
 type MessageLike = { role: string; content: string };
 
@@ -31,15 +32,23 @@ export function generateHeuristicReply({
   userMessage,
   product,
   relatedProducts,
+  store,
 }: {
   userMessage: string;
   product: ProductLike;
   relatedProducts: ProductLike[];
+  store?: StoreLike;
   lead?: LeadLike | null;
 }) {
   const text = normalize(userMessage);
   if (/precio|cu[aá]nto|cuanto|vale|costo|cuesta/.test(text) && product?.priceCents != null) {
-    return `Por el precio publicado, ${product.name} está en ${formatMoney(product.priceCents, product.currency)}. ¿Quieres que te deje el pedido listo por WhatsApp?`;
+    const price = formatMoney({
+      amountCents: product.priceCents,
+      currency: store?.currency ?? product.currency,
+      countryCode: store?.countryCode ?? "BO",
+      locale: store?.locale,
+    });
+    return `Por el precio publicado, ${product.name} está en ${price}. ¿Quieres que te deje el pedido listo por WhatsApp?`;
   }
   if (/talla|color|stock|disponible|disponibilidad|hay|variante/.test(text)) {
     return `${sellerAiConfig.reserved.confirmByWhatsapp} ¿Quieres continuar con este producto?`;

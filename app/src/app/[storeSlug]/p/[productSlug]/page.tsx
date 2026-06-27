@@ -5,7 +5,7 @@ import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { VisitorProvider } from "@/context/VisitorContext";
 import { trackEvent } from "@/lib/analytics";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
@@ -37,7 +37,14 @@ export default async function PublicProductPage({
             Volver a tienda
           </Link>
           <h1 className="mt-4 text-3xl font-black">{product.name}</h1>
-          <p className="mt-2 text-2xl font-black text-brand-dark">{formatMoney(product.priceCents, product.currency)}</p>
+          <p className="mt-2 text-2xl font-black text-brand-dark">
+            {formatMoney({
+              amountCents: product.priceCents,
+              currency: store.currency ?? product.currency,
+              countryCode: store.countryCode ?? "BO",
+              locale: store.locale,
+            })}
+          </p>
           <p className="mt-4 leading-7 text-neutral-600">{product.description ?? "Consulta disponibilidad por WhatsApp."}</p>
           <ProductConversionCta
             storeSlug={store.slug}

@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       })
     : null;
   const relatedProducts = product ? await getRelatedProducts(lead.storeId, product) : [];
-  const assistantMessage = generateHeuristicReply({ userMessage: parsed.data.message, product, relatedProducts, lead });
+  const assistantMessage = generateHeuristicReply({ userMessage: parsed.data.message, product, relatedProducts, store: lead.store, lead });
 
   const userMessage = await getPrisma().conversationMessage.create({
     data: { conversationId: lead.conversation.id, role: MessageRole.USER, content: parsed.data.message },

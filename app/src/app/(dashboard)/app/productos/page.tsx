@@ -2,7 +2,7 @@ import { Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { deleteProductAction, toggleProductAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 
 export default async function ProductsPage() {
@@ -37,7 +37,13 @@ export default async function ProductsPage() {
                 <div>
                   <h2 className="font-black">{product.name}</h2>
                   <p className="text-sm text-neutral-500">
-                    {formatMoney(product.priceCents, product.currency)} - {product.category?.name ?? "Sin categoría"} - {product.isVisible ? "Visible" : "Oculto"}
+                    {formatMoney({
+                      amountCents: product.priceCents,
+                      currency: store.currency ?? product.currency,
+                      countryCode: store.countryCode ?? "BO",
+                      locale: store.locale,
+                    })}{" "}
+                    - {product.category?.name ?? "Sin categoría"} - {product.isVisible ? "Visible" : "Oculto"}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

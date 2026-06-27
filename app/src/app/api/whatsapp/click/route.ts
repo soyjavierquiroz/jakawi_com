@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizePhone } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { trackEvent } from "@/lib/analytics";
 
@@ -19,6 +20,12 @@ export async function GET(request: NextRequest) {
   await trackEvent("WHATSAPP_CLICK", product.storeId, product.id);
 
   const phone = normalizePhone(product.store.whatsapp);
-  const message = `Hola, vi este producto en tu tienda JAKAWI: ${product.name}. Sigue disponible?`;
+  const price = formatMoney({
+    amountCents: product.priceCents,
+    currency: product.store.currency ?? product.currency,
+    countryCode: product.store.countryCode ?? "BO",
+    locale: product.store.locale,
+  });
+  const message = `Hola, vi este producto en tu tienda JAKAWI: ${product.name} (${price}). Sigue disponible?`;
   return NextResponse.redirect(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
 }

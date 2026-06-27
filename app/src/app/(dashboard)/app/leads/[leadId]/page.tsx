@@ -2,7 +2,8 @@ import { CheckCircle2, MessageCircle, XCircle } from "lucide-react";
 import { notFound } from "next/navigation";
 import { markLeadContacted, markLeadLost, markLeadWon } from "@/app/(dashboard)/app/leads/actions";
 import { requireUser } from "@/lib/auth";
-import { formatMoney, normalizePhone } from "@/lib/format";
+import { normalizePhone } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { classifyIntent } from "@/lib/seller-ai/intent";
 
@@ -152,7 +153,14 @@ export default async function LeadDetailPage({
               <div className="mt-4">
                 <img src={mainProduct.imageUrl ?? "/placeholder-product.svg"} alt="" className="aspect-square w-full rounded-md object-cover" />
                 <h3 className="mt-3 font-black">{mainProduct.name}</h3>
-                <p className="text-sm font-bold text-brand-dark">{formatMoney(mainProduct.priceCents, mainProduct.currency)}</p>
+                <p className="text-sm font-bold text-brand-dark">
+                  {formatMoney({
+                    amountCents: mainProduct.priceCents,
+                    currency: lead.store.currency ?? mainProduct.currency,
+                    countryCode: lead.store.countryCode ?? "BO",
+                    locale: lead.store.locale,
+                  })}
+                </p>
                 <p className="text-sm text-neutral-500">{mainProduct.category?.name ?? "Sin categoría"}</p>
               </div>
             ) : (

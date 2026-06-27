@@ -1,5 +1,6 @@
 import { sellerAiConfig } from "@/config/seller-ai";
 import { normalizePhone } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 
 type LeadLike = {
   leadCode: string;
@@ -9,8 +10,8 @@ type LeadLike = {
   budget?: string | null;
   urgency?: string | null;
 };
-type StoreLike = { whatsapp: string };
-type ProductLike = { name: string } | null;
+type StoreLike = { whatsapp: string; countryCode?: string | null; currency?: string | null; locale?: string | null };
+type ProductLike = { name: string; priceCents?: number | null; currency?: string | null } | null;
 
 export function buildWhatsappLeadMessage({
   lead,
@@ -25,6 +26,14 @@ export function buildWhatsappLeadMessage({
   const lines = [
     sellerAiConfig.whatsappIntro,
     product?.name ? `Me interesa: ${product.name}.` : null,
+    product?.priceCents != null
+      ? `Precio publicado: ${formatMoney({
+          amountCents: product.priceCents,
+          currency: store?.currency ?? product.currency,
+          countryCode: store?.countryCode ?? "BO",
+          locale: store?.locale,
+        })}.`
+      : null,
     lead.customerPhone ? `Mi número: ${lead.customerPhone}.` : null,
     lead.customerName ? `Mi nombre: ${lead.customerName}.` : null,
     `Resumen: ${summary}`,

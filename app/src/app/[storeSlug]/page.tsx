@@ -5,7 +5,8 @@ import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { VisitorProvider } from "@/context/VisitorContext";
 import { trackEvent } from "@/lib/analytics";
-import { formatMoney, reservedSlugs } from "@/lib/format";
+import { reservedSlugs } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
@@ -81,7 +82,14 @@ export default async function PublicStorePage({
                 <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="aspect-square w-full rounded-md object-cover" />
                 <h2 className="mt-3 line-clamp-2 min-h-10 text-sm font-black">{product.name}</h2>
               </Link>
-              <p className="mt-1 font-black text-brand-dark">{formatMoney(product.priceCents, product.currency)}</p>
+              <p className="mt-1 font-black text-brand-dark">
+                {formatMoney({
+                  amountCents: product.priceCents,
+                  currency: store.currency ?? product.currency,
+                  countryCode: store.countryCode ?? "BO",
+                  locale: store.locale,
+                })}
+              </p>
               <ProductConversionCta
                 storeSlug={store.slug}
                 storePlan={store.plan}

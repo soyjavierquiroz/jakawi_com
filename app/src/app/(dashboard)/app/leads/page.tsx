@@ -1,7 +1,7 @@
 import { ArrowRight, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { classifyIntent } from "@/lib/seller-ai/intent";
 
@@ -67,7 +67,14 @@ export default async function LeadsPage() {
                   <div>
                     <h2 className="font-black">{product?.name ?? "Producto por confirmar"}</h2>
                     <p className="mt-1 text-sm text-neutral-500">
-                      {product ? `${formatMoney(product.priceCents, product.currency)} - ` : ""}
+                      {product
+                        ? `${formatMoney({
+                            amountCents: product.priceCents,
+                            currency: lead.store.currency ?? product.currency,
+                            countryCode: lead.store.countryCode ?? "BO",
+                            locale: lead.store.locale,
+                          })} - `
+                        : ""}
                       {shortSummary(lead.conversationSummary)}
                     </p>
                   </div>
