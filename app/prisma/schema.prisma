@@ -52,6 +52,8 @@ model User {
   phone        String?
   countryCode  String?
   countryName  String?
+  currency     String?
+  role         String   @default("OWNER")
   city         String?
   region       String?
   ipHash       String?
@@ -86,8 +88,11 @@ model Store {
   tiktok      String?
   logoUrl     String?
   coverUrl    String?
-  countryCode String?
+  countryCode String?  @default("BO")
   countryName String?
+  currency    String?  @default("BOB")
+  locale      String?
+  timezone    String?
   city        String?
   region      String?
   themeColor  String   @default("#128C4A")
