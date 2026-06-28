@@ -2,16 +2,12 @@
 
 import { CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
-import { getCountryCommerceConfig, getEnabledCountries, normalizeCountryCode, type SupportedCountryCode } from "@/config/countries";
 import { landingConfig } from "@/config/landing";
 import { type StorePlanCode, storePlans } from "@/config/plans";
 import { getCheckoutAction } from "@/config/payment-routing";
 import { getPlanPriceForCountry, getPricingCountryFromVisitor } from "@/config/regional-pricing";
+import { normalizeCountryCode, type SupportedCountryCode } from "@/config/countries";
 import { useVisitor } from "@/context/VisitorContext";
-
-const pricingCountryStorageKey = "jakawi_pricing_country";
-const pricingCountryStorageEvent = "jakawi-pricing-country-change";
 
 type PricingCard = {
   code: StorePlanCode;
@@ -46,38 +42,17 @@ const pricingCards: PricingCard[] = [
   },
 ];
 
-function subscribeToPricingCountry(callback: () => void) {
-  window.addEventListener("storage", callback);
-  window.addEventListener(pricingCountryStorageEvent, callback);
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(pricingCountryStorageEvent, callback);
-  };
+function getDetectedPricingCountry(countryCode?: string): SupportedCountryCode {
+  return countryCode ? normalizeCountryCode(countryCode) : "OTHER";
 }
 
-function getStoredPricingCountrySnapshot() {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(pricingCountryStorageKey);
-}
-
-function getServerPricingCountrySnapshot() {
-  return null;
-}
-
-function setStoredPricingCountry(countryCode: SupportedCountryCode) {
-  window.localStorage.setItem(pricingCountryStorageKey, countryCode);
-  window.dispatchEvent(new Event(pricingCountryStorageEvent));
-}
-
-export function PricingCountrySelector() {
+export function RegionalPricingDisplay() {
   const { visitorData } = useVisitor();
-  const storedCountry = useSyncExternalStore(subscribeToPricingCountry, getStoredPricingCountrySnapshot, getServerPricingCountrySnapshot);
-  const countryCode = normalizeCountryCode(storedCountry ?? visitorData.country_code ?? "BO");
-  const manualSelection = Boolean(storedCountry);
-  const countries = getEnabledCountries();
+  const countryCode = getDetectedPricingCountry(visitorData.country_code);
   const pricingCountry = getPricingCountryFromVisitor(countryCode);
-  const selectedCountryConfig = getCountryCommerceConfig(countryCode);
-  const pricingContextLabel = pricingCountry === "BO" ? "Precio especial Bolivia" : "Precio internacional";
+  const isBoliviaPricing = pricingCountry === "BO";
+  const pricingBadge = isBoliviaPricing ? "Precios para Bolivia" : "Precios internacionales";
+  const pricingContextLabel = isBoliviaPricing ? "Precio especial Bolivia" : "Precio internacional";
 
   const planCards = pricingCards.map((plan) => {
     const price = getPlanPriceForCountry(plan.code, countryCode);
@@ -90,32 +65,13 @@ export function PricingCountrySelector() {
     return { ...plan, price, action };
   });
 
-  function handleCountryChange(value: string) {
-    const nextCountry = normalizeCountryCode(value);
-    setStoredPricingCountry(nextCountry);
-  }
-
   return (
     <>
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <label className="inline-flex w-full max-w-xs items-center gap-2 rounded-md border border-brand-border bg-brand-paper px-3 py-2 text-sm font-black text-brand-dark">
-          <span className="shrink-0">Precios para:</span>
-          <select
-            value={countryCode}
-            onChange={(event) => handleCountryChange(event.target.value)}
-            className="min-w-0 flex-1 bg-transparent text-sm font-black outline-none"
-          >
-            {countries.map((country) => (
-              <option key={country.countryCode} value={country.countryCode}>
-                {country.countryName}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="text-sm font-semibold text-neutral-600">
-          {pricingContextLabel}
-          {manualSelection ? "" : ` detectado para ${selectedCountryConfig.countryName}`}.
-        </p>
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <span className="inline-flex w-fit rounded-full bg-brand-soft px-4 py-2 text-sm font-black text-brand-dark">
+          {pricingBadge}
+        </span>
+        <p className="text-sm font-semibold text-neutral-600">{pricingContextLabel}</p>
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-4">

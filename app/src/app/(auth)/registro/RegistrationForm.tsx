@@ -17,7 +17,7 @@ type RegistrationFormProps = {
 };
 
 const inputClass =
-  "h-[52px] w-full rounded-md border border-brand-border bg-white px-4 text-base text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-brand focus:ring-4 focus:ring-brand/10";
+  "h-12 w-full max-w-full rounded-md border border-brand-border bg-white px-3 text-base text-neutral-950 outline-none transition placeholder:text-neutral-400 focus:border-brand focus:ring-4 focus:ring-brand/10 sm:h-[52px] sm:px-4";
 
 export function RegistrationForm({ error, initialCountryCode, selectedPlan }: RegistrationFormProps) {
   const { visitorData } = useVisitor();
@@ -49,17 +49,17 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
   }
 
   return (
-    <form action={registerAction} className="mt-8 space-y-8">
+    <form action={registerAction} className="mt-6 max-w-full space-y-6 sm:mt-8 sm:space-y-8">
       {error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{error}</p> : null}
 
       <section className="space-y-4">
         <h2 className="text-lg font-black text-brand-dark">{registrationConfig.sections.personal}</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block space-y-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="block min-w-0 space-y-2">
             <span className="text-sm font-bold">{registrationConfig.fields.firstName.label}</span>
             <input name="firstName" required minLength={2} placeholder={registrationConfig.fields.firstName.placeholder} className={inputClass} />
           </label>
-          <label className="block space-y-2">
+          <label className="block min-w-0 space-y-2">
             <span className="text-sm font-bold">{registrationConfig.fields.lastName.label}</span>
             <input name="lastName" required minLength={2} placeholder={registrationConfig.fields.lastName.placeholder} className={inputClass} />
           </label>
@@ -67,12 +67,12 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
 
         <SmartPhoneInput name="phone" required onValidityChange={setPhoneIsValid} />
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block space-y-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="block min-w-0 space-y-2">
             <span className="text-sm font-bold">{registrationConfig.fields.email.label}</span>
             <input name="email" type="email" required placeholder={registrationConfig.fields.email.placeholder} className={inputClass} />
           </label>
-          <label className="block space-y-2">
+          <label className="block min-w-0 space-y-2">
             <span className="text-sm font-bold">{registrationConfig.fields.password.label}</span>
             <input name="password" type="password" required minLength={8} placeholder={registrationConfig.fields.password.placeholder} className={inputClass} />
           </label>
@@ -81,8 +81,8 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
 
       <section className="space-y-4">
         <h2 className="text-lg font-black text-brand-dark">{registrationConfig.sections.store}</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block space-y-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="block min-w-0 space-y-2">
             <span className="text-sm font-bold">{registrationConfig.fields.storeName.label}</span>
             <input
               name="storeName"
@@ -94,10 +94,10 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
               className={inputClass}
             />
           </label>
-          <label className="block space-y-2">
+          <label className="block min-w-0 space-y-2">
             <span className="text-sm font-bold">{registrationConfig.fields.storeSlug.label}</span>
-            <div className="flex min-h-[52px] w-full overflow-hidden rounded-md border border-brand-border bg-white transition focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/10">
-              <span className="flex shrink-0 items-center border-r border-brand-border bg-brand-muted px-3 text-sm font-black text-brand-dark sm:px-4">
+            <div className="flex min-h-12 w-full max-w-full min-w-0 overflow-hidden rounded-md border border-brand-border bg-white transition focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/10 sm:min-h-[52px]">
+              <span className="flex shrink-0 items-center border-r border-brand-border bg-brand-muted px-2.5 text-xs font-black text-brand-dark sm:px-4 sm:text-sm">
                 {registrationConfig.fields.storeSlug.prefix}
               </span>
               <input
@@ -110,7 +110,7 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
                 placeholder={registrationConfig.fields.storeSlug.placeholder}
                 aria-invalid={Boolean(slugError)}
                 aria-describedby="store-slug-help"
-                className="min-w-0 flex-1 bg-white px-3 text-base text-neutral-950 outline-none placeholder:text-neutral-400 sm:px-4"
+                className="h-12 min-w-0 flex-1 bg-white px-3 text-base text-neutral-950 outline-none placeholder:text-neutral-400 sm:h-[52px] sm:px-4"
               />
             </div>
             <p id="store-slug-help" className={`text-xs font-semibold ${slugError ? "text-red-700" : "text-neutral-500"}`}>
@@ -119,8 +119,8 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
           </label>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="block space-y-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="block min-w-0 space-y-2">
             <span className="text-sm font-bold">{registrationConfig.fields.city.label}</span>
             <input
               name="city"
@@ -133,7 +133,7 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
               className={inputClass}
             />
           </label>
-          <div className="md:col-span-2">
+          <div className="min-w-0 md:col-span-2">
             <CountryCurrencyFields
               key={activeStoreCountryCode}
               initialCountryCode={activeStoreCountryCode}
@@ -152,7 +152,7 @@ export function RegistrationForm({ error, initialCountryCode, selectedPlan }: Re
 
       <button
         disabled={!phoneIsValid || Boolean(slugError)}
-        className="h-[52px] w-full rounded-md bg-brand text-base font-black text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-600"
+        className="h-12 w-full rounded-md bg-brand text-base font-black text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-brand/35 disabled:text-white/80 sm:h-[52px]"
       >
         {registrationConfig.actions.submit}
       </button>

@@ -1,6 +1,6 @@
 import { landingConfig } from "@/config/landing";
 import { VisitorProvider } from "@/context/VisitorContext";
-import { PricingCountrySelector } from "@/components/marketing/PricingCountrySelector";
+import { RegionalPricingDisplay } from "@/components/marketing/RegionalPricingDisplay";
 
 export function PricingSection() {
   const { plans } = landingConfig;
@@ -13,7 +13,7 @@ export function PricingSection() {
           <p className="mt-4 text-lg leading-8 text-neutral-700">{plans.text}</p>
         </div>
         <VisitorProvider>
-          <PricingCountrySelector />
+          <RegionalPricingDisplay />
         </VisitorProvider>
       </div>
     </section>

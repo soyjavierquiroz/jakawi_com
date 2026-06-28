@@ -11,7 +11,7 @@ import {
 } from "@/config/countries";
 
 const selectClass =
-  "h-11 w-full rounded-md border border-brand-border bg-white px-3 text-base text-neutral-950 outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10";
+  "h-12 w-full max-w-full rounded-md border border-brand-border bg-white px-3 text-base text-neutral-950 outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10";
 
 type CountryCurrencyFieldsProps = {
   initialCountryCode?: string | null;
@@ -45,8 +45,8 @@ export function CountryCurrencyFields({
   }
 
   return (
-    <div className={compact ? "grid gap-4 md:grid-cols-2" : "space-y-4"}>
-      <label className="block space-y-2">
+    <div className={compact ? "grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2" : "space-y-4"}>
+      <label className="block min-w-0 space-y-2">
         <span className="text-sm font-bold">País de tu tienda</span>
         <select name="countryCode" value={countryCode} onChange={(event) => handleCountryChange(event.target.value)} className={selectClass}>
           {countries.map((country) => (
@@ -55,9 +55,10 @@ export function CountryCurrencyFields({
             </option>
           ))}
         </select>
+        <span className="block text-xs font-semibold text-neutral-500">Esto nos ayuda a configurar WhatsApp, moneda y formato de precios.</span>
       </label>
 
-      <label className="block space-y-2">
+      <label className="block min-w-0 space-y-2">
         <span className="text-sm font-bold">Moneda de tus productos</span>
         <select name="currency" value={currency} onChange={(event) => setCurrency(normalizeCurrency(event.target.value, countryCode))} className={selectClass}>
           {currencies.map((currencyOption) => (
@@ -66,7 +67,7 @@ export function CountryCurrencyFields({
             </option>
           ))}
         </select>
-        <span className="block text-xs font-semibold text-neutral-500">Usaremos esta moneda para mostrar los precios de tus productos.</span>
+        <span className="block text-xs font-semibold text-neutral-500">Usaremos esta moneda para mostrar los precios de tu tienda.</span>
       </label>
 
       {includeCountryName ? <input type="hidden" name="countryName" value={countryConfig.countryName} /> : null}
