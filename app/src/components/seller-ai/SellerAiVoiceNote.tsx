@@ -9,6 +9,7 @@ type SellerAiVoiceNoteProps = {
   voiceNote: SellerVoiceNoteConfig;
   align?: "assistant" | "seller";
   compact?: boolean;
+  playLabel?: string;
   onDismiss?: () => void;
   onInteract?: () => void;
 };
@@ -35,7 +36,7 @@ function waveformHeights(seed: string) {
   });
 }
 
-export function SellerAiVoiceNote({ voiceNote, align = "assistant", compact = false, onDismiss, onInteract }: SellerAiVoiceNoteProps) {
+export function SellerAiVoiceNote({ voiceNote, align = "assistant", compact = false, playLabel, onDismiss, onInteract }: SellerAiVoiceNoteProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -125,8 +126,14 @@ export function SellerAiVoiceNote({ voiceNote, align = "assistant", compact = fa
             </button>
           ) : null}
           <div className="flex items-center gap-2.5">
-            <button type="button" onClick={togglePlayback} className={cn("grid size-9 shrink-0 place-items-center rounded-full text-white transition", align === "seller" ? "bg-brand-dark hover:bg-brand" : "bg-neutral-700 hover:bg-neutral-900")} aria-label={isPlaying ? "Pausar nota de voz" : "Reproducir nota de voz"}>
+            <button
+              type="button"
+              onClick={togglePlayback}
+              className={cn("grid h-9 shrink-0 place-items-center rounded-full px-0 text-white transition", playLabel ? "w-auto grid-flow-col gap-1.5 px-3 text-xs font-black" : "w-9", align === "seller" ? "bg-brand-dark hover:bg-brand" : "bg-neutral-700 hover:bg-neutral-900")}
+              aria-label={isPlaying ? "Pausar nota de voz" : playLabel ?? "Reproducir nota de voz"}
+            >
               {isPlaying ? <Pause className="size-4" /> : <Play className="ml-0.5 size-4" />}
+              {playLabel ? <span>{isPlaying ? "Pausar" : playLabel}</span> : null}
             </button>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">

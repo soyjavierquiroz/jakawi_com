@@ -105,7 +105,7 @@ function hasStrongIntent(input: string) {
 }
 
 function likelyVoiceNoteInput(input: string) {
-  return hasStrongIntent(input) || /estudio|trabajo|regalar|regalo|fotos|precio|disponibilidad|disponible|env[ií]o|entrega/i.test(input);
+  return hasStrongIntent(input) || /estudio|universidad|colegio|trabajo|oficina|regalar|regalo|fotos|redes|juegos|viaje|uso diario|para m[ií]|uso personal/i.test(input);
 }
 
 function normalizeReply(input?: string | null) {
@@ -486,7 +486,7 @@ export function SellerAiWidget({
           voiceNote?: SellerVoiceNoteConfig | null;
           voiceNoteSuggestion?: SellerVoiceNoteType;
         }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
-        if (response.voiceNote || response.voiceNoteSuggestion) setAssistantIndicator("recording");
+        if (response.voiceNote) setAssistantIndicator("recording");
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
         setAssistantIndicator("typing");
@@ -506,8 +506,6 @@ export function SellerAiWidget({
         if (response.shouldStartPhoneCapture) setHasStrongPurchaseIntent(true);
         if (response.voiceNote) {
           showVoiceNoteOnce(response.voiceNote, response.journeyId ?? journeyId);
-        } else if (response.voiceNoteSuggestion) {
-          showVoiceNoteOnce(voiceNotesByType[response.voiceNoteSuggestion], response.journeyId ?? journeyId);
         }
         if ((response.shouldStartPhoneCapture || /a qu[eé] whatsapp pueden escribirte/i.test(response.assistantMessage ?? response.message ?? "")) && requirePhoneBeforeWhatsapp) setStep("phone_capture");
       } catch (error) {
@@ -520,7 +518,7 @@ export function SellerAiWidget({
         setIsLoading(false);
       }
     },
-    [currentProductKey, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, sessionId, showVoiceNoteOnce, storeSlug, voiceNotesByType],
+    [currentProductKey, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, sessionId, showVoiceNoteOnce, storeSlug],
   );
 
   const continueWhatsapp = useCallback(async () => {

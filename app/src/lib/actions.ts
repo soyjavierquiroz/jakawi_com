@@ -15,7 +15,7 @@ import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
-import { uploadImage } from "@/lib/storage";
+import { deleteSellerVoiceObjectIfOwned, uploadImage } from "@/lib/storage";
 import { getVisitorInfoFromHeaders, hashIp } from "@/lib/visitor";
 import { normalizeStorePlanCode } from "@/lib/storefront-flow";
 
@@ -417,6 +417,12 @@ export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
       sellerHandoffDurationSeconds: durationField(formData, "sellerHandoffDurationSeconds"),
     },
   });
+
+  await Promise.all([
+    store.sellerIntroAudioUrl !== sellerIntroAudioUrl ? deleteSellerVoiceObjectIfOwned(store.sellerIntroAudioUrl) : Promise.resolve(false),
+    store.sellerGuidanceAudioUrl !== sellerGuidanceAudioUrl ? deleteSellerVoiceObjectIfOwned(store.sellerGuidanceAudioUrl) : Promise.resolve(false),
+    store.sellerHandoffAudioUrl !== sellerHandoffAudioUrl ? deleteSellerVoiceObjectIfOwned(store.sellerHandoffAudioUrl) : Promise.resolve(false),
+  ]);
 
   revalidatePath("/app/tienda");
   revalidatePath("/app/seller-ai");

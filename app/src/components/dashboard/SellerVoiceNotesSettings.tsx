@@ -2,9 +2,10 @@
 
 import { Loader2, Mic, RotateCcw, Square, Trash2, UploadCloud } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { SellerAiVoiceNote } from "@/components/seller-ai/SellerAiVoiceNote";
 import { sellerVoiceNoteDefaults } from "@/config/seller-voice-notes";
 import { saveSellerVoiceNotesSettingsAction } from "@/lib/actions";
-import { cn } from "@/lib/ui";
+import type { SellerVoiceNoteConfig, SellerVoiceNoteSource, SellerVoiceNoteType } from "@/lib/seller-ai/voice-notes";
 
 type NoteKey = "intro" | "guidance" | "handoff";
 
@@ -37,6 +38,7 @@ const noteMeta = {
     audioName: "sellerIntroAudioUrl",
     transcriptName: "sellerIntroTranscript",
     durationName: "sellerIntroDurationSeconds",
+    type: "INTRO",
     defaultTranscript: sellerVoiceNoteDefaults.intro.transcript,
   },
   guidance: {
@@ -46,6 +48,7 @@ const noteMeta = {
     audioName: "sellerGuidanceAudioUrl",
     transcriptName: "sellerGuidanceTranscript",
     durationName: "sellerGuidanceDurationSeconds",
+    type: "GUIDANCE",
     defaultTranscript: sellerVoiceNoteDefaults.guidance.transcript,
   },
   handoff: {
@@ -55,6 +58,7 @@ const noteMeta = {
     audioName: "sellerHandoffAudioUrl",
     transcriptName: "sellerHandoffTranscript",
     durationName: "sellerHandoffDurationSeconds",
+    type: "HANDOFF",
     defaultTranscript: sellerVoiceNoteDefaults.handoff.transcript,
   },
 } as const;
@@ -82,9 +86,25 @@ function getInitialEnabled(store: SellerVoiceNotesSettingsProps["store"], key: N
   return store.sellerHandoffEnabled !== false;
 }
 
+function getInitialTranscripts(store: SellerVoiceNotesSettingsProps["store"]) {
+  return {
+    intro: store.sellerIntroTranscript ?? noteMeta.intro.defaultTranscript,
+    guidance: store.sellerGuidanceTranscript ?? noteMeta.guidance.defaultTranscript,
+    handoff: store.sellerHandoffTranscript ?? noteMeta.handoff.defaultTranscript,
+  };
+}
+
+function sourceLabel(source: SellerVoiceNoteSource) {
+  if (source === "STORE") return "Audio personalizado";
+  if (source === "JAKAWI_FALLBACK") return "Fallback JAKAWI";
+  return "Solo transcripción";
+}
+
 export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSettingsProps) {
   const [avatarUrl, setAvatarUrl] = useState(store.sellerVoiceAvatarUrl ?? "");
+  const [displayName, setDisplayName] = useState(store.sellerVoiceDisplayName ?? "");
   const [notes, setNotes] = useState(getInitialNotes(store));
+  const [transcripts, setTranscripts] = useState(getInitialTranscripts(store));
   const [uploading, setUploading] = useState<string | null>(null);
   const [recordingKey, setRecordingKey] = useState<NoteKey | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -130,14 +150,15 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
 
     try {
       const response = await fetch("/api/uploads/seller-voice", { method: "POST", body: formData });
-      const payload = (await response.json().catch(() => null)) as { publicUrl?: string; error?: string } | null;
-      if (!response.ok || !payload?.publicUrl) throw new Error(payload?.error ?? "No se pudo subir el archivo.");
+      const payload = (await response.json().catch(() => null)) as { url?: string; publicUrl?: string; error?: string } | null;
+      const uploadedUrl = payload?.url ?? payload?.publicUrl;
+      if (!response.ok || !uploadedUrl) throw new Error(payload?.error ?? "No se pudo subir el archivo.");
       if (type === "avatar") {
-        setAvatarUrl(payload.publicUrl);
+        setAvatarUrl(uploadedUrl);
       } else {
         setNotes((current) => ({
           ...current,
-          [type]: { ...current[type], audioUrl: payload.publicUrl },
+          [type]: { ...current[type], audioUrl: uploadedUrl },
         }));
       }
       setMessage("Archivo subido. Guarda cambios para aplicarlo.");
@@ -240,7 +261,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Nombre visible del vendedor</span>
-            <input name="sellerVoiceDisplayName" defaultValue={store.sellerVoiceDisplayName ?? ""} placeholder="Ej. Andrea de la tienda" className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
+            <input name="sellerVoiceDisplayName" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Ej. Andrea de la tienda" className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
           </label>
           <div className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Avatar del vendedor</span>
@@ -262,6 +283,19 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
           {(Object.keys(noteMeta) as NoteKey[]).map((key) => {
             const meta = noteMeta[key];
             const note = notes[key];
+            const fallback = sellerVoiceNoteDefaults[key];
+            const previewSource: SellerVoiceNoteSource = note.audioUrl ? "STORE" : fallback.audioUrl ? "JAKAWI_FALLBACK" : "TEXT_FALLBACK";
+            const previewVoiceNote: SellerVoiceNoteConfig = {
+              type: meta.type as SellerVoiceNoteType,
+              title: fallback.title,
+              displayName: displayName.trim() || store.sellerVoiceDisplayName || "Vendedor",
+              avatarUrl: avatarUrl || null,
+              audioUrl: note.audioUrl || fallback.audioUrl || null,
+              transcript: transcripts[key] || fallback.transcript,
+              durationSeconds: Number.parseInt(note.durationSeconds, 10) || fallback.durationSeconds,
+              enabled: true,
+              source: previewSource,
+            };
             return (
               <section key={key} className="rounded-md border border-brand-border bg-brand-muted p-4">
                 <label className="flex items-start gap-2">
@@ -297,25 +331,13 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                   ) : null}
                 </div>
                 <p className="mt-2 text-xs font-semibold text-neutral-500">Recomendado máximo 15 segundos. Límite 3MB.</p>
-                {note.audioUrl ? (
-                  <div className="mt-3 rounded-2xl rounded-bl-md border border-neutral-200 bg-white px-3 py-2 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-dark text-white">
-                        <Mic className="size-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[11px] font-black text-brand-dark">{store.sellerVoiceDisplayName || "Vendedor"}</p>
-                        <div className="mt-1 flex h-7 items-center gap-[3px]">
-                          {Array.from({ length: 18 }).map((_, index) => (
-                            <span key={index} className={cn("w-[3px] rounded-full bg-neutral-300", recordingKey === key && "bg-brand/60")} style={{ height: 8 + ((index * 7) % 18) }} />
-                          ))}
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-neutral-500">{note.durationSeconds ? `0:${String(note.durationSeconds).padStart(2, "0")}` : "0:00"}</span>
-                    </div>
-                    <audio src={note.audioUrl} controls preload="metadata" className="mt-3 w-full" />
+                <div className="mt-3 rounded-md bg-white p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-black uppercase text-neutral-500">Preview real</p>
+                    <span className="rounded-full bg-brand-muted px-2 py-1 text-[11px] font-black text-brand-dark">{sourceLabel(previewSource)}</span>
                   </div>
-                ) : null}
+                  <SellerAiVoiceNote voiceNote={previewVoiceNote} compact playLabel="Reproducir preview" />
+                </div>
                 <label className="mt-3 block space-y-2">
                   <span className="text-sm font-semibold text-neutral-700">Duración en segundos</span>
                   <input
@@ -328,7 +350,13 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                 </label>
                 <label className="mt-3 block space-y-2">
                   <span className="text-sm font-semibold text-neutral-700">Transcripción</span>
-                  <textarea name={meta.transcriptName} rows={5} defaultValue={key === "intro" ? store.sellerIntroTranscript ?? meta.defaultTranscript : key === "guidance" ? store.sellerGuidanceTranscript ?? meta.defaultTranscript : store.sellerHandoffTranscript ?? meta.defaultTranscript} className="w-full rounded-md border border-brand-border px-3 py-2 text-sm outline-none focus:border-brand" />
+                  <textarea
+                    name={meta.transcriptName}
+                    rows={5}
+                    value={transcripts[key]}
+                    onChange={(event) => setTranscripts((current) => ({ ...current, [key]: event.target.value }))}
+                    className="w-full rounded-md border border-brand-border px-3 py-2 text-sm outline-none focus:border-brand"
+                  />
                 </label>
                 <div className="mt-3 rounded-md bg-white/75 p-3">
                   <p className="text-xs font-black uppercase text-neutral-500">Guion sugerido</p>
