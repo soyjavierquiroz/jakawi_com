@@ -74,6 +74,7 @@ export async function getSellerAiRecommendations({
     : null;
   const resolvedCategoryId = categoryId ?? currentProduct?.categoryId ?? undefined;
   const need = normalize(detectedNeed);
+  if (currentProduct && !need) return [];
 
   const byCurrentCategory =
     currentProduct?.categoryId
