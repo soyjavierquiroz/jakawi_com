@@ -103,6 +103,7 @@ export function SellerAiWidget({
   const phoneCaptureCopy = sellerAiConfig.phoneCapture[mode === "premium" ? "premium" : mode === "guided" ? "guided" : "assistive"];
   const closedLabel = triggerLabel ?? (mode === "premium" ? widgetCopy.premiumClosedLabel : widgetCopy.closedLabel);
   const widgetTitle = mode === "premium" ? "Seller AI Premium" : widgetCopy.title;
+  const currentProductKey = `${productId ?? "store"}:${productName ?? ""}`;
   const [sessionId] = useState(() => (typeof window === "undefined" ? "" : getVisitorSessionId()));
   const [step, setStep] = useState<WidgetStep>("closed");
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -115,6 +116,8 @@ export function SellerAiWidget({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [quickReplies, setQuickReplies] = useState<string[]>(sellerAiConfig.quickReplies.default);
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
+  const [showRecommendedProductCards, setShowRecommendedProductCards] = useState(false);
+  const [recommendedProductContextKey, setRecommendedProductContextKey] = useState<string | null>(null);
   const [commercialMode, setCommercialMode] = useState<CommercialSellerAiMode | null>(null);
   const [commercialStage, setCommercialStage] = useState<CommercialSellerAiMode | null>(null);
   const [detectedNeed, setDetectedNeed] = useState<string | null>(null);
@@ -153,7 +156,7 @@ export function SellerAiWidget({
         if (normalizedNeed === "uso personal" && normalizedReply === "para mi") return false;
         return normalizedReply !== normalizedNeed;
       })
-      .slice(0, 4);
+      .slice(0, 5);
   }, [detectedNeed, messages, quickReplies]);
 
   const teaserText = useMemo(() => {
@@ -220,6 +223,9 @@ export function SellerAiWidget({
     setHasInteracted(true);
     setShowTeaser(false);
     setStep("chat");
+    setRecommendedProducts([]);
+    setShowRecommendedProductCards(false);
+    setRecommendedProductContextKey(null);
     if (!sessionId) return null;
     if (openedRef.current) {
       if (options?.afterOpen) setStep(options.afterOpen);
@@ -251,6 +257,7 @@ export function SellerAiWidget({
         stage?: CommercialSellerAiMode;
         quickReplies: string[];
         recommendedProducts?: RecommendedProduct[];
+        showRecommendedProducts?: boolean;
       }>("/api/seller-ai/opening", { sessionId, storeSlug, productId, journeyId: resolvedJourneyId });
       const [opening] = await Promise.all([openingPromise, openingDelay]);
       setLeadId(opening.leadId);
@@ -261,7 +268,9 @@ export function SellerAiWidget({
       if (opening.stage) setCommercialStage(opening.stage);
       setMessages([{ id: messageId(), role: "assistant", content: opening.message }]);
       setQuickReplies(opening.quickReplies);
-      setRecommendedProducts((opening.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts));
+      setShowRecommendedProductCards(opening.showRecommendedProducts === true);
+      setRecommendedProductContextKey(opening.showRecommendedProducts === true ? currentProductKey : null);
+      setRecommendedProducts(opening.showRecommendedProducts === true ? (opening.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
       if (options?.afterOpen && nextLeadId) setStep(options.afterOpen);
       return nextLeadId;
     } catch {
@@ -272,7 +281,7 @@ export function SellerAiWidget({
       setIsAssistantTyping(false);
       setIsLoading(false);
     }
-  }, [journeyId, leadId, messages.length, productId, sessionId, storeSlug]);
+  }, [currentProductKey, journeyId, leadId, messages.length, productId, sessionId, storeSlug]);
 
   const closeWidget = useCallback(() => {
     setHasInteracted(true);
@@ -286,6 +295,9 @@ export function SellerAiWidget({
       if (!clean || (!leadId && !journeyId)) return;
       setInput("");
       setMessages((current) => [...current, { id: messageId(), role: "user", content: clean }]);
+      setRecommendedProducts([]);
+      setShowRecommendedProductCards(false);
+      setRecommendedProductContextKey(null);
       setIsLoading(true);
       setIsAssistantTyping(true);
       setError(null);
@@ -304,6 +316,7 @@ export function SellerAiWidget({
           stage?: CommercialSellerAiMode;
           quickReplies: string[];
           recommendedProducts?: RecommendedProduct[];
+          showRecommendedProducts?: boolean;
           shouldShowWhatsappCta: boolean;
           shouldStartPhoneCapture?: boolean;
           detectedNeed?: string | null;
@@ -318,7 +331,9 @@ export function SellerAiWidget({
         if (response.detectedNeed !== undefined) setDetectedNeed(response.detectedNeed ?? null);
         setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage ?? response.message ?? "" }]);
         setQuickReplies(response.quickReplies);
-        setRecommendedProducts((response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts));
+        setShowRecommendedProductCards(response.showRecommendedProducts === true);
+        setRecommendedProductContextKey(response.showRecommendedProducts === true ? currentProductKey : null);
+        setRecommendedProducts(response.showRecommendedProducts === true ? (response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
         setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
         if (response.shouldStartPhoneCapture && requirePhoneBeforeWhatsapp) setStep("phone_capture");
       } catch {
@@ -330,7 +345,7 @@ export function SellerAiWidget({
         setIsLoading(false);
       }
     },
-    [journeyId, leadId, productId, requirePhoneBeforeWhatsapp, sessionId, storeSlug],
+    [currentProductKey, journeyId, leadId, productId, requirePhoneBeforeWhatsapp, sessionId, storeSlug],
   );
 
   const continueWhatsapp = useCallback(async () => {
@@ -429,36 +444,35 @@ export function SellerAiWidget({
           data-seller-ai-mode={commercialMode ?? undefined}
           data-seller-ai-stage={commercialStage ?? undefined}
         >
-          <header className="shrink-0 border-b border-black/10 bg-brand-dark px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] text-white sm:pt-3">
-            <div className="flex items-center justify-between gap-3">
-              <button type="button" onClick={closeWidget} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 text-sm font-black text-white transition hover:bg-white/15">
+          <header className="shrink-0 border-b border-black/10 bg-brand-dark px-3 pb-2 pt-[calc(env(safe-area-inset-top)+8px)] text-white sm:px-4 sm:pt-3">
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+              <button type="button" onClick={closeWidget} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white/10 px-2 text-xs font-black text-white transition hover:bg-white/15 min-[380px]:px-2.5">
                 <ArrowLeft className="size-4" />
-                Volver a la tienda
+                <span className="max-[340px]:hidden">Volver a la tienda</span>
+                <span className="hidden max-[340px]:inline">Volver</span>
               </button>
-              <button type="button" onClick={closeWidget} className="grid size-9 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label="Cerrar Seller AI">
+              <div className="flex min-w-0 items-center justify-center gap-1.5">
+                <Sparkles className="size-4 shrink-0 text-brand-lime" />
+                <h3 className="truncate text-sm font-black leading-5">{widgetTitle}</h3>
+              </div>
+              <button type="button" onClick={closeWidget} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label="Cerrar Seller AI">
                 <X className="size-4" />
               </button>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Sparkles className="size-4 shrink-0 text-brand-lime" />
-                  <h3 className="truncate text-base font-black leading-5">{widgetTitle}</h3>
-                  {leadCode ? <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 font-mono text-[11px] font-bold leading-4 text-brand-lime">{leadCode}</span> : null}
-                </div>
-                <p className="mt-0.5 truncate text-xs font-semibold leading-4 text-white/75">{contextSubtitle}</p>
-              </div>
+            <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
+              <p className="truncate text-[11px] font-semibold leading-4 text-white/75">{contextSubtitle}</p>
+              {leadCode ? <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-bold leading-4 text-brand-lime">{leadCode}</span> : null}
             </div>
           </header>
 
-          <div className="shrink-0 border-b border-brand-border bg-white px-4 py-2.5">
+          <div className="shrink-0 border-b border-brand-border bg-white px-4 py-2">
             {productName ? (
-              <div className="flex items-center gap-3">
-                {productImageUrl ? <img src={productImageUrl} alt="" className="size-11 shrink-0 rounded-md object-cover" /> : null}
+              <div className="flex items-center gap-2.5">
+                {productImageUrl ? <img src={productImageUrl} alt="" className="size-10 shrink-0 rounded-md object-cover" /> : null}
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-normal text-neutral-500">Producto seleccionado</p>
-                  <p className="truncate text-sm font-black text-brand-dark">{productName}</p>
-                  <p className="truncate text-xs font-semibold text-neutral-500">{[productPriceLabel, categoryName].filter(Boolean).join(" · ")}</p>
+                  <p className="text-[10px] font-black uppercase tracking-normal text-neutral-500">Producto seleccionado</p>
+                  <p className="truncate text-[13px] font-black leading-4 text-brand-dark">{productName}</p>
+                  <p className="truncate text-[12px] font-semibold leading-4 text-neutral-500">{[productPriceLabel, categoryName].filter(Boolean).join(" · ")}</p>
                 </div>
               </div>
             ) : (
@@ -489,7 +503,7 @@ export function SellerAiWidget({
 
               {error ? <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2.5 text-[15px] font-semibold leading-6 text-red-700">{error}</div> : null}
 
-              {step === "chat" && recommendedProducts.length > 0 ? (
+              {step === "chat" && showRecommendedProductCards && recommendedProductContextKey === currentProductKey && recommendedProducts.length > 0 ? (
                 <div className="w-full rounded-2xl rounded-bl-md border border-brand-border bg-white p-2.5 shadow-sm">
                   <div className="space-y-2">
                     {recommendedProducts.map((product) => (
@@ -589,7 +603,7 @@ export function SellerAiWidget({
                   )}
                 >
                   <MessageCircle className="size-4" />
-                  {ctaIsStrong ? widgetCopy.continueWhatsappLong : widgetCopy.leaveWhatsappInquiry}
+                  {productName ? widgetCopy.leaveWhatsappInquiry : ctaIsStrong ? widgetCopy.continueWhatsappLong : widgetCopy.leaveWhatsappInquiry}
                 </button>
               ) : null}
             </div>
@@ -631,8 +645,8 @@ export function SellerAiWidget({
                   </button>
                   <button type="submit" disabled={isLoading} className="flex h-11 items-center justify-center gap-2 rounded-full bg-brand px-3 text-sm font-black text-white transition hover:bg-brand-dark disabled:opacity-50">
                     {isLoading ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
-                    <span className="min-[380px]:hidden">{widgetCopy.continueWhatsapp}</span>
-                    <span className="hidden min-[380px]:inline">{widgetCopy.continueWhatsappLong}</span>
+                    <span className="min-[380px]:hidden">{productName ? "Consultar" : widgetCopy.continueWhatsapp}</span>
+                    <span className="hidden min-[380px]:inline">{productName ? widgetCopy.leaveWhatsappInquiry : widgetCopy.continueWhatsappLong}</span>
                   </button>
                 </div>
               )}

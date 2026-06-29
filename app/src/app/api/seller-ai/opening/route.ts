@@ -2,10 +2,9 @@ import { JourneyEventType, LeadEventType, MessageRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrisma } from "@/lib/prisma";
-import { addJourneyEvent, appendRecommendedProducts, updateJourneyStage } from "@/lib/seller-ai/journey";
+import { addJourneyEvent, updateJourneyStage } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
 import { buildQuickRepliesForMode, getCommercialTypeCopy, inferSellerAiMode } from "@/lib/seller-ai/modes";
-import { getSellerAiRecommendations } from "@/lib/seller-ai/recommendations";
 import { getOpeningMessage, getQuickReplies } from "@/lib/seller-ai/templates";
 
 const openingSchema = z.object({
@@ -70,14 +69,7 @@ export async function POST(request: Request) {
     payload: { mode, reason: inferred.reason },
   });
 
-  const recommendations = await getSellerAiRecommendations({
-    storeId: store.id,
-    currentProductId: product?.id,
-    categoryId: product?.categoryId ?? parsed.data.categoryId,
-  });
-  if (recommendations.length > 0) {
-    await appendRecommendedProducts({ journeyId: journey.id, products: recommendations.map((item) => ({ id: item.id, name: item.name, slug: item.slug, priceLabel: item.priceLabel, shortReason: item.shortReason })) });
-  }
+  const recommendations: [] = [];
 
   const commercialCopy = getCommercialTypeCopy(store.commercialType);
   const discoveryOpening = getDiscoveryOpening(store.name, store.categories).replace("¿Qué estás buscando hoy?", commercialCopy.discoveryOpening);
@@ -98,7 +90,7 @@ export async function POST(request: Request) {
   await getPrisma().lead.update({
     where: { id: lead.id },
     data: {
-      recommendedProducts: recommendations.map((item) => ({ id: item.id, name: item.name, slug: item.slug, priceLabel: item.priceLabel, shortReason: item.shortReason })),
+      recommendedProducts: [],
     },
   });
 
@@ -130,5 +122,6 @@ export async function POST(request: Request) {
       recommendedProducts: recommendations,
     }) ?? (product ? getQuickReplies({ product, category: product.category }) : commercialCopy.quickReplies),
     recommendedProducts: recommendations,
+    showRecommendedProducts: false,
   });
 }

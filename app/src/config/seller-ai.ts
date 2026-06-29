@@ -108,7 +108,7 @@ export const sellerAiConfig = {
       purpose: "Ayudar a decidir si un producto encaja",
       maxQuestionCountBeforeRecommendation: 1,
       defaultOpening: "Ese producto puede encajar bien. ¿Lo buscas para ti, para regalar o para algo específico?",
-      quickReplies: ["Para mí", "Para regalar", "Comparar opciones", "Me interesa"],
+      quickReplies: ["Trabajo", "Estudio", "Viaje", "Para regalar"],
     },
     DECISION_SUPPORT: {
       label: "Decision Support",

@@ -169,7 +169,7 @@ export function buildQuickRepliesForMode({
         const normalizedReply = normalizeReply(reply);
         return normalizedReply && normalizedReply !== last && !used.has(normalizedReply) && !replyMatchesNeed(reply);
       })
-      .slice(0, 4);
+      .slice(0, 5);
   }
 
   const commercialCopy = getCommercialTypeCopy(commercialType);
@@ -182,7 +182,7 @@ export function buildQuickRepliesForMode({
     return filterReplies([recommended ?? "Me interesa", "Continuar por WhatsApp", "Quiero comprar"]);
   }
   if (detectedNeed === "regalo") {
-    const giftReplies = product?.name ? ["Trabajo", "Estudio", "Uso diario", "Ver otra opción"] : ["Mujer", "Hombre", "Niño/a", "Algo práctico", "Algo económico"];
+    const giftReplies = product?.name ? ["Estudiante", "Trabajo", "Viaje", "Algo práctico", "Algo económico"] : ["Mujer", "Hombre", "Niño/a", "Algo práctico", "Algo económico"];
     return filterReplies(giftReplies);
   }
   if (detectedNeed === "fotos") return filterReplies(["Buena cámara", "Buena memoria", "Precio accesible", "Comparar opciones"]);

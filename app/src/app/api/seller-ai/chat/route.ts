@@ -34,6 +34,31 @@ function includesAny(input: string, words: string[]) {
   return words.some((word) => text.includes(word));
 }
 
+function normalizeText(input?: string | null) {
+  return (input ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function wantsRecommendationAlternatives(input?: string | null) {
+  const text = normalizeText(input);
+  return /\b(ver otra opcion|comparar opciones|comparar|no me convence|tienes algo mas barato|algo mas barato|mas economico|algo mas economico|tienes algo parecido|algo parecido|algo similar|muestrame alternativas|mostrar alternativas|otra opcion|quiero comparar)\b/.test(text);
+}
+
+function keepClearlyRelatedAlternatives(recommendations: SellerAiRecommendedProduct[], product?: ProductForReply | null) {
+  if (!product) return recommendations;
+  const productTokens = normalizeText(product.name)
+    .split(/\s+/)
+    .filter((token) => token.length >= 5);
+  if (productTokens.length === 0) return [];
+
+  return recommendations.filter((recommendation) => {
+    const recommendationName = normalizeText(recommendation.name);
+    return productTokens.some((token) => recommendationName.includes(token));
+  });
+}
+
 function priceLine({
   product,
   store,
@@ -92,11 +117,20 @@ function buildAssistantMessage({
     if (recommendationNames.length > 0) {
       return `Para reducir la duda, compararía máximo estas opciones: ${recommendationNames.join(", ")}. ¿Cuál te interesa más?`;
     }
+    if (wantsRecommendationAlternatives(userMessage)) {
+      return "Por ahora te ayudo con este producto y dejamos la consulta clara para la tienda.";
+    }
     return "Te ayudo a resolverlo corto: si falta disponibilidad, envío o forma de pago, la tienda lo confirma por WhatsApp con tu consulta armada.";
   }
 
   if (mode === "PRODUCT_ADVISOR") {
     if (!product) return "Cuéntame qué uso le quieres dar y te recomiendo una opción sin marearte.";
+    if (wantsRecommendationAlternatives(userMessage) && recommendationNames.length === 0) {
+      return "Por ahora te ayudo con este producto y dejamos la consulta clara para la tienda.";
+    }
+    if (wantsRecommendationAlternatives(userMessage) && recommendationNames.length > 0) {
+      return `Para comparar sin marearte, miraría también: ${recommendationNames.join(", ")}. ¿Quieres seguir con ${product.name} o preguntar por una alternativa?`;
+    }
     if (detectedNeed === "regalo") {
       return `Perfecto. Si es para regalar, te ayudo a ver si ${product.name} encaja. ¿Es para alguien que lo usaría para trabajo, estudio o uso diario?`;
     }
@@ -173,6 +207,8 @@ export async function POST(request: Request) {
       ok: true,
       assistantMessage: sellerAiConfig.reserved.maxMessages,
       quickReplies: [],
+      recommendedProducts: [],
+      showRecommendedProducts: false,
       intentScore: lead.intentScore,
       intentLabel: classifyIntent(lead.intentScore),
       shouldShowWhatsappCta: true,
@@ -215,9 +251,9 @@ export async function POST(request: Request) {
     objections: signals.objections,
   });
   const shouldStartPhoneCapture = inferred.mode === "CLOSING_PREP" && inferred.reason === "explicit closing intent";
-  const wantsAlternatives = /compar|otra opci[oó]n|otras opciones|ver otra|no me convence|recomienda|recomiendas/i.test(parsed.data.message);
-  const recommendations =
-    product && !wantsAlternatives
+  const wantsAlternatives = wantsRecommendationAlternatives(parsed.data.message);
+  const rawRecommendations =
+    !wantsAlternatives || inferred.mode === "CLOSING_PREP"
       ? []
       : await getSellerAiRecommendations({
           storeId: lead.storeId,
@@ -226,6 +262,8 @@ export async function POST(request: Request) {
           detectedNeed: signals.detectedNeed ?? journey.detectedNeed,
           budget: signals.budget ?? journey.budget,
         });
+  const recommendations = keepClearlyRelatedAlternatives(rawRecommendations, product);
+  const showRecommendedProducts = wantsAlternatives && recommendations.length > 0;
   const assistantMessage = buildAssistantMessage({
     mode: inferred.mode,
     userMessage: parsed.data.message,
@@ -299,6 +337,7 @@ export async function POST(request: Request) {
     stage: inferred.stage,
     quickReplies,
     recommendedProducts: recommendations,
+    showRecommendedProducts,
     intentScore,
     detectedNeed: signals.detectedNeed ?? updatedJourney?.detectedNeed,
     budget: signals.budget ?? updatedJourney?.budget,
