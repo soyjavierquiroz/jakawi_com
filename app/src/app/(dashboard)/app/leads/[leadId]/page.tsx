@@ -6,6 +6,8 @@ import { normalizePhone } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { classifyIntent } from "@/lib/seller-ai/intent";
+import { classifyLead, getLeadWhatsappMessage } from "@/lib/seller-ai/leads";
+import { buildWhatsappUrl } from "@/lib/seller-ai/whatsapp";
 
 const statusLabels: Record<string, string> = {
   BROWSING: "Navegando",
@@ -30,6 +32,10 @@ function jsonIds(value: unknown) {
 function recommendedNames(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => (typeof item === "object" && item && "name" in item ? String(item.name) : null)).filter((item): item is string => Boolean(item));
+}
+
+function buildCustomerWhatsappUrl(phone: string, leadCode: string) {
+  return `https://wa.me/${normalizePhone(phone)}?text=${encodeURIComponent(`Hola, te escribo por tu consulta ${leadCode} en JAKAWI.`)}`;
 }
 
 export default async function LeadDetailPage({
@@ -62,8 +68,11 @@ export default async function LeadDetailPage({
     : [];
   const productMap = new Map(products.map((product) => [product.id, product]));
   const mainProduct = productMap.get(lead.selectedProductId ?? lead.currentProductId ?? "");
-  const whatsappUrl = lead.whatsappMessage ? `https://wa.me/${normalizePhone(lead.store.whatsapp)}?text=${encodeURIComponent(lead.whatsappMessage)}` : null;
   const latestSnapshot = lead.activeSnapshot ?? lead.snapshots[0] ?? null;
+  const classification = classifyLead(lead);
+  const contactPhone = lead.customerPhone ?? latestSnapshot?.customerPhone;
+  const whatsappMessage = getLeadWhatsappMessage(lead);
+  const whatsappUrl = contactPhone ? buildCustomerWhatsappUrl(contactPhone, lead.leadCode) : classification.canOpenWhatsapp && whatsappMessage ? buildWhatsappUrl(lead.store, whatsappMessage) : null;
   const detectedNeed = lead.journey?.detectedNeed ?? latestSnapshot?.detectedNeed;
   const budget = lead.journey?.budget ?? latestSnapshot?.budget ?? lead.budget;
   const urgency = lead.journey?.urgency ?? latestSnapshot?.urgency ?? lead.urgency;
@@ -89,7 +98,8 @@ export default async function LeadDetailPage({
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-sm font-black text-brand-dark">{lead.leadCode}</p>
-          <h1 className="text-4xl font-black">Detalle del lead</h1>
+          <h1 className="text-3xl font-black md:text-4xl">{classification.isContactable ? "Cliente contactable" : "Visitante con intención"}</h1>
+          {!classification.isContactable ? <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">No dejó contacto. Puedes usar esta señal para mejorar productos, mensajes o futuras campañas.</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {whatsappUrl ? (
@@ -98,27 +108,33 @@ export default async function LeadDetailPage({
               Abrir WhatsApp
             </a>
           ) : null}
-          <form action={markLeadContacted}>
-            <input type="hidden" name="leadId" value={lead.id} />
-            <button className="inline-flex h-11 items-center gap-2 rounded-md border border-brand-border px-4 font-bold hover:border-brand">
-              <CheckCircle2 className="size-4" />
-              Contactado
-            </button>
-          </form>
-          <form action={markLeadWon}>
-            <input type="hidden" name="leadId" value={lead.id} />
-            <button className="inline-flex h-11 items-center gap-2 rounded-md border border-brand-border px-4 font-bold hover:border-brand">
-              <CheckCircle2 className="size-4" />
-              Vendido
-            </button>
-          </form>
-          <form action={markLeadLost}>
-            <input type="hidden" name="leadId" value={lead.id} />
-            <button className="inline-flex h-11 items-center gap-2 rounded-md border border-red-200 px-4 font-bold text-red-700 hover:border-red-500">
-              <XCircle className="size-4" />
-              Perdido
-            </button>
-          </form>
+          {classification.isContactable ? (
+            <>
+              <form action={markLeadContacted}>
+                <input type="hidden" name="leadId" value={lead.id} />
+                <button className="inline-flex h-11 items-center gap-2 rounded-md border border-brand-border px-4 font-bold hover:border-brand">
+                  <CheckCircle2 className="size-4" />
+                  Contactado
+                </button>
+              </form>
+              <form action={markLeadWon}>
+                <input type="hidden" name="leadId" value={lead.id} />
+                <button className="inline-flex h-11 items-center gap-2 rounded-md border border-brand-border px-4 font-bold hover:border-brand">
+                  <CheckCircle2 className="size-4" />
+                  Vendido
+                </button>
+              </form>
+              <form action={markLeadLost}>
+                <input type="hidden" name="leadId" value={lead.id} />
+                <button className="inline-flex h-11 items-center gap-2 rounded-md border border-red-200 px-4 font-bold text-red-700 hover:border-red-500">
+                  <XCircle className="size-4" />
+                  Perdido
+                </button>
+              </form>
+            </>
+          ) : (
+            <span className="inline-flex h-11 items-center rounded-md bg-brand-muted px-4 text-sm font-black text-brand-dark">Sin contacto directo</span>
+          )}
         </div>
       </div>
 
@@ -142,11 +158,11 @@ export default async function LeadDetailPage({
             </div>
             <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
               <div className="rounded-md bg-brand-muted p-3">
-                <p className="font-bold text-neutral-500">WhatsApp cliente</p>
-                <p className="mt-1 font-black">{lead.customerPhone ?? "Sin dato"}</p>
+                <p className="font-bold text-neutral-500">Contacto directo</p>
+                <p className="mt-1 font-black">{contactPhone ?? (classification.isContactable ? "WhatsApp enviado" : "Sin dato")}</p>
               </div>
               <div className="rounded-md bg-brand-muted p-3">
-                <p className="font-bold text-neutral-500">Nombre cliente</p>
+                <p className="font-bold text-neutral-500">Nombre</p>
                 <p className="mt-1 font-black">{lead.customerName ?? "Sin dato"}</p>
               </div>
             </div>
@@ -179,7 +195,7 @@ export default async function LeadDetailPage({
                 <p className="mt-1 font-black">{objections ?? "Sin dato"}</p>
               </div>
             </div>
-            <p className="mt-4 leading-7 text-neutral-700">{lead.conversationSummary ?? "El resumen se generará cuando el cliente continúe a WhatsApp."}</p>
+            <p className="mt-4 leading-7 text-neutral-700">{lead.conversationSummary ?? (classification.isContactable ? "El resumen se generará cuando el cliente continúe a WhatsApp." : "Consulta anónima con señales útiles para aprender y optimizar el flujo.")}</p>
           </section>
 
           <section className="rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">

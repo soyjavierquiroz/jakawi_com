@@ -39,7 +39,7 @@ export default async function WhatsappPage() {
             Probar flujo
           </a>
           <Link href="/app/leads" className="inline-flex h-11 items-center justify-center rounded-md border border-white/20 px-5 font-black text-white hover:bg-white/10">
-            Ver leads
+            Ver clientes y señales
           </Link>
         </div>
       </section>

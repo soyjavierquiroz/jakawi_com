@@ -14,7 +14,7 @@ export function DashboardNav({ publicUrl }: { publicUrl?: string }) {
   const pathname = usePathname();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const mainItems = navigationConfig.dashboard.filter((item) => ["Inicio", "Mi espacio", "Productos", "Seller AI"].includes(item.label));
-  const moreItems = navigationConfig.dashboard.filter((item) => ["Categorías", "WhatsApp", "Leads", "Plan"].includes(item.label));
+  const moreItems = navigationConfig.dashboard.filter((item) => ["Categorías", "WhatsApp", "Clientes", "Plan"].includes(item.label));
   const isActive = (href: string) => (href === "/app" ? pathname === href : pathname.startsWith(href));
 
   return (

@@ -9,7 +9,7 @@ export const navigationConfig = {
     { href: routesConfig.categories, label: "Categorías", icon: Tags },
     { href: routesConfig.sellerAi, label: "Seller AI", icon: Bot },
     { href: routesConfig.whatsapp, label: "WhatsApp", icon: MessageCircle },
-    { href: routesConfig.leads, label: "Leads", icon: UsersRound },
+    { href: routesConfig.leads, label: "Clientes", icon: UsersRound },
     { href: routesConfig.plan, label: "Plan", icon: CreditCard },
   ],
 };

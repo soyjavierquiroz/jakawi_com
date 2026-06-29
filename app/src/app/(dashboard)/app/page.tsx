@@ -7,19 +7,44 @@ import { getPublicStoreUrl, siteConfig } from "@/config/site";
 import { requireStore } from "@/lib/auth";
 import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
-import { visibleLeadWhere } from "@/lib/seller-ai/leads";
+import { classifyLead, visibleLeadWhere } from "@/lib/seller-ai/leads";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
+import { JourneyEventType, LeadEventType } from "@prisma/client";
 
 export default async function DashboardPage() {
   const { user, store } = await requireStore();
   // eslint-disable-next-line react-hooks/purity
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [whatsappClicks, leadCount, productUsage, sellerAiUsage] = await Promise.all([
+  const [whatsappClicks, leadRows, productUsage, sellerAiUsage] = await Promise.all([
     getPrisma().analyticsEvent.count({ where: { storeId: store.id, type: "WHATSAPP_CLICK", createdAt: { gte: since } } }),
-    getPrisma().lead.count({ where: visibleLeadWhere(store.id) }),
+    getPrisma().lead.findMany({
+      where: visibleLeadWhere(store.id),
+      include: {
+        activeSnapshot: true,
+        snapshots: { orderBy: { createdAt: "desc" }, take: 1 },
+        events: {
+          where: { eventType: { in: [LeadEventType.CHAT_OPENED, LeadEventType.CUSTOMER_MESSAGE_SENT, LeadEventType.PRODUCT_RECOMMENDED, LeadEventType.WHATSAPP_CLICKED] } },
+          select: { eventType: true },
+          take: 20,
+        },
+        journey: {
+          include: {
+            events: {
+              where: { type: { in: [JourneyEventType.CUSTOMER_MESSAGE_SENT, JourneyEventType.NEED_DETECTED, JourneyEventType.OBJECTION_DETECTED, JourneyEventType.INTENT_UPDATED, JourneyEventType.CHANNEL_CLICKED] } },
+              select: { type: true },
+              take: 20,
+            },
+          },
+        },
+      },
+    }),
     getProductUsage(store.id),
     getSellerAiUsage(store.id),
   ]);
+  const leadClassifications = leadRows.map((lead) => classifyLead(lead));
+  const contactableCount = leadClassifications.filter((lead) => lead.isContactable).length;
+  const anonymousIntentCount = leadClassifications.filter((lead) => lead.isAnonymousIntent).length;
+  const leadCount = contactableCount + anonymousIntentCount;
   const publicUrl = getPublicStoreUrl(store.slug);
   const flow = getStorefrontFlow(store.plan);
   const planState = getStorePlanState(store);
@@ -60,9 +85,9 @@ export default async function DashboardPage() {
     }
     if (leadCount > 0) {
       return {
-        title: "Revisa tus leads con contexto.",
-        text: "JAKAWI ya está recordando consultas, dudas y códigos para que cierres mejor por WhatsApp.",
-        label: "Ver leads",
+        title: "Revisa clientes y señales.",
+        text: "Seller AI separa oportunidades contactables de intención anónima para que priorices mejor.",
+        label: "Ver clientes y señales",
         href: siteConfig.routes.leads,
       };
     }
@@ -136,12 +161,21 @@ export default async function DashboardPage() {
         <Link href={siteConfig.routes.leads} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm transition hover:border-brand hover:shadow-md md:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-black text-brand-dark">Leads con contexto</p>
+              <p className="text-sm font-black text-brand-dark">Clientes y señales</p>
               <p className="mt-1 text-sm font-semibold text-neutral-500">Oportunidades preparadas por Seller AI.</p>
             </div>
             <UsersRound className="size-5 text-brand" />
           </div>
-          <p className="mt-3 text-2xl font-black text-brand-dark">{leadCount}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-md bg-brand-muted px-3 py-2">
+              <p className="text-[11px] font-black text-neutral-500">Contactables</p>
+              <p className="text-xl font-black leading-6 text-brand-dark">{contactableCount}</p>
+            </div>
+            <div className="rounded-md bg-brand-muted px-3 py-2">
+              <p className="text-[11px] font-black text-neutral-500">Señales</p>
+              <p className="text-xl font-black leading-6 text-brand-dark">{anonymousIntentCount}</p>
+            </div>
+          </div>
         </Link>
         <Link href={siteConfig.routes.whatsapp} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm transition hover:border-brand hover:shadow-md md:p-5">
           <div className="flex items-center justify-between gap-3">

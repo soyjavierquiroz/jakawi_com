@@ -31,7 +31,118 @@ export function visibleLeadWhere(storeId: string): Prisma.LeadWhereInput {
       { journey: { stage: { in: [CustomerJourneyStage.DECISION_SUPPORT, CustomerJourneyStage.CLOSING_PREP] } } },
       { journey: { detectedNeed: { not: null } } },
       { journey: { objections: { not: null } } },
+      { events: { some: { eventType: { in: [LeadEventType.CHAT_OPENED, LeadEventType.CUSTOMER_MESSAGE_SENT, LeadEventType.PRODUCT_RECOMMENDED, LeadEventType.WHATSAPP_CLICKED] } } } },
+      { journey: { events: { some: { type: { in: [JourneyEventType.CUSTOMER_MESSAGE_SENT, JourneyEventType.NEED_DETECTED, JourneyEventType.OBJECTION_DETECTED, JourneyEventType.INTENT_UPDATED, JourneyEventType.CHANNEL_CLICKED] } } } } },
     ],
+  };
+}
+
+type LeadSnapshotLike = {
+  customerPhone?: string | null;
+  whatsappMessage?: string | null;
+  channelMessage?: string | null;
+  detectedNeed?: string | null;
+  objections?: string | null;
+  intentScore?: number | null;
+};
+
+type LeadJourneyLike = {
+  stage?: CustomerJourneyStage | null;
+  detectedNeed?: string | null;
+  objections?: string | null;
+  intentScore?: number | null;
+  events?: { type: JourneyEventType }[];
+} | null;
+
+type LeadEventLike = { eventType: LeadEventType };
+
+export type LeadContactMethod = "PHONE" | "WHATSAPP" | "NONE";
+export type LeadDisplayGroup = "CONTACTABLE" | "ANONYMOUS_INTENT" | "OTHER";
+
+export type LeadClassificationInput = {
+  customerPhone?: string | null;
+  status: LeadStatus;
+  intentScore?: number | null;
+  visitorId?: string | null;
+  currentProductId?: string | null;
+  selectedProductId?: string | null;
+  whatsappMessage?: string | null;
+  whatsappClickedAt?: Date | null;
+  journey?: LeadJourneyLike;
+  activeSnapshot?: LeadSnapshotLike | null;
+  snapshots?: LeadSnapshotLike[];
+  events?: LeadEventLike[];
+};
+
+const contactableStatuses = new Set<LeadStatus>([LeadStatus.WHATSAPP_CLICKED, LeadStatus.CONTACTED, LeadStatus.WON]);
+const commercialLeadEvents = new Set<LeadEventType>([
+  LeadEventType.PRODUCT_VIEW,
+  LeadEventType.CHAT_OPENED,
+  LeadEventType.AI_MESSAGE_SENT,
+  LeadEventType.CUSTOMER_MESSAGE_SENT,
+  LeadEventType.PRODUCT_RECOMMENDED,
+]);
+const commercialJourneyEvents = new Set<JourneyEventType>([
+  JourneyEventType.PRODUCT_VIEWED,
+  JourneyEventType.CUSTOMER_MESSAGE_SENT,
+  JourneyEventType.NEED_DETECTED,
+  JourneyEventType.OBJECTION_DETECTED,
+  JourneyEventType.INTENT_UPDATED,
+  JourneyEventType.PRODUCT_RECOMMENDED,
+]);
+
+function hasText(value?: string | null) {
+  return Boolean(value?.trim());
+}
+
+function hasWhatsappClickSignal(lead: LeadClassificationInput) {
+  return (
+    Boolean(lead.whatsappClickedAt) ||
+    lead.events?.some((event) => event.eventType === LeadEventType.WHATSAPP_CLICKED) ||
+    lead.journey?.events?.some((event) => event.type === JourneyEventType.CHANNEL_CLICKED)
+  );
+}
+
+function getLeadSnapshots(lead: LeadClassificationInput) {
+  return [lead.activeSnapshot, ...(lead.snapshots ?? [])].filter((snapshot): snapshot is LeadSnapshotLike => Boolean(snapshot));
+}
+
+export function getLeadWhatsappMessage(lead: LeadClassificationInput) {
+  if (hasText(lead.whatsappMessage)) return lead.whatsappMessage ?? null;
+  const snapshot = getLeadSnapshots(lead).find((item) => hasText(item.whatsappMessage) || hasText(item.channelMessage));
+  return snapshot?.whatsappMessage ?? snapshot?.channelMessage ?? null;
+}
+
+export function hasCommercialSignal(lead: LeadClassificationInput) {
+  const snapshots = getLeadSnapshots(lead);
+  return (
+    (lead.intentScore ?? 0) >= 30 ||
+    (lead.journey?.intentScore ?? 0) >= 30 ||
+    hasText(lead.journey?.detectedNeed) ||
+    hasText(lead.journey?.objections) ||
+    lead.journey?.stage === CustomerJourneyStage.DECISION_SUPPORT ||
+    lead.journey?.stage === CustomerJourneyStage.CLOSING_PREP ||
+    Boolean(lead.currentProductId || lead.selectedProductId) ||
+    snapshots.some((snapshot) => (snapshot.intentScore ?? 0) >= 30 || hasText(snapshot.detectedNeed) || hasText(snapshot.objections)) ||
+    Boolean(lead.events?.some((event) => commercialLeadEvents.has(event.eventType))) ||
+    Boolean(lead.journey?.events?.some((event) => commercialJourneyEvents.has(event.type)))
+  );
+}
+
+export function classifyLead(lead: LeadClassificationInput) {
+  const hasPhone = hasText(lead.customerPhone) || getLeadSnapshots(lead).some((snapshot) => hasText(snapshot.customerPhone));
+  const hasWhatsappHandoff = contactableStatuses.has(lead.status) || hasWhatsappClickSignal(lead);
+  const isContactable = hasPhone || hasWhatsappHandoff;
+  const isAnonymousIntent = !isContactable && Boolean(lead.visitorId) && hasCommercialSignal(lead);
+  const contactMethod: LeadContactMethod = hasPhone ? "PHONE" : hasWhatsappHandoff ? "WHATSAPP" : "NONE";
+  const displayGroup: LeadDisplayGroup = isContactable ? "CONTACTABLE" : isAnonymousIntent ? "ANONYMOUS_INTENT" : "OTHER";
+
+  return {
+    isContactable,
+    isAnonymousIntent,
+    contactMethod,
+    displayGroup,
+    canOpenWhatsapp: hasPhone || (hasWhatsappHandoff && hasText(getLeadWhatsappMessage(lead))),
   };
 }
 
