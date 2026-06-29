@@ -23,7 +23,7 @@ export default async function LeadsPage() {
   const user = await requireUser();
   const leads = await getPrisma().lead.findMany({
     where: { store: { ownerId: user.id } },
-    include: { store: true },
+    include: { store: true, journey: true, activeSnapshot: true, snapshots: { orderBy: { createdAt: "desc" }, take: 1 } },
     orderBy: { createdAt: "desc" },
     take: 80,
   });
@@ -58,10 +58,12 @@ export default async function LeadsPage() {
             {leads.map((lead) => {
               const product = productMap.get(lead.selectedProductId ?? lead.currentProductId ?? "");
               return (
-                <Link key={lead.id} href={`/app/leads/${lead.id}`} className="grid gap-3 p-4 transition hover:bg-brand-muted md:grid-cols-[130px_1fr_120px_110px_auto] md:items-center">
+                <Link key={lead.id} href={`/app/leads/${lead.id}`} className="grid gap-3 p-4 transition hover:bg-brand-muted md:grid-cols-[160px_1fr_120px_110px_auto] md:items-center">
                   <div>
                     <p className="font-mono text-sm font-black text-brand-dark">{lead.leadCode}</p>
                     <p className="text-xs font-semibold text-neutral-500">{lead.store.name}</p>
+                    {lead.journey ? <p className="mt-1 font-mono text-[11px] font-bold text-neutral-500">{lead.journey.journeyCode}</p> : null}
+                    {lead.activeSnapshot ?? lead.snapshots[0] ? <p className="mt-1 font-mono text-[11px] font-bold text-neutral-500">{(lead.activeSnapshot ?? lead.snapshots[0])?.snapshotCode}</p> : null}
                     {lead.customerPhone ? <p className="mt-1 text-xs font-bold text-neutral-600">{lead.customerPhone}</p> : null}
                   </div>
                   <div>

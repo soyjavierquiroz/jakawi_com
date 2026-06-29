@@ -36,6 +36,9 @@ export default async function LeadDetailPage({
     where: { id: leadId, store: { ownerId: user.id } },
     include: {
       store: true,
+      journey: { include: { events: { orderBy: { createdAt: "asc" } } } },
+      activeSnapshot: true,
+      snapshots: { orderBy: { createdAt: "desc" }, take: 3 },
       conversation: { include: { messages: { orderBy: { createdAt: "asc" } } } },
       events: { orderBy: { createdAt: "asc" } },
     },
@@ -53,6 +56,21 @@ export default async function LeadDetailPage({
   const productMap = new Map(products.map((product) => [product.id, product]));
   const mainProduct = productMap.get(lead.selectedProductId ?? lead.currentProductId ?? "");
   const whatsappUrl = lead.whatsappMessage ? `https://wa.me/${normalizePhone(lead.store.whatsapp)}?text=${encodeURIComponent(lead.whatsappMessage)}` : null;
+  const latestSnapshot = lead.activeSnapshot ?? lead.snapshots[0] ?? null;
+  const timeline = [
+    ...lead.events.map((event) => ({
+      id: `lead-${event.id}`,
+      label: event.eventType,
+      source: "Lead",
+      createdAt: event.createdAt,
+    })),
+    ...(lead.journey?.events.map((event) => ({
+      id: `journey-${event.id}`,
+      label: event.type,
+      source: "Journey",
+      createdAt: event.createdAt,
+    })) ?? []),
+  ].sort((first, second) => first.createdAt.getTime() - second.createdAt.getTime());
 
   return (
     <section>
@@ -118,6 +136,16 @@ export default async function LeadDetailPage({
               <div className="rounded-md bg-brand-muted p-3">
                 <p className="font-bold text-neutral-500">Nombre cliente</p>
                 <p className="mt-1 font-black">{lead.customerName ?? "Sin dato"}</p>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+              <div className="rounded-md bg-brand-muted p-3">
+                <p className="font-bold text-neutral-500">Journey</p>
+                <p className="mt-1 font-mono font-black">{lead.journey?.journeyCode ?? "Sin journey"}</p>
+              </div>
+              <div className="rounded-md bg-brand-muted p-3">
+                <p className="font-bold text-neutral-500">Snapshot</p>
+                <p className="mt-1 font-mono font-black">{latestSnapshot?.snapshotCode ?? "Sin snapshot"}</p>
               </div>
             </div>
             <p className="mt-4 leading-7 text-neutral-700">{lead.conversationSummary ?? "El resumen se generará cuando el cliente continúe a WhatsApp."}</p>
@@ -191,12 +219,13 @@ export default async function LeadDetailPage({
           <section className="rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
             <h2 className="text-xl font-black">Timeline</h2>
             <div className="mt-4 space-y-3">
-              {lead.events.map((event) => (
+              {timeline.map((event) => (
                 <div key={event.id} className="border-l-2 border-brand-border pl-3">
-                  <p className="text-sm font-black">{event.eventType}</p>
-                  <p className="text-xs font-semibold text-neutral-500">{event.createdAt.toLocaleString("es-BO")}</p>
+                  <p className="text-sm font-black">{event.label}</p>
+                  <p className="text-xs font-semibold text-neutral-500">{event.source} - {event.createdAt.toLocaleString("es-BO")}</p>
                 </div>
               ))}
+              {timeline.length === 0 ? <p className="text-neutral-500">Sin eventos todavía.</p> : null}
             </div>
           </section>
         </aside>
