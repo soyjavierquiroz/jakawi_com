@@ -22,9 +22,13 @@ function mergeIds(current: Prisma.JsonValue | null | undefined, id?: string | nu
   return [...existing, id].slice(-30);
 }
 
+function objectItems(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null && !Array.isArray(item)) : [];
+}
+
 function mergeRecommendedProducts(current: Prisma.JsonValue | null | undefined, items?: Prisma.InputJsonValue) {
-  const existing = Array.isArray(current) ? current.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null && !Array.isArray(item)) : [];
-  const next = Array.isArray(items) ? items.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null && !Array.isArray(item)) : [];
+  const existing = objectItems(current);
+  const next = objectItems(items);
   const byId = new Map<string, Record<string, unknown>>();
   for (const item of [...existing, ...next]) {
     const id = typeof item.id === "string" ? item.id : JSON.stringify(item);
@@ -192,7 +196,7 @@ export async function appendRecommendedProducts({
   const recommendedProducts = mergeRecommendedProducts(journey.recommendedProducts, products);
   const updated = await getPrisma().customerJourney.update({
     where: { id: journeyId },
-    data: { recommendedProducts },
+    data: { recommendedProducts: recommendedProducts as Prisma.InputJsonValue },
   });
   if (Array.isArray(products) && products.length > 0) {
     await addJourneyEvent({ journeyId, type: JourneyEventType.PRODUCT_RECOMMENDED, payload: { products } });
@@ -250,7 +254,7 @@ export async function updateJourneyCommercialSignals({
       currentProductId: productId ?? current.currentProductId,
       currentCategoryId: categoryId ?? current.currentCategoryId,
       viewedProducts: mergeIds(current.viewedProducts, productId ?? current.currentProductId),
-      recommendedProducts: nextRecommendedProducts ?? undefined,
+      recommendedProducts: (nextRecommendedProducts as Prisma.InputJsonValue | null | undefined) ?? undefined,
       detectedNeed: detectedNeed ?? current.detectedNeed,
       budget: budget ?? current.budget,
       urgency: urgency ?? current.urgency,
