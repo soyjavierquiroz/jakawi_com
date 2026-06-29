@@ -7,6 +7,8 @@ const uploadSchema = z.object({
   type: z.enum(["intro", "guidance", "handoff", "avatar"]),
 });
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   const { store } = await requireStore();
   const formData = await request.formData().catch(() => null);
@@ -38,6 +40,10 @@ export async function POST(request: Request) {
       key: uploaded.key,
       mimeType: uploaded.mimeType,
       size: uploaded.size,
+      durationSeconds: uploaded.durationSeconds,
+      optimized: uploaded.optimized === true,
+      originalMimeType: uploaded.originalMimeType,
+      originalSize: uploaded.originalSize,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "No se pudo subir el archivo.";

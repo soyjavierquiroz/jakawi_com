@@ -1,11 +1,12 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { nanoid } from "nanoid";
+import { optimizeSellerVoiceAudio } from "@/lib/audio/optimize-audio";
 
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const allowedAudioTypes = new Set(["audio/mpeg", "audio/mp3", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/wav"]);
+const allowedAudioTypes = new Set(["audio/mpeg", "audio/mp3", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/wav", "audio/x-wav", "audio/ogg", "application/ogg"]);
 const maxImageBytes = 5 * 1024 * 1024;
-const maxAudioBytes = 3 * 1024 * 1024;
-const audioExtensions = new Set(["mp3", "mp4", "m4a", "webm", "wav"]);
+const maxAudioBytes = 8 * 1024 * 1024;
+const audioExtensions = new Set(["mp3", "mp4", "m4a", "webm", "wav", "ogg", "oga"]);
 const audioExtensionByMimeType: Record<string, string> = {
   "audio/mpeg": "mp3",
   "audio/mp3": "mp3",
@@ -13,6 +14,9 @@ const audioExtensionByMimeType: Record<string, string> = {
   "audio/x-m4a": "m4a",
   "audio/webm": "webm",
   "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/ogg": "ogg",
+  "application/ogg": "ogg",
 };
 
 export type UploadedObject = {
@@ -20,6 +24,10 @@ export type UploadedObject = {
   key: string;
   mimeType: string;
   size: number;
+  durationSeconds?: number;
+  optimized?: boolean;
+  originalMimeType?: string;
+  originalSize?: number;
 };
 
 let s3Client: S3Client | null = null;
@@ -73,6 +81,29 @@ async function putFile(file: File, key: string): Promise<UploadedObject> {
   };
 }
 
+async function putBuffer(buffer: Buffer, key: string, mimeType: string): Promise<UploadedObject> {
+  const bucket = process.env.S3_BUCKET;
+  const publicUrl = process.env.S3_PUBLIC_URL;
+  if (!bucket || !publicUrl) throw new Error("Almacenamiento S3 no configurado.");
+
+  await getS3Client().send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: mimeType,
+      CacheControl: "public, max-age=31536000, immutable",
+    }),
+  );
+
+  return {
+    url: `${publicUrl}/${bucket}/${key}`,
+    key,
+    mimeType,
+    size: buffer.byteLength,
+  };
+}
+
 async function uploadFile(file: File, keyPrefix: string) {
   const key = `${keyPrefix}/${nanoid(10)}-${safeName(file.name || "file")}`;
   return putFile(file, key);
@@ -90,9 +121,9 @@ function audioExtension(file: File) {
 function assertValidAudio(file: File) {
   const extension = audioExtension(file);
   if (!allowedAudioTypes.has(baseMimeType(file.type)) || !extension || !audioExtensions.has(extension)) {
-    throw new Error("Solo se permiten audios MP3, M4A, MP4, WebM o WAV.");
+    throw new Error("Solo se permiten audios MP3, M4A, MP4, WebM, WAV u OGG.");
   }
-  if (file.size > maxAudioBytes) throw new Error("El audio no puede superar 3MB.");
+  if (file.size > maxAudioBytes) throw new Error("El audio no puede superar 8MB.");
   return extension;
 }
 
@@ -113,9 +144,16 @@ export async function uploadAudio(file: File, keyPrefix: string) {
 
 export async function uploadSellerVoiceAudio(file: File, storeId: string, type: "intro" | "guidance" | "handoff") {
   if (!file || file.size === 0) return null;
-  const extension = assertValidAudio(file);
-  const key = `seller-voice/${storeId}/${type}/${Date.now()}-${nanoid(10)}.${extension}`;
-  return putFile(file, key);
+  const optimized = await optimizeSellerVoiceAudio(file);
+  const key = `seller-voice/${storeId}/${type}/${Date.now()}-${nanoid(10)}.mp3`;
+  const uploaded = await putBuffer(optimized.buffer, key, optimized.mimeType);
+  return {
+    ...uploaded,
+    durationSeconds: optimized.durationSeconds,
+    optimized: optimized.optimized,
+    originalMimeType: optimized.originalMimeType,
+    originalSize: optimized.originalSize,
+  };
 }
 
 function keyFromOwnedUrl(url: string) {

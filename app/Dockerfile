@@ -1,6 +1,6 @@
 FROM node:22-alpine AS base
 
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache ffmpeg libc6-compat openssl
 RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
 
 WORKDIR /app

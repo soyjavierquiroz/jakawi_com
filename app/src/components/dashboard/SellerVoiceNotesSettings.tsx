@@ -69,16 +69,22 @@ function getInitialNotes(store: SellerVoiceNotesSettingsProps["store"]) {
       audioUrl: store.sellerIntroAudioUrl ?? "",
       durationSeconds: store.sellerIntroDurationSeconds?.toString() ?? "",
       deleteAudio: false,
+      optimized: Boolean(store.sellerIntroAudioUrl?.endsWith(".mp3")),
+      sizeBytes: null as number | null,
     },
     guidance: {
       audioUrl: store.sellerGuidanceAudioUrl ?? "",
       durationSeconds: store.sellerGuidanceDurationSeconds?.toString() ?? "",
       deleteAudio: false,
+      optimized: Boolean(store.sellerGuidanceAudioUrl?.endsWith(".mp3")),
+      sizeBytes: null as number | null,
     },
     handoff: {
       audioUrl: store.sellerHandoffAudioUrl ?? "",
       durationSeconds: store.sellerHandoffDurationSeconds?.toString() ?? "",
       deleteAudio: false,
+      optimized: Boolean(store.sellerHandoffAudioUrl?.endsWith(".mp3")),
+      sizeBytes: null as number | null,
     },
   };
 }
@@ -97,8 +103,14 @@ function getInitialTranscripts(store: SellerVoiceNotesSettingsProps["store"]) {
   };
 }
 
-function sourceLabel(source: SellerVoiceNoteSource) {
-  if (source === "STORE") return "Audio personalizado";
+function formatBytes(bytes?: number | null) {
+  if (!bytes || bytes <= 0) return null;
+  if (bytes < 1024 * 1024) return `~${Math.round(bytes / 1024)} KB`;
+  return `~${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function sourceLabel(source: SellerVoiceNoteSource, optimized?: boolean) {
+  if (source === "STORE") return optimized ? "Audio personalizado · MP3 optimizado" : "Audio personalizado";
   if (source === "JAKAWI_FALLBACK") return "Fallback JAKAWI";
   return "Solo transcripción";
 }
@@ -153,7 +165,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
 
     try {
       const response = await fetch("/api/uploads/seller-voice", { method: "POST", body: formData });
-      const payload = (await response.json().catch(() => null)) as { url?: string; publicUrl?: string; error?: string } | null;
+      const payload = (await response.json().catch(() => null)) as { url?: string; publicUrl?: string; error?: string; durationSeconds?: number; optimized?: boolean; size?: number } | null;
       const uploadedUrl = payload?.url ?? payload?.publicUrl;
       if (!response.ok || !uploadedUrl) throw new Error(payload?.error ?? "No se pudo subir el archivo.");
       if (type === "avatar") {
@@ -161,10 +173,17 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
       } else {
         setNotes((current) => ({
           ...current,
-          [type]: { ...current[type], audioUrl: uploadedUrl, deleteAudio: false },
+          [type]: {
+            ...current[type],
+            audioUrl: uploadedUrl,
+            durationSeconds: payload?.durationSeconds ? String(payload.durationSeconds) : current[type].durationSeconds,
+            deleteAudio: false,
+            optimized: payload?.optimized === true || uploadedUrl.endsWith(".mp3"),
+            sizeBytes: typeof payload?.size === "number" ? payload.size : null,
+          },
         }));
       }
-      setMessage("Archivo subido. Guarda cambios para aplicarlo.");
+      setMessage(type === "avatar" ? "Archivo subido. Guarda cambios para aplicarlo." : "Archivo optimizado automáticamente para carga rápida. Guarda cambios para aplicarlo.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo subir el archivo.");
     } finally {
@@ -237,7 +256,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
   }
 
   function removeAudio(type: NoteKey) {
-    setNotes((current) => ({ ...current, [type]: { audioUrl: "", durationSeconds: "", deleteAudio: true } }));
+    setNotes((current) => ({ ...current, [type]: { audioUrl: "", durationSeconds: "", deleteAudio: true, optimized: false, sizeBytes: null } }));
     setMessage("Audio eliminado de esta nota. Guarda cambios para aplicarlo.");
   }
 
@@ -288,6 +307,8 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
             const note = notes[key];
             const fallback = sellerVoiceNoteDefaults[key];
             const previewSource: SellerVoiceNoteSource = note.audioUrl ? "STORE" : fallback.audioUrl ? "JAKAWI_FALLBACK" : "TEXT_FALLBACK";
+            const optimizedLabel = note.optimized || note.audioUrl.endsWith(".mp3");
+            const optimizedSize = formatBytes(note.sizeBytes);
             const previewVoiceNote: SellerVoiceNoteConfig = {
               type: meta.type as SellerVoiceNoteType,
               title: fallback.title,
@@ -313,7 +334,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                   <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand">
                     {uploading === key ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
                     {note.audioUrl ? "Reemplazar" : "Subir audio"}
-                    <input type="file" accept="audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/webm,audio/wav" onChange={handleUpload(key)} className="sr-only" />
+                    <input type="file" accept="audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/webm,audio/wav,audio/x-wav,audio/ogg,application/ogg,.oga,.ogg" onChange={handleUpload(key)} className="sr-only" />
                   </label>
                   {recordingKey === key ? (
                     <button type="button" onClick={stopRecording} className="inline-flex h-10 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-black text-white transition hover:bg-red-700">
@@ -333,11 +354,12 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                     </button>
                   ) : null}
                 </div>
-                <p className="mt-2 text-xs font-semibold text-neutral-500">Recomendado máximo 15 segundos. Límite 3MB.</p>
+                <p className="mt-2 text-xs font-semibold text-neutral-500">Recomendado máximo 15 segundos. Puedes subir hasta 8MB; JAKAWI lo optimiza a MP3.</p>
+                {note.audioUrl && optimizedLabel ? <p className="mt-1 text-xs font-black text-brand-dark">Archivo optimizado para carga rápida{optimizedSize ? ` · ${optimizedSize}` : ""}</p> : null}
                 <div className="mt-3 rounded-md bg-white p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <p className="text-xs font-black uppercase text-neutral-500">Preview real</p>
-                    <span className="rounded-full bg-brand-muted px-2 py-1 text-[11px] font-black text-brand-dark">{sourceLabel(previewSource)}</span>
+                    <span className="rounded-full bg-brand-muted px-2 py-1 text-[11px] font-black text-brand-dark">{sourceLabel(previewSource, optimizedLabel)}</span>
                   </div>
                   <SellerAiVoiceNote voiceNote={previewVoiceNote} compact playLabel="Reproducir preview" />
                 </div>
