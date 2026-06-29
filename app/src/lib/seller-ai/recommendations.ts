@@ -81,12 +81,15 @@ export async function getSellerAiRecommendations({
           take: 10,
         })
       : [];
-  const fallback = await getPrisma().product.findMany({
-    where: { storeId, isVisible: true, id: currentProductId ? { not: currentProductId } : undefined },
-    include: { category: true },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
+  const shouldUseFallback = !currentProduct?.categoryId && !resolvedCategoryId;
+  const fallback = shouldUseFallback
+    ? await getPrisma().product.findMany({
+        where: { storeId, isVisible: true, id: currentProductId ? { not: currentProductId } : undefined },
+        include: { category: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      })
+    : [];
 
   const need = normalize(detectedNeed);
   const candidates = uniqueProducts([...byCurrentCategory, ...byCategory, ...fallback]);

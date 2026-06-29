@@ -13,17 +13,17 @@ export type CommercialSignals = {
 
 type CommercialType = keyof typeof sellerAiConfig.commercialTypes;
 
-const strongIntentPattern = /\b(quiero|comprar|me interesa|como compro|cómo compro|lo quiero|reservar|reserva|pedir|pedido|pagar|lo llevo|pasame info|pásame info)\b/i;
-const closingIntentPattern = /\b(comprar|me interesa comprar|como compro|cómo compro|reservar|reserva|pedir|pedido|pagar|lo llevo|pasame info|pásame info|quiero pagar|quiero comprar)\b/i;
+const strongIntentPattern = /\b(quiero|comprar|comprarlo|comprarla|me interesa|como compro|cómo compro|lo quiero|reservar|reserva|pedir|pedido|pagar|lo llevo|pasame info|pásame info)\b/i;
+const closingIntentPattern = /\b(quiero comprar|me interesa comprar|quiero pedir|quiero pagar|quiero reservar|lo compro|lo quiero comprar|comprarlo|comprarla|como compro|cómo compro|pásame para comprar|pasame para comprar|quiero continuar por whatsapp|continuar por whatsapp|reservar|pagar|lo llevo)\b/i;
 const objectionPatterns: Array<[RegExp, string]> = [
   [/\b(precio|cuanto|cuánto|cuesta|vale|costo)\b/i, "precio"],
   [/\b(disponible|disponibilidad|stock)\b/i, "disponibilidad"],
-  [/\b(envio|envío|entrega|delivery)\b/i, "envío"],
+  [/\b(envio|envío|enviar|entrega|delivery)\b/i, "envío"],
   [/\b(garantia|garantía)\b/i, "garantía"],
   [/\b(talla|medida|tamano|tamaño)\b/i, "talla"],
   [/\b(color|colores)\b/i, "color"],
   [/\b(rebaja|descuento|promo|promocion|promoción)\b/i, "descuento"],
-  [/\b(forma de pago|formas de pago|pago|qr|tarjeta|transferencia)\b/i, "forma de pago"],
+  [/\b(forma de pago|formas de pago|pago|cuotas|qr|tarjeta|transferencia)\b/i, "forma de pago"],
 ];
 const needPatterns: Array<[RegExp, string]> = [
   [/\b(fotos|foto|camara|cámara)\b/i, "fotos"],
@@ -101,15 +101,16 @@ export function inferSellerAiMode({
   const signals = extractCommercialSignals(message);
   const text = normalize(message);
   const objectionList = Array.isArray(objections) ? objections : typeof objections === "string" && objections ? objections.split(",").map((item) => item.trim()) : [];
-  const isNeedQualifiedIntent = Boolean(signals.detectedNeed && /\b(para|por)\b/.test(text) && !closingIntentPattern.test(text));
+  const hasExplicitClosingIntent = closingIntentPattern.test(text);
+  const hasCurrentObjection = signals.objections.length > 0 || objectionList.length > 0;
 
-  if (signals.hasStrongIntent && !isNeedQualifiedIntent) {
-    return { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "strong intent or high intent score" };
-  }
-  if (signals.objections.length > 0 || objectionList.length > 0) {
+  if (hasCurrentObjection && !hasExplicitClosingIntent) {
     return { mode: "DECISION_SUPPORT", stage: "DECISION_SUPPORT", reason: "commercial objection or buying doubt detected" };
   }
-  if ((intentScore ?? 0) >= 70) {
+  if (hasExplicitClosingIntent) {
+    return { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "explicit closing intent" };
+  }
+  if ((intentScore ?? 0) >= 70 && !hasCurrentObjection) {
     return { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "high intent score" };
   }
   if (productId || hasProductContext) {
