@@ -69,7 +69,6 @@ function hasStrongIntent(input: string) {
 
 export function SellerAiWidget({
   storeSlug,
-  storeName,
   productId,
   productName,
   categoryName,
@@ -90,6 +89,7 @@ export function SellerAiWidget({
   const [nudgeCount, setNudgeCount] = useState(0);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [leadCode, setLeadCode] = useState<string | null>(null);
+  const [journeyId, setJourneyId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [quickReplies, setQuickReplies] = useState<string[]>(sellerAiConfig.quickReplies.default);
   const [input, setInput] = useState("");
@@ -123,13 +123,17 @@ export function SellerAiWidget({
     if (!sellerAiConfig.enabled || !sessionId) return;
 
     if (productId) {
-      void postJson("/api/seller-ai/events", {
+      void postJson<{ journeyId?: string }>("/api/seller-ai/events", {
         sessionId,
         storeSlug,
         eventType: "PRODUCT_VIEW",
         productId,
         metadata: { productName, categoryName },
-      }).catch(() => undefined);
+      })
+        .then((response) => {
+          if (response.journeyId) setJourneyId(response.journeyId);
+        })
+        .catch(() => undefined);
     }
   }, [categoryName, productId, productName, sessionId, storeSlug]);
 
@@ -184,44 +188,29 @@ export function SellerAiWidget({
     const openingDelay = messages.length === 0 ? wait(sellerAiConfig.typing.openingDelayMs) : Promise.resolve();
 
     try {
-      await postJson("/api/seller-ai/events", {
+      const eventResponse = await postJson<{ journeyId?: string }>("/api/seller-ai/events", {
         sessionId,
         storeSlug,
         eventType: "CHAT_OPENED",
         productId,
       });
+      const resolvedJourneyId = eventResponse.journeyId ?? journeyId;
+      if (resolvedJourneyId) setJourneyId(resolvedJourneyId);
 
-      if (productId) {
-        const openingPromise = postJson<{
-          leadId: string;
-          leadCode: string;
-          message: string;
-          quickReplies: string[];
-        }>("/api/seller-ai/opening", { sessionId, storeSlug, productId });
-        const [opening] = await Promise.all([openingPromise, openingDelay]);
-        setLeadId(opening.leadId);
-        nextLeadId = opening.leadId;
-        setLeadCode(opening.leadCode);
-        setMessages([{ id: messageId(), role: "assistant", content: opening.message }]);
-        setQuickReplies(opening.quickReplies);
-      } else {
-        const leadPromise = postJson<{ leadId: string; leadCode: string }>("/api/seller-ai/lead", {
-          sessionId,
-          storeSlug,
-          source: "store_page",
-        });
-        const [lead] = await Promise.all([leadPromise, openingDelay]);
-        setLeadId(lead.leadId);
-        nextLeadId = lead.leadId;
-        setLeadCode(lead.leadCode);
-        setMessages([
-          {
-            id: messageId(),
-            role: "assistant",
-            content: sellerAiConfig.categoryTemplates.default.replace("{productName}", storeName),
-          },
-        ]);
-      }
+      const openingPromise = postJson<{
+        leadId: string;
+        leadCode: string;
+        journeyId?: string;
+        message: string;
+        quickReplies: string[];
+      }>("/api/seller-ai/opening", { sessionId, storeSlug, productId, journeyId: resolvedJourneyId });
+      const [opening] = await Promise.all([openingPromise, openingDelay]);
+      setLeadId(opening.leadId);
+      nextLeadId = opening.leadId;
+      setLeadCode(opening.leadCode);
+      if (opening.journeyId) setJourneyId(opening.journeyId);
+      setMessages([{ id: messageId(), role: "assistant", content: opening.message }]);
+      setQuickReplies(opening.quickReplies);
       if (options?.afterOpen && nextLeadId) setStep(options.afterOpen);
       return nextLeadId;
     } catch {
@@ -232,7 +221,7 @@ export function SellerAiWidget({
       setIsAssistantTyping(false);
       setIsLoading(false);
     }
-  }, [leadId, messages.length, productId, sessionId, storeName, storeSlug]);
+  }, [journeyId, leadId, messages.length, productId, sessionId, storeSlug]);
 
   const closeWidget = useCallback(() => {
     setHasInteracted(true);
@@ -243,7 +232,7 @@ export function SellerAiWidget({
   const sendMessage = useCallback(
     async (value: string) => {
       const clean = value.trim();
-      if (!clean || !leadId) return;
+      if (!clean || (!leadId && !journeyId)) return;
       setInput("");
       setMessages((current) => [...current, { id: messageId(), role: "user", content: clean }]);
       setIsLoading(true);
@@ -255,12 +244,18 @@ export function SellerAiWidget({
 
       try {
         const response = await postJson<{
+          leadId?: string;
+          leadCode?: string;
+          journeyId?: string;
           assistantMessage: string;
           quickReplies: string[];
           shouldShowWhatsappCta: boolean;
-        }>("/api/seller-ai/chat", { leadId, message: clean, currentProductId: productId });
+        }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
+        if (response.leadId) setLeadId(response.leadId);
+        if (response.leadCode) setLeadCode(response.leadCode);
+        if (response.journeyId) setJourneyId(response.journeyId);
         setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage }]);
         setQuickReplies(response.quickReplies);
         setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
@@ -273,7 +268,7 @@ export function SellerAiWidget({
         setIsLoading(false);
       }
     },
-    [leadId, productId],
+    [journeyId, leadId, productId, sessionId, storeSlug],
   );
 
   const continueWhatsapp = useCallback(async () => {
@@ -294,6 +289,7 @@ export function SellerAiWidget({
     try {
       const response = await postJson<{ whatsappUrl: string }>("/api/seller-ai/continue-whatsapp", {
         leadId,
+        journeyId: journeyId ?? undefined,
         selectedProductId: productId,
         customerPhone: normalizedPhone,
         customerName: customerName.trim() || undefined,
@@ -309,7 +305,7 @@ export function SellerAiWidget({
       setStep("phone_capture");
       setIsLoading(false);
     }
-  }, [customerName, customerPhone, customerPhoneIsValid, leadId, productId, requirePhoneBeforeWhatsapp, widgetCopy.phoneInvalidError, widgetCopy.redirectFailed]);
+  }, [customerName, customerPhone, customerPhoneIsValid, journeyId, leadId, productId, requirePhoneBeforeWhatsapp, widgetCopy.phoneInvalidError, widgetCopy.redirectFailed]);
 
   const requestWhatsappStep = useCallback(async () => {
     setError(null);

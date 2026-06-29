@@ -142,6 +142,7 @@ export async function logLeadEvent({
   productId,
   journeyId,
   metadata,
+  writeJourneyEvent = true,
 }: {
   leadId?: string | null;
   sessionId: string;
@@ -150,6 +151,7 @@ export async function logLeadEvent({
   productId?: string | null;
   journeyId?: string | null;
   metadata?: Prisma.InputJsonValue;
+  writeJourneyEvent?: boolean;
 }) {
   const leadEvent = await getPrisma().leadEvent.create({
     data: {
@@ -162,7 +164,7 @@ export async function logLeadEvent({
     },
   });
 
-  const journeyEventType = mapLeadEventToJourneyEvent(eventType);
+  const journeyEventType = writeJourneyEvent ? mapLeadEventToJourneyEvent(eventType) : null;
   if (journeyEventType) {
     const journeyFilters: Prisma.CustomerJourneyWhereInput[] = [];
     if (journeyId) journeyFilters.push({ id: journeyId });
