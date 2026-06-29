@@ -30,8 +30,8 @@ type ProductForReply = {
 };
 
 function includesAny(input: string, words: string[]) {
-  const text = input.toLowerCase();
-  return words.some((word) => text.includes(word));
+  const text = normalizeText(input);
+  return words.some((word) => text.includes(normalizeText(word)));
 }
 
 function normalizeText(input?: string | null) {
@@ -74,6 +74,10 @@ function priceLine({
   })}.`;
 }
 
+function hasPublishedPrice(product?: ProductForReply | null) {
+  return product?.priceCents != null && product.priceCents > 0;
+}
+
 function buildAssistantMessage({
   mode,
   userMessage,
@@ -91,28 +95,32 @@ function buildAssistantMessage({
   recommendations: SellerAiRecommendedProduct[];
   shouldAskPhone?: boolean;
 }) {
-  const text = userMessage.toLowerCase();
+  const text = normalizeText(userMessage);
   const recommendationNames = recommendations.slice(0, 3).map((item) => item.name);
 
   if (mode === "CLOSING_PREP") {
     return shouldAskPhone
-      ? "Perfecto. Te dejo la consulta armada para la tienda. ¿A qué WhatsApp pueden escribirte?"
+      ? `Perfecto. Te dejo la consulta armada para la tienda${product?.name ? ` con ${product.name}` : ""}. ¿A qué WhatsApp pueden escribirte?`
       : "Perfecto. Ya tengo la consulta bastante armada. Cuando quieras, puedes continuar por WhatsApp con este contexto.";
   }
 
   if (mode === "DECISION_SUPPORT") {
-    if (product && includesAny(text, ["precio", "cuánto", "cuanto", "cuesta", "vale", "costo"])) {
-      const price = priceLine({ product, store });
-      const shipping = includesAny(text, ["envío", "envio", "entrega", "delivery"]) ? " Sobre envío, mejor lo confirma la tienda." : "";
-      return `${price}${shipping} Te puedo pasar a WhatsApp con la consulta armada.`;
+    if (product && includesAny(text, ["precio", "cuanto", "cuesta", "vale", "costo"])) {
+      if (!hasPublishedPrice(product)) return "La tienda debe confirmarte el precio actualizado. Te puedo dejar la consulta armada para WhatsApp.";
+      return `${priceLine({ product, store })} La tienda puede confirmarte disponibilidad y forma de pago por WhatsApp.`;
     }
-    if (!product && includesAny(text, ["precio", "cuánto", "cuanto", "cuesta", "vale", "costo"])) {
-      const shipping = includesAny(text, ["envío", "envio", "entrega", "delivery"]) ? " Sobre envío, mejor lo confirma la tienda." : "";
-      return `El precio te lo muestro aquí si está disponible.${shipping} Te puedo pasar a WhatsApp con la consulta armada.`;
+    if (!product && includesAny(text, ["precio", "cuanto", "cuesta", "vale", "costo"])) {
+      return "La tienda debe confirmarte el precio actualizado. Te puedo dejar la consulta armada para WhatsApp.";
     }
-    if (includesAny(text, ["disponible", "stock", "envío", "envio", "garantía", "garantia", "talla", "color", "pago", "descuento"])) {
+    if (includesAny(text, ["disponible", "disponibilidad", "stock"])) {
+      return `Sobre disponibilidad, mejor lo confirma la tienda para no darte un dato incorrecto. Te puedo dejar la consulta lista por WhatsApp${product?.name ? ` preguntando por ${product.name}` : ""}.`;
+    }
+    if (includesAny(text, ["envio", "enviar", "entrega", "delivery"])) {
+      return "El envío lo confirma la tienda según tu zona. Puedo dejar la consulta lista por WhatsApp con el producto y tu duda.";
+    }
+    if (includesAny(text, ["garantia", "talla", "color", "pago", "descuento"])) {
       const subject = product?.name ? ` de ${product.name}` : "";
-      return `Esa duda${subject} conviene confirmarla con la tienda para no inventarte datos. Te puedo pasar a WhatsApp con la consulta armada.`;
+      return `Esa duda${subject} conviene confirmarla con la tienda para no darte un dato incorrecto. Te puedo dejar la consulta lista por WhatsApp.`;
     }
     if (recommendationNames.length > 0) {
       return `Para reducir la duda, compararía máximo estas opciones: ${recommendationNames.join(", ")}. ¿Cuál te interesa más?`;
@@ -132,13 +140,16 @@ function buildAssistantMessage({
       return `Para comparar sin marearte, miraría también: ${recommendationNames.join(", ")}. ¿Quieres seguir con ${product.name} o preguntar por una alternativa?`;
     }
     if (detectedNeed === "regalo") {
-      return `Perfecto. Si es para regalar, te ayudo a ver si ${product.name} encaja. ¿Es para alguien que lo usaría para trabajo, estudio o uso diario?`;
+      return `Perfecto. Si es para regalar, te ayudo a ver si ${product.name} encaja. ¿Es para alguien que estudia, trabaja o lo usaría a diario?`;
     }
     if (detectedNeed === "fotos") {
       return `Si lo quieres para fotos, conviene priorizar cámara, memoria y batería. ${product.name} puede servirte para redes y uso diario. ¿Quieres que te pase la consulta armada a WhatsApp?`;
     }
     if (detectedNeed) {
-      return `${product.name} puede encajar si lo quieres para ${detectedNeed}. ¿Priorizas precio, rapidez o que la tienda confirme disponibilidad?`;
+      if (detectedNeed === "estudio") {
+        return `Perfecto. Para estudio, ${product.name} puede encajar si buscas algo práctico para uso diario. ¿Quieres confirmar disponibilidad, precio o envío con la tienda?`;
+      }
+      return `${product.name} puede encajar si lo quieres para ${detectedNeed}. ¿Quieres confirmar disponibilidad, precio o envío con la tienda?`;
     }
     return `${product.name} puede ser buena opción si encaja con el uso que tienes en mente. ¿Lo buscas para trabajo, regalo o uso diario?`;
   }
@@ -320,6 +331,7 @@ export async function POST(request: Request) {
     product,
     category: product?.category,
     detectedNeed: signals.detectedNeed ?? updatedJourney?.detectedNeed,
+    objections: signals.objections.length > 0 ? signals.objections : updatedJourney?.objections,
     recommendedProducts: recommendations,
     usedReplies: messagesBeforeReply.filter((message) => message.role === MessageRole.USER).map((message) => message.content),
     lastUserMessage: parsed.data.message,

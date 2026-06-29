@@ -1,4 +1,5 @@
 import { sellerAiConfig } from "@/config/seller-ai";
+import { buildNextQuickReplies } from "@/lib/seller-ai/conversation-state";
 
 export type SellerAiMode = "DISCOVERY" | "PRODUCT_ADVISOR" | "DECISION_SUPPORT" | "CLOSING_PREP";
 
@@ -13,8 +14,8 @@ export type CommercialSignals = {
 
 type CommercialType = keyof typeof sellerAiConfig.commercialTypes;
 
-const strongIntentPattern = /\b(quiero|comprar|comprarlo|comprarla|me interesa|como compro|cómo compro|lo quiero|reservar|reserva|pedir|pedido|pagar|lo llevo|pasame info|pásame info)\b/i;
-const closingIntentPattern = /\b(quiero comprar|me interesa comprar|quiero pedir|quiero pagar|quiero reservar|lo compro|lo quiero comprar|comprarlo|comprarla|como compro|cómo compro|pásame para comprar|pasame para comprar|quiero continuar por whatsapp|continuar por whatsapp|reservar|pagar|lo llevo)\b/i;
+const strongIntentPattern = /\b(quiero|comprar|comprarlo|comprarla|me interesa|como compro|cómo compro|lo quiero|reservar|reserva|pedir|pedido|pagar|lo llevo|consultar por whatsapp|enviar consulta|dejar consulta|pasame info|pásame info)\b/i;
+const closingIntentPattern = /\b(quiero comprar|me interesa comprar|quiero pedir|quiero pagar|quiero reservar|lo compro|lo quiero comprar|comprarlo|comprarla|como compro|cómo compro|pásame para comprar|pasame para comprar|quiero continuar por whatsapp|continuar por whatsapp|consultar por whatsapp|enviar consulta por whatsapp|dejar consulta por whatsapp|reservar|pagar|lo llevo)\b/i;
 const objectionPatterns: Array<[RegExp, string]> = [
   [/\b(precio|cuanto|cuánto|cuesta|vale|costo)\b/i, "precio"],
   [/\b(disponible|disponibilidad|stock)\b/i, "disponibilidad"],
@@ -31,6 +32,7 @@ const needPatterns: Array<[RegExp, string]> = [
   [/\b(fotos|foto|camara|cámara)\b/i, "fotos"],
   [/\b(trabajo|oficina|negocio)\b/i, "trabajo"],
   [/\b(estudio|clases|universidad|colegio)\b/i, "estudio"],
+  [/\b(viaje|viajar|viajes)\b/i, "viaje"],
   [/\b(redes|instagram|tiktok|facebook)\b/i, "redes"],
   [/\b(juegos|gaming|jugar)\b/i, "juegos"],
   [/\b(compartir|familia|grupo)\b/i, "para compartir"],
@@ -133,64 +135,27 @@ export function buildQuickRepliesForMode({
   recommendedProducts,
   usedReplies,
   lastUserMessage,
+  objections,
 }: {
   mode: SellerAiMode;
   commercialType?: string | null;
   product?: { name?: string | null } | null;
   category?: { name?: string | null } | null;
   detectedNeed?: string | null;
+  objections?: string[] | string | null;
   recommendedProducts?: Array<{ name: string }>;
   usedReplies?: string[];
   lastUserMessage?: string | null;
 }) {
-  function normalizeReply(input?: string | null) {
-    return (input ?? "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim();
-  }
-
-  function replyMatchesNeed(reply: string) {
-    const normalizedReply = normalizeReply(reply);
-    const normalizedNeed = normalizeReply(detectedNeed);
-    if (!normalizedNeed) return false;
-    if (normalizedNeed === "regalo") return normalizedReply === "para regalar" || normalizedReply === "es para regalar";
-    if (normalizedNeed === "fotos") return normalizedReply === "fotos";
-    if (normalizedNeed === "uso personal") return normalizedReply === "para mi" || normalizedReply === "lo quiero para mi";
-    return normalizedReply === normalizedNeed;
-  }
-
-  function filterReplies(replies: string[]) {
-    const used = new Set((usedReplies ?? []).map(normalizeReply));
-    const last = normalizeReply(lastUserMessage);
-    return unique(replies)
-      .filter((reply) => {
-        const normalizedReply = normalizeReply(reply);
-        return normalizedReply && normalizedReply !== last && !used.has(normalizedReply) && !replyMatchesNeed(reply);
-      })
-      .slice(0, 5);
-  }
-
-  const commercialCopy = getCommercialTypeCopy(commercialType);
-  if (mode === "DECISION_SUPPORT") {
-    const productReply = product?.name ? `Me interesa ${product.name}` : "Me interesa";
-    return filterReplies(["Precio", "Disponibilidad", "Envío", productReply]);
-  }
-  if (mode === "CLOSING_PREP") {
-    const recommended = recommendedProducts?.[0]?.name ? `Me interesa ${recommendedProducts[0].name}` : null;
-    return filterReplies([recommended ?? "Me interesa", "Continuar por WhatsApp", "Quiero comprar"]);
-  }
-  if (detectedNeed === "regalo") {
-    const giftReplies = product?.name ? ["Estudiante", "Trabajo", "Viaje", "Algo práctico", "Algo económico"] : ["Mujer", "Hombre", "Niño/a", "Algo práctico", "Algo económico"];
-    return filterReplies(giftReplies);
-  }
-  if (detectedNeed === "fotos") return filterReplies(["Buena cámara", "Buena memoria", "Precio accesible", "Comparar opciones"]);
-  if (mode === "DISCOVERY") return filterReplies(commercialCopy.quickReplies);
-  if (mode === "PRODUCT_ADVISOR") {
-    const base = category?.name && /celular|telefono|teléfono|smartphone/i.test(category.name) ? ["Trabajo", "Fotos", "Redes", "Juegos"] : sellerAiConfig.modes.PRODUCT_ADVISOR.quickReplies;
-    return filterReplies(base);
-  }
-  const recommended = recommendedProducts?.[0]?.name ? `Me interesa ${recommendedProducts[0].name}` : null;
-  return filterReplies([recommended ?? "Me interesa", detectedNeed ? `Lo quiero para ${detectedNeed}` : "Quiero comprar", "Continuar por WhatsApp"]);
+  return buildNextQuickReplies({
+    mode,
+    commercialType,
+    product,
+    category,
+    detectedNeed,
+    objections,
+    recommendedProducts,
+    usedReplies,
+    lastUserMessage,
+  });
 }

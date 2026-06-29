@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Loader2, MessageCircle, Send, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SmartPhoneInput } from "@/components/forms/SmartPhoneInput";
 import { sellerAiConfig } from "@/config/seller-ai";
@@ -8,6 +8,7 @@ import { getVisitorSessionId } from "@/lib/session-id";
 import type { SellerAiMode as StorefrontSellerAiMode } from "@/lib/storefront-flow";
 import type { SellerAiMode as CommercialSellerAiMode } from "@/lib/seller-ai/modes";
 import { cn } from "@/lib/ui";
+import { SellerAiTrustBubble } from "./SellerAiTrustBubble";
 import { TypingIndicator } from "./TypingIndicator";
 
 type ChatMessage = {
@@ -76,7 +77,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 function hasStrongIntent(input: string) {
-  return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|pasar a whatsapp|quiero que me escriban/i.test(input);
+  return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|consultar por whatsapp|enviar consulta|dejar consulta|pasar a whatsapp|quiero que me escriban/i.test(input);
 }
 
 function normalizeReply(input?: string | null) {
@@ -84,11 +85,14 @@ function normalizeReply(input?: string | null) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[¿?¡!.,:;]/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
 export function SellerAiWidget({
   storeSlug,
+  storeName,
   productId,
   productName,
   productImageUrl,
@@ -128,18 +132,87 @@ export function SellerAiWidget({
   const [isLoading, setIsLoading] = useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
   const [shouldShowWhatsappCta, setShouldShowWhatsappCta] = useState(false);
+  const [hasStrongPurchaseIntent, setHasStrongPurchaseIntent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [manualWhatsappUrl, setManualWhatsappUrl] = useState<string | null>(null);
   const [redirectError, setRedirectError] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      if (typeof window === "undefined") return true;
+      const saved = window.localStorage.getItem("jakawi_seller_ai_sound_enabled");
+      return saved == null ? true : saved !== "false";
+    } catch {
+      return true;
+    }
+  });
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const openedRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const isClosed = step === "closed";
   const chatIsBusy = isLoading || isAssistantTyping;
-  const ctaIsStrong = shouldShowWhatsappCta;
+  const ctaIsStrong = hasStrongPurchaseIntent || commercialStage === "CLOSING_PREP";
   const showWhatsappCta = step === "chat" && messages.length > 0;
   const contextSubtitle = productName ? `Asesorando: ${productName}` : "Te ayuda a elegir";
+  const trustBubbleStorageKey = `jakawi_seller_ai_trust_hidden:${storeSlug}:${productId ?? "store"}:${sessionId}`;
+  const whatsappCtaText = ctaIsStrong
+    ? widgetCopy.sendWhatsappInquiry
+    : commercialStage === "DECISION_SUPPORT"
+      ? widgetCopy.consultWhatsapp
+      : productName
+        ? widgetCopy.leaveWhatsappInquiry
+        : widgetCopy.continueWhatsappLong;
+
+  const getAudioContext = useCallback(() => {
+    const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return null;
+    if (!audioContextRef.current) audioContextRef.current = new AudioContextClass();
+    return audioContextRef.current;
+  }, []);
+
+  const playChatTone = useCallback(
+    (kind: "send" | "receive") => {
+      if (!soundEnabled || typeof window === "undefined") return;
+      try {
+        const audioContext = getAudioContext();
+        if (!audioContext) return;
+        void audioContext.resume();
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const now = audioContext.currentTime;
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(kind === "send" ? 620 : 420, now);
+        oscillator.frequency.exponentialRampToValueAtTime(kind === "send" ? 760 : 520, now + 0.08);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(kind === "send" ? 0.035 : 0.028, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(now);
+        oscillator.stop(now + 0.14);
+      } catch {
+        // Chat sounds are optional and should never block the flow.
+      }
+    },
+    [getAudioContext, soundEnabled],
+  );
+
+  function toggleSound() {
+    setSoundEnabled((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("jakawi_seller_ai_sound_enabled", String(next));
+        if (next) {
+          const audioContext = getAudioContext();
+          void audioContext?.resume();
+        }
+      } catch {
+        // Preference storage is best effort.
+      }
+      return next;
+    });
+  }
 
   const displayedQuickReplies = useMemo(() => {
     const userMessages = messages.filter((message) => message.role === "user").map((message) => normalizeReply(message.content));
@@ -156,7 +229,7 @@ export function SellerAiWidget({
         if (normalizedNeed === "uso personal" && normalizedReply === "para mi") return false;
         return normalizedReply !== normalizedNeed;
       })
-      .slice(0, 5);
+      .slice(0, 4);
   }, [detectedNeed, messages, quickReplies]);
 
   const teaserText = useMemo(() => {
@@ -293,6 +366,7 @@ export function SellerAiWidget({
     async (value: string) => {
       const clean = value.trim();
       if (!clean || (!leadId && !journeyId)) return;
+      playChatTone("send");
       setInput("");
       setMessages((current) => [...current, { id: messageId(), role: "user", content: clean }]);
       setRecommendedProducts([]);
@@ -301,7 +375,10 @@ export function SellerAiWidget({
       setIsLoading(true);
       setIsAssistantTyping(true);
       setError(null);
-      if (hasStrongIntent(clean)) setShouldShowWhatsappCta(true);
+      if (hasStrongIntent(clean)) {
+        setShouldShowWhatsappCta(true);
+        setHasStrongPurchaseIntent(true);
+      }
       const typingDelay = assistantTypingDelay();
       const startedAt = Date.now();
 
@@ -330,12 +407,14 @@ export function SellerAiWidget({
         if (response.stage) setCommercialStage(response.stage);
         if (response.detectedNeed !== undefined) setDetectedNeed(response.detectedNeed ?? null);
         setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage ?? response.message ?? "" }]);
+        playChatTone("receive");
         setQuickReplies(response.quickReplies);
         setShowRecommendedProductCards(response.showRecommendedProducts === true);
         setRecommendedProductContextKey(response.showRecommendedProducts === true ? currentProductKey : null);
         setRecommendedProducts(response.showRecommendedProducts === true ? (response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
         setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
-        if (response.shouldStartPhoneCapture && requirePhoneBeforeWhatsapp) setStep("phone_capture");
+        if (response.shouldStartPhoneCapture) setHasStrongPurchaseIntent(true);
+        if ((response.shouldStartPhoneCapture || /a qu[eé] whatsapp pueden escribirte/i.test(response.assistantMessage ?? response.message ?? "")) && requirePhoneBeforeWhatsapp) setStep("phone_capture");
       } catch {
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
@@ -345,7 +424,7 @@ export function SellerAiWidget({
         setIsLoading(false);
       }
     },
-    [currentProductKey, journeyId, leadId, productId, requirePhoneBeforeWhatsapp, sessionId, storeSlug],
+    [currentProductKey, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, sessionId, storeSlug],
   );
 
   const continueWhatsapp = useCallback(async () => {
@@ -455,9 +534,14 @@ export function SellerAiWidget({
                 <Sparkles className="size-4 shrink-0 text-brand-lime" />
                 <h3 className="truncate text-sm font-black leading-5">{widgetTitle}</h3>
               </div>
-              <button type="button" onClick={closeWidget} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label="Cerrar Seller AI">
-                <X className="size-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={toggleSound} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label={soundEnabled ? "Silenciar chat" : "Activar sonido del chat"}>
+                  {soundEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+                </button>
+                <button type="button" onClick={closeWidget} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label="Cerrar Seller AI">
+                  <X className="size-4" />
+                </button>
+              </div>
             </div>
             <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
               <p className="truncate text-[11px] font-semibold leading-4 text-white/75">{contextSubtitle}</p>
@@ -482,6 +566,8 @@ export function SellerAiWidget({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             <div className="flex min-h-full flex-col justify-end gap-2.5">
+              {messages.length > 0 ? <SellerAiTrustBubble key={trustBubbleStorageKey} storeName={storeName} productName={productName} storageKey={trustBubbleStorageKey} /> : null}
+
               {messages.map((message) => (
                 <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
                   <div
@@ -603,7 +689,7 @@ export function SellerAiWidget({
                   )}
                 >
                   <MessageCircle className="size-4" />
-                  {productName ? widgetCopy.leaveWhatsappInquiry : ctaIsStrong ? widgetCopy.continueWhatsappLong : widgetCopy.leaveWhatsappInquiry}
+                  {whatsappCtaText}
                 </button>
               ) : null}
             </div>
