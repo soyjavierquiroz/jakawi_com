@@ -5,7 +5,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { SmartPhoneInput } from "@/components/forms/SmartPhoneInput";
 import { sellerAiConfig } from "@/config/seller-ai";
 import { getVisitorSessionId } from "@/lib/session-id";
-import type { SellerAiMode } from "@/lib/storefront-flow";
+import type { SellerAiMode as StorefrontSellerAiMode } from "@/lib/storefront-flow";
+import type { SellerAiMode as CommercialSellerAiMode } from "@/lib/seller-ai/modes";
 import { cn } from "@/lib/ui";
 import { TypingIndicator } from "./TypingIndicator";
 
@@ -17,6 +18,15 @@ type ChatMessage = {
 
 type WidgetStep = "closed" | "chat" | "phone_capture" | "redirecting";
 
+type RecommendedProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  priceLabel: string;
+  imageUrl?: string | null;
+  shortReason?: string | null;
+};
+
 type SellerAiWidgetProps = {
   storeSlug: string;
   storeName: string;
@@ -25,7 +35,7 @@ type SellerAiWidgetProps = {
   categoryName?: string | null;
   whatsapp?: string;
   planCode?: string | null;
-  mode?: SellerAiMode;
+  mode?: StorefrontSellerAiMode;
   requirePhoneBeforeWhatsapp?: boolean;
   initiallyHidden?: boolean;
   triggerLabel?: string;
@@ -92,6 +102,9 @@ export function SellerAiWidget({
   const [journeyId, setJourneyId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [quickReplies, setQuickReplies] = useState<string[]>(sellerAiConfig.quickReplies.default);
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
+  const [commercialMode, setCommercialMode] = useState<CommercialSellerAiMode | null>(null);
+  const [commercialStage, setCommercialStage] = useState<CommercialSellerAiMode | null>(null);
   const [input, setInput] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerPhoneIsValid, setCustomerPhoneIsValid] = useState(false);
@@ -202,15 +215,21 @@ export function SellerAiWidget({
         leadCode: string;
         journeyId?: string;
         message: string;
+        mode?: CommercialSellerAiMode;
+        stage?: CommercialSellerAiMode;
         quickReplies: string[];
+        recommendedProducts?: RecommendedProduct[];
       }>("/api/seller-ai/opening", { sessionId, storeSlug, productId, journeyId: resolvedJourneyId });
       const [opening] = await Promise.all([openingPromise, openingDelay]);
       setLeadId(opening.leadId);
       nextLeadId = opening.leadId;
       setLeadCode(opening.leadCode);
       if (opening.journeyId) setJourneyId(opening.journeyId);
+      if (opening.mode) setCommercialMode(opening.mode);
+      if (opening.stage) setCommercialStage(opening.stage);
       setMessages([{ id: messageId(), role: "assistant", content: opening.message }]);
       setQuickReplies(opening.quickReplies);
+      setRecommendedProducts((opening.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts));
       if (options?.afterOpen && nextLeadId) setStep(options.afterOpen);
       return nextLeadId;
     } catch {
@@ -248,7 +267,11 @@ export function SellerAiWidget({
           leadCode?: string;
           journeyId?: string;
           assistantMessage: string;
+          message?: string;
+          mode?: CommercialSellerAiMode;
+          stage?: CommercialSellerAiMode;
           quickReplies: string[];
+          recommendedProducts?: RecommendedProduct[];
           shouldShowWhatsappCta: boolean;
         }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
@@ -256,8 +279,11 @@ export function SellerAiWidget({
         if (response.leadId) setLeadId(response.leadId);
         if (response.leadCode) setLeadCode(response.leadCode);
         if (response.journeyId) setJourneyId(response.journeyId);
-        setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage }]);
+        if (response.mode) setCommercialMode(response.mode);
+        if (response.stage) setCommercialStage(response.stage);
+        setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage ?? response.message ?? "" }]);
         setQuickReplies(response.quickReplies);
+        setRecommendedProducts((response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts));
         setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
       } catch {
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
@@ -365,6 +391,8 @@ export function SellerAiWidget({
           )}
           style={step === "chat" ? { height: sellerAiConfig.bottomSheetHeightMobile } : undefined}
           aria-label={widgetTitle}
+          data-seller-ai-mode={commercialMode ?? undefined}
+          data-seller-ai-stage={commercialStage ?? undefined}
         >
           <header className="shrink-0 border-b border-black/10 bg-brand-dark px-4 py-3 text-white">
             <div className="flex items-center justify-between gap-3">
@@ -404,6 +432,36 @@ export function SellerAiWidget({
               ) : null}
 
               {error ? <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2.5 text-[15px] font-semibold leading-6 text-red-700">{error}</div> : null}
+
+              {step === "chat" && recommendedProducts.length > 0 ? (
+                <div className="w-full rounded-2xl rounded-bl-md border border-brand-border bg-white p-2.5 shadow-sm">
+                  <div className="space-y-2">
+                    {recommendedProducts.map((product) => (
+                      <div key={product.id} className="grid grid-cols-[auto_1fr] gap-2 rounded-md bg-brand-muted p-2">
+                        {product.imageUrl ? <img src={product.imageUrl} alt="" className="size-12 rounded-md object-cover" /> : null}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-brand-dark">{product.name}</p>
+                          <p className="text-xs font-bold text-neutral-700">{product.priceLabel}</p>
+                          {product.shortReason ? <p className="line-clamp-2 text-xs font-semibold leading-4 text-neutral-500">{product.shortReason}</p> : null}
+                          <div className="mt-2 flex gap-2">
+                            <a href={`/${storeSlug}/p/${product.slug}`} className="inline-flex h-8 items-center justify-center rounded-full border border-brand-border bg-white px-3 text-xs font-black text-brand-dark transition hover:border-brand">
+                              Ver
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => void sendMessage(`Me interesa ${product.name}`)}
+                              disabled={chatIsBusy || !leadId}
+                              className="inline-flex h-8 items-center justify-center rounded-full bg-brand px-3 text-xs font-black text-white transition hover:bg-brand-dark disabled:opacity-50"
+                            >
+                              Me interesa
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {step === "phone_capture" ? (
                 <div className="rounded-2xl border border-brand-border bg-white p-3 shadow-sm">
