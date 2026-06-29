@@ -1,14 +1,17 @@
-import { LeadEventType, LeadStatus } from "@prisma/client";
+import { CommercialSnapshotChannel, JourneyEventType, LeadEventType, LeadStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrisma } from "@/lib/prisma";
+import { addJourneyEvent, getOrCreateCustomerJourney, updateCustomerJourney } from "@/lib/seller-ai/journey";
 import { logLeadEvent } from "@/lib/seller-ai/leads";
+import { createCommercialSnapshot } from "@/lib/seller-ai/snapshot";
 import { generateLeadSummary } from "@/lib/seller-ai/templates";
 import { buildWhatsappLeadMessage, buildWhatsappUrl, isReasonableCustomerPhone, normalizeCustomerPhone } from "@/lib/seller-ai/whatsapp";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 const continueSchema = z.object({
   leadId: z.string().min(1),
+  journeyId: z.string().min(1).optional(),
   selectedProductId: z.string().optional(),
   customerPhone: z.string().trim().optional(),
   customerName: z.string().trim().max(80).optional(),
@@ -26,6 +29,13 @@ export async function POST(request: Request) {
 
   const productId = parsed.data.selectedProductId ?? lead.selectedProductId ?? lead.currentProductId ?? undefined;
   const product = productId ? await getPrisma().product.findFirst({ where: { id: productId, storeId: lead.storeId, isVisible: true } }) : null;
+  const { journey } = await getOrCreateCustomerJourney({
+    storeId: lead.storeId,
+    sessionId: lead.sessionId,
+    source: "whatsapp_handoff",
+    productId: product?.id,
+    journeyId: parsed.data.journeyId ?? lead.journeyId,
+  });
   const customerPhone = parsed.data.customerPhone ? normalizeCustomerPhone(parsed.data.customerPhone) : lead.customerPhone;
   const customerName = parsed.data.customerName || lead.customerName;
   const flow = getStorefrontFlow(lead.store.plan);
@@ -56,19 +66,72 @@ export async function POST(request: Request) {
     product,
     summary,
   });
+  const snapshot = await createCommercialSnapshot({
+    journeyId: journey.id,
+    leadId: lead.id,
+    channel: CommercialSnapshotChannel.WHATSAPP,
+    customerName,
+    customerPhone,
+    city: lead.city,
+    currentItem: product
+      ? {
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          priceCents: product.priceCents,
+          currency: lead.store.currency ?? product.currency,
+        }
+      : undefined,
+    recommendedItems: lead.recommendedProducts ?? undefined,
+    viewedItems: lead.viewedProducts ?? undefined,
+    detectedNeed: journey.detectedNeed,
+    objections: Array.isArray(lead.objections) ? lead.objections.join(", ") : journey.objections,
+    budget: lead.budget,
+    urgency: lead.urgency,
+    intentScore: Math.max(lead.intentScore, 75),
+    customerSummary: summary,
+    whatsappMessage: message,
+  });
+  const finalMessage = snapshot.whatsappMessage ?? snapshot.channelMessage ?? message;
 
   const updatedLead = await getPrisma().lead.update({
     where: { id: lead.id },
     data: {
+      journeyId: journey.id,
+      snapshotId: snapshot.id,
       status: LeadStatus.WHATSAPP_CLICKED,
       whatsappClickedAt: new Date(),
       customerPhone,
       customerName,
       selectedProductId: product?.id ?? lead.selectedProductId,
       conversationSummary: summary,
-      whatsappMessage: message,
+      whatsappMessage: finalMessage,
       intentScore: Math.max(lead.intentScore, 75),
     },
+  });
+  await updateCustomerJourney({
+    journeyId: journey.id,
+    productId: product?.id,
+    customerName,
+    customerPhone,
+    city: lead.city,
+    budget: lead.budget,
+    urgency: lead.urgency,
+    objections: Array.isArray(lead.objections) ? lead.objections.join(", ") : null,
+    conversationSummary: summary,
+    intentScore: Math.max(lead.intentScore, 75),
+  });
+  await addJourneyEvent({
+    journeyId: journey.id,
+    type: JourneyEventType.SNAPSHOT_CREATED,
+    productId: product?.id,
+    payload: { snapshotId: snapshot.id, snapshotCode: snapshot.snapshotCode, leadId: lead.id },
+  });
+  await addJourneyEvent({
+    journeyId: journey.id,
+    type: JourneyEventType.CHANNEL_CLICKED,
+    productId: product?.id,
+    payload: { channel: CommercialSnapshotChannel.WHATSAPP, snapshotCode: snapshot.snapshotCode },
   });
 
   await logLeadEvent({
@@ -77,12 +140,17 @@ export async function POST(request: Request) {
     storeId: lead.storeId,
     eventType: LeadEventType.WHATSAPP_CLICKED,
     productId: product?.id,
+    journeyId: journey.id,
+    metadata: { snapshotCode: snapshot.snapshotCode },
+    writeJourneyEvent: false,
   });
 
   return NextResponse.json({
     ok: true,
-    whatsappUrl: buildWhatsappUrl(lead.store, message),
+    whatsappUrl: buildWhatsappUrl(lead.store, finalMessage),
     leadCode: updatedLead.leadCode,
-    message,
+    journeyCode: journey.journeyCode,
+    snapshotCode: snapshot.snapshotCode,
+    message: finalMessage,
   });
 }

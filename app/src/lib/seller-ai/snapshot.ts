@@ -88,9 +88,10 @@ export async function createCommercialSnapshot({
   channelMessage?: string | null;
 }) {
   const snapshotCode = await createUniqueSnapshotCode();
+  const providedMessage = whatsappMessage && whatsappMessage.includes(snapshotCode) ? whatsappMessage : whatsappMessage ? `${whatsappMessage}\nSnapshot: ${snapshotCode}` : null;
   const generatedMessage =
     channelMessage ??
-    whatsappMessage ??
+    providedMessage ??
     buildChannelMessageFromSnapshot({
       snapshotCode,
       customerSummary,
@@ -122,7 +123,7 @@ export async function createCommercialSnapshot({
       urgency,
       intentScore,
       customerSummary,
-      whatsappMessage: whatsappMessage ?? generatedMessage,
+      whatsappMessage: providedMessage ?? generatedMessage,
       channelMessage: generatedMessage,
     },
   });
