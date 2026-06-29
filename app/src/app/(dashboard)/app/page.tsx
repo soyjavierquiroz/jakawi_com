@@ -43,8 +43,9 @@ export default async function DashboardPage() {
   ]);
   const leadClassifications = leadRows.map((lead) => classifyLead(lead));
   const contactableCount = leadClassifications.filter((lead) => lead.isContactable).length;
+  const whatsappStartedCount = leadClassifications.filter((lead) => lead.isWhatsappStartedOnly).length;
   const anonymousIntentCount = leadClassifications.filter((lead) => lead.isAnonymousIntent).length;
-  const leadCount = contactableCount + anonymousIntentCount;
+  const leadCount = contactableCount + whatsappStartedCount + anonymousIntentCount;
   const publicUrl = getPublicStoreUrl(store.slug);
   const flow = getStorefrontFlow(store.plan);
   const planState = getStorePlanState(store);
@@ -86,7 +87,7 @@ export default async function DashboardPage() {
     if (leadCount > 0) {
       return {
         title: "Revisa clientes y señales.",
-        text: "Seller AI separa oportunidades contactables de intención anónima para que priorices mejor.",
+        text: "Seller AI separa oportunidades contactables, handoffs iniciados e intención anónima para que priorices mejor.",
         label: "Ver clientes y señales",
         href: siteConfig.routes.leads,
       };
@@ -162,17 +163,21 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-black text-brand-dark">Clientes y señales</p>
-              <p className="mt-1 text-sm font-semibold text-neutral-500">Oportunidades preparadas por Seller AI.</p>
+              <p className="mt-1 text-sm font-semibold text-neutral-500">Oportunidades y señales preparadas por Seller AI.</p>
             </div>
             <UsersRound className="size-5 text-brand" />
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="rounded-md bg-brand-muted px-3 py-2">
-              <p className="text-[11px] font-black text-neutral-500">Contactables</p>
+              <p className="truncate text-[11px] font-black text-neutral-500">Contactables</p>
               <p className="text-xl font-black leading-6 text-brand-dark">{contactableCount}</p>
             </div>
             <div className="rounded-md bg-brand-muted px-3 py-2">
-              <p className="text-[11px] font-black text-neutral-500">Señales</p>
+              <p className="truncate text-[11px] font-black text-neutral-500">WhatsApp</p>
+              <p className="text-xl font-black leading-6 text-brand-dark">{whatsappStartedCount}</p>
+            </div>
+            <div className="rounded-md bg-brand-muted px-3 py-2">
+              <p className="truncate text-[11px] font-black text-neutral-500">Intención</p>
               <p className="text-xl font-black leading-6 text-brand-dark">{anonymousIntentCount}</p>
             </div>
           </div>

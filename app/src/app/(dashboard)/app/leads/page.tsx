@@ -5,8 +5,7 @@ import { normalizePhone } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { classifyIntent } from "@/lib/seller-ai/intent";
-import { classifyLead, getLeadWhatsappMessage, visibleLeadWhere } from "@/lib/seller-ai/leads";
-import { buildWhatsappUrl } from "@/lib/seller-ai/whatsapp";
+import { classifyLead, visibleLeadWhere } from "@/lib/seller-ai/leads";
 import { cn } from "@/lib/ui";
 import { CustomerJourneyStage, JourneyEventType, LeadEventType, LeadStatus, Prisma } from "@prisma/client";
 
@@ -28,22 +27,17 @@ const stageLabels: Record<string, string> = {
   CLOSING_PREP: "Cierre",
 };
 
-const contactMethodLabels = {
-  PHONE: "Teléfono",
-  WHATSAPP: "WhatsApp",
-  NONE: "Sin contacto",
-} as const;
-
 const groups = [
-  { key: "contactable", label: "Contactables", description: "Clientes con WhatsApp, teléfono o consulta enviada." },
+  { key: "contactable", label: "Contactables", description: "Clientes con teléfono o contacto directo del comprador." },
+  { key: "whatsapp", label: "WhatsApp iniciado", description: "Intentaron pasar a WhatsApp, pero no dejaron teléfono en JAKAWI." },
   { key: "intent", label: "Intención", description: "Visitantes con señales de compra, pero sin contacto directo." },
-  { key: "all", label: "Todos", description: "Contactables e intención anónima." },
+  { key: "all", label: "Todos", description: "Contactables, WhatsApp iniciado e intención anónima." },
 ] as const;
 
 const filters = [
   { key: "all", label: "Todos" },
   { key: "high", label: "Alta intención" },
-  { key: "whatsapp", label: "WhatsApp" },
+  { key: "whatsapp", label: "WhatsApp iniciado" },
   { key: "new", label: "Nuevos" },
   { key: "anonymous", label: "Anónimos" },
 ] as const;
@@ -78,6 +72,13 @@ function filterWhere(filter: string): Prisma.LeadWhereInput {
   if (filter === "high") return { OR: [{ intentScore: { gte: 70 } }, { journey: { stage: { in: [CustomerJourneyStage.DECISION_SUPPORT, CustomerJourneyStage.CLOSING_PREP] } } }] };
   if (filter === "whatsapp") return { OR: [{ status: LeadStatus.WHATSAPP_CLICKED }, { whatsappClickedAt: { not: null } }, { events: { some: { eventType: LeadEventType.WHATSAPP_CLICKED } } }] };
   return {};
+}
+
+function statusLabelForLead(status: LeadStatus, classification: ReturnType<typeof classifyLead>) {
+  if (!classification.isContactable && status === LeadStatus.CONTACTED) return classification.isWhatsappStartedOnly ? "Handoff iniciado" : "Señal sin contacto";
+  if (!classification.isContactable && status === LeadStatus.WHATSAPP_CLICKED) return "WhatsApp iniciado";
+  if (!classification.isContactable && status === LeadStatus.WON) return "Listo para cierre, sin contacto";
+  return statusLabels[status] ?? status;
 }
 
 function isHighIntent(lead: { intentScore: number; journey?: { stage?: CustomerJourneyStage | null; intentScore?: number | null } | null }) {
@@ -176,17 +177,21 @@ export default async function LeadsPage({
   ]);
 
   const statRows = statLeads.map((lead) => ({ lead, classification: classifyLead(lead) }));
-  const contactableCount = statRows.filter((row) => row.classification.isContactable).length;
-  const anonymousCount = statRows.filter((row) => row.classification.isAnonymousIntent).length;
-  const highIntentCount = statRows.filter((row) => isHighIntent(row.lead)).length;
+  const visibleRows = statRows.filter((row) => row.classification.isContactable || row.classification.isWhatsappStartedOnly || row.classification.isAnonymousIntent);
+  const contactableCount = visibleRows.filter((row) => row.classification.isContactable).length;
+  const whatsappStartedCount = visibleRows.filter((row) => row.classification.isWhatsappStartedOnly).length;
+  const anonymousCount = visibleRows.filter((row) => row.classification.isAnonymousIntent).length;
+  const visibleTotal = contactableCount + whatsappStartedCount + anonymousCount;
+  const highIntentCount = visibleRows.filter((row) => isHighIntent(row.lead)).length;
 
   const groupedLeads = candidateLeads
     .map((lead) => ({ lead, classification: classifyLead(lead) }))
     .filter((row) => {
       if (activeFilter === "anonymous" && !row.classification.isAnonymousIntent) return false;
       if (activeGroup === "contactable") return row.classification.isContactable;
+      if (activeGroup === "whatsapp") return row.classification.isWhatsappStartedOnly;
       if (activeGroup === "intent") return row.classification.isAnonymousIntent;
-      return row.classification.isContactable || row.classification.isAnonymousIntent;
+      return row.classification.isContactable || row.classification.isWhatsappStartedOnly || row.classification.isAnonymousIntent;
     });
   const total = groupedLeads.length;
   const leads = groupedLeads.slice((page - 1) * pageSize, page * pageSize);
@@ -208,11 +213,11 @@ export default async function LeadsPage({
         <div>
           <p className="text-sm font-bold text-brand-dark">Leads</p>
           <h1 className="text-3xl font-black md:text-4xl">Clientes y señales</h1>
-          <p className="mt-2 text-sm font-semibold text-neutral-600">Separa clientes contactables de visitantes con intención anónima.</p>
+          <p className="mt-2 text-sm font-semibold text-neutral-600">Separa clientes contactables, handoffs iniciados y visitantes con intención.</p>
         </div>
         <div className="inline-flex h-11 items-center gap-2 rounded-md bg-brand-soft px-4 text-sm font-black text-brand-dark">
           <UsersRound className="size-4" />
-          {total} en vista
+          {visibleTotal} total
         </div>
       </div>
 
@@ -222,14 +227,15 @@ export default async function LeadsPage({
           <p className="text-xl font-black leading-6 text-brand-dark">{contactableCount}</p>
         </div>
         <div className="min-w-0 rounded-md bg-brand-muted px-2 py-2 text-center">
-          <p className="truncate text-[11px] font-black text-neutral-500">Intención anónima</p>
-          <p className="text-xl font-black leading-6 text-brand-dark">{anonymousCount}</p>
+          <p className="truncate text-[11px] font-black text-neutral-500">WhatsApp iniciado</p>
+          <p className="text-xl font-black leading-6 text-brand-dark">{whatsappStartedCount}</p>
         </div>
         <div className="min-w-0 rounded-md bg-brand-muted px-2 py-2 text-center">
-          <p className="truncate text-[11px] font-black text-neutral-500">Alta intención</p>
-          <p className="text-xl font-black leading-6 text-brand-dark">{highIntentCount}</p>
+          <p className="truncate text-[11px] font-black text-neutral-500">Intención</p>
+          <p className="text-xl font-black leading-6 text-brand-dark">{anonymousCount}</p>
         </div>
       </div>
+      <p className="text-xs font-black text-neutral-500">Alta intención: {highIntentCount}</p>
 
       <div>
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -284,9 +290,10 @@ export default async function LeadsPage({
             const objections = lead.journey?.objections ?? snapshot?.objections;
             const lastActivity = lead.lastActivityAt ?? lead.updatedAt ?? lead.createdAt;
             const contactPhone = lead.customerPhone ?? snapshot?.customerPhone;
-            const whatsappMessage = getLeadWhatsappMessage(lead);
-            const whatsappUrl = contactPhone ? buildCustomerWhatsappUrl(contactPhone, lead.leadCode) : classification.canOpenWhatsapp && whatsappMessage ? buildWhatsappUrl(lead.store, whatsappMessage) : null;
+            const whatsappUrl = contactPhone && classification.canOpenWhatsapp ? buildCustomerWhatsappUrl(contactPhone, lead.leadCode) : null;
             const signals = getSignals({ detectedNeed, objections, stage: lead.journey?.stage });
+            const primaryBadge = classification.isContactable ? "Contactable" : classification.isWhatsappStartedOnly ? "WhatsApp iniciado" : "Intención";
+            const secondaryBadge = classification.isContactable ? "Teléfono" : classification.isWhatsappStartedOnly ? "Sin teléfono" : lead.visitorId ? "Mismo dispositivo" : "Anónimo";
 
             return (
               <article key={lead.id} className="rounded-lg border border-brand-border bg-brand-paper p-3 shadow-sm md:p-4">
@@ -294,15 +301,15 @@ export default async function LeadsPage({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={cn("rounded-full px-2 py-1 text-[11px] font-black", classification.isContactable ? "bg-brand-dark text-white" : "bg-brand-soft text-brand-dark")}>
-                        {classification.isContactable ? "Contactable" : "Intención"}
+                        {primaryBadge}
                       </span>
                       <p className="font-mono text-sm font-black text-brand-dark">{lead.leadCode}</p>
                       <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-neutral-600 ring-1 ring-brand-border">{classifyIntent(lead.intentScore)}</span>
-                      <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-neutral-600 ring-1 ring-brand-border">{statusLabels[lead.status] ?? lead.status}</span>
+                      <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-neutral-600 ring-1 ring-brand-border">{statusLabelForLead(lead.status, classification)}</span>
                     </div>
                     <p className="mt-1 text-xs font-bold text-neutral-500">{relativeTime(lastActivity)}</p>
                   </div>
-                  <span className="shrink-0 rounded-full bg-brand-muted px-2 py-1 text-[11px] font-black text-neutral-600">{contactMethodLabels[classification.contactMethod]}</span>
+                  <span className="shrink-0 rounded-full bg-brand-muted px-2 py-1 text-[11px] font-black text-neutral-600">{secondaryBadge}</span>
                 </div>
 
                 <div className="mt-3">
@@ -316,11 +323,17 @@ export default async function LeadsPage({
                           locale: lead.store.locale,
                         })} · `
                       : ""}
-                    {classification.isContactable ? contactPhone ?? "WhatsApp o consulta enviada" : shortSummary(lead.conversationSummary ?? lead.journey?.conversationSummary)}
+                    {classification.isContactable
+                      ? contactPhone
+                      : classification.isWhatsappStartedOnly
+                        ? "El comprador intentó pasar a WhatsApp. No dejó teléfono en JAKAWI."
+                        : shortSummary(lead.conversationSummary ?? lead.journey?.conversationSummary)}
                   </p>
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black">
+                  {classification.isWhatsappStartedOnly ? <span className="rounded-full bg-brand-muted px-2 py-1 text-brand-dark">Handoff iniciado</span> : null}
+                  {classification.isWhatsappStartedOnly ? <span className="rounded-full bg-white px-2 py-1 text-neutral-600 ring-1 ring-brand-border">Sin teléfono capturado</span> : null}
                   {classification.isAnonymousIntent ? <span className="rounded-full bg-brand-muted px-2 py-1 text-brand-dark">Visitante con intención</span> : null}
                   {classification.isAnonymousIntent ? <span className="rounded-full bg-white px-2 py-1 text-neutral-600 ring-1 ring-brand-border">No contactable todavía</span> : null}
                   {signals.slice(0, 3).map((signal) => (
@@ -333,7 +346,7 @@ export default async function LeadsPage({
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Link href={`/app/leads/${lead.id}`} className="inline-flex h-10 items-center justify-center rounded-md border border-brand-border px-3 text-sm font-black text-brand-dark hover:border-brand">
-                    Ver detalle
+                    {classification.isContactable ? "Ver detalle" : "Ver contexto"}
                   </Link>
                   {whatsappUrl ? (
                     <a href={whatsappUrl} target="_blank" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand px-3 text-sm font-black text-white hover:bg-brand-dark">
@@ -341,7 +354,7 @@ export default async function LeadsPage({
                       WhatsApp
                     </a>
                   ) : (
-                    <span className="inline-flex h-10 items-center justify-center rounded-md bg-brand-muted px-3 text-sm font-black text-brand-dark">Sin contacto directo</span>
+                    <span className="inline-flex h-10 items-center justify-center rounded-md bg-brand-muted px-3 text-sm font-black text-brand-dark">{classification.isWhatsappStartedOnly ? "Sin teléfono capturado" : "Sin contacto directo"}</span>
                   )}
                 </div>
               </article>

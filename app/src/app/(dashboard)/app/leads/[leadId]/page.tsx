@@ -6,8 +6,7 @@ import { normalizePhone } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { classifyIntent } from "@/lib/seller-ai/intent";
-import { classifyLead, getLeadWhatsappMessage } from "@/lib/seller-ai/leads";
-import { buildWhatsappUrl } from "@/lib/seller-ai/whatsapp";
+import { classifyLead } from "@/lib/seller-ai/leads";
 
 const statusLabels: Record<string, string> = {
   BROWSING: "Navegando",
@@ -36,6 +35,25 @@ function recommendedNames(value: unknown) {
 
 function buildCustomerWhatsappUrl(phone: string, leadCode: string) {
   return `https://wa.me/${normalizePhone(phone)}?text=${encodeURIComponent(`Hola, te escribo por tu consulta ${leadCode} en JAKAWI.`)}`;
+}
+
+function titleForLead(classification: ReturnType<typeof classifyLead>) {
+  if (classification.isContactable) return "Cliente contactable";
+  if (classification.isWhatsappStartedOnly) return "WhatsApp iniciado";
+  return "Visitante con intención";
+}
+
+function descriptionForLead(classification: ReturnType<typeof classifyLead>) {
+  if (classification.isContactable) return null;
+  if (classification.isWhatsappStartedOnly) return "El comprador intentó pasar a WhatsApp, pero no dejó teléfono en JAKAWI.";
+  return "No dejó contacto directo.";
+}
+
+function statusLabelForLead(status: string, classification: ReturnType<typeof classifyLead>) {
+  if (!classification.isContactable && status === "CONTACTED") return classification.isWhatsappStartedOnly ? "Handoff iniciado" : "Señal sin contacto";
+  if (!classification.isContactable && status === "WHATSAPP_CLICKED") return "WhatsApp iniciado";
+  if (!classification.isContactable && status === "WON") return "Listo para cierre, sin contacto";
+  return statusLabels[status] ?? status;
 }
 
 export default async function LeadDetailPage({
@@ -71,8 +89,8 @@ export default async function LeadDetailPage({
   const latestSnapshot = lead.activeSnapshot ?? lead.snapshots[0] ?? null;
   const classification = classifyLead(lead);
   const contactPhone = lead.customerPhone ?? latestSnapshot?.customerPhone;
-  const whatsappMessage = getLeadWhatsappMessage(lead);
-  const whatsappUrl = contactPhone ? buildCustomerWhatsappUrl(contactPhone, lead.leadCode) : classification.canOpenWhatsapp && whatsappMessage ? buildWhatsappUrl(lead.store, whatsappMessage) : null;
+  const whatsappUrl = contactPhone && classification.canOpenWhatsapp ? buildCustomerWhatsappUrl(contactPhone, lead.leadCode) : null;
+  const detailDescription = descriptionForLead(classification);
   const detectedNeed = lead.journey?.detectedNeed ?? latestSnapshot?.detectedNeed;
   const budget = lead.journey?.budget ?? latestSnapshot?.budget ?? lead.budget;
   const urgency = lead.journey?.urgency ?? latestSnapshot?.urgency ?? lead.urgency;
@@ -98,8 +116,8 @@ export default async function LeadDetailPage({
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-sm font-black text-brand-dark">{lead.leadCode}</p>
-          <h1 className="text-3xl font-black md:text-4xl">{classification.isContactable ? "Cliente contactable" : "Visitante con intención"}</h1>
-          {!classification.isContactable ? <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">No dejó contacto. Puedes usar esta señal para mejorar productos, mensajes o futuras campañas.</p> : null}
+          <h1 className="text-3xl font-black md:text-4xl">{titleForLead(classification)}</h1>
+          {detailDescription ? <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">{detailDescription}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {whatsappUrl ? (
@@ -133,7 +151,7 @@ export default async function LeadDetailPage({
               </form>
             </>
           ) : (
-            <span className="inline-flex h-11 items-center rounded-md bg-brand-muted px-4 text-sm font-black text-brand-dark">Sin contacto directo</span>
+            <span className="inline-flex h-11 items-center rounded-md bg-brand-muted px-4 text-sm font-black text-brand-dark">{classification.isWhatsappStartedOnly ? "Sin teléfono capturado" : "Sin contacto directo"}</span>
           )}
         </div>
       </div>
@@ -145,7 +163,7 @@ export default async function LeadDetailPage({
             <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
               <div className="rounded-md bg-brand-muted p-3">
                 <p className="font-bold text-neutral-500">Estado</p>
-                <p className="mt-1 font-black">{statusLabels[lead.status] ?? lead.status}</p>
+                <p className="mt-1 font-black">{statusLabelForLead(lead.status, classification)}</p>
               </div>
               <div className="rounded-md bg-brand-muted p-3">
                 <p className="font-bold text-neutral-500">Intención</p>
@@ -159,7 +177,7 @@ export default async function LeadDetailPage({
             <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
               <div className="rounded-md bg-brand-muted p-3">
                 <p className="font-bold text-neutral-500">Contacto directo</p>
-                <p className="mt-1 font-black">{contactPhone ?? (classification.isContactable ? "WhatsApp enviado" : "Sin dato")}</p>
+                <p className="mt-1 font-black">{contactPhone ?? (classification.isWhatsappStartedOnly ? "Sin teléfono capturado" : "Sin dato")}</p>
               </div>
               <div className="rounded-md bg-brand-muted p-3">
                 <p className="font-bold text-neutral-500">Nombre</p>
@@ -195,7 +213,14 @@ export default async function LeadDetailPage({
                 <p className="mt-1 font-black">{objections ?? "Sin dato"}</p>
               </div>
             </div>
-            <p className="mt-4 leading-7 text-neutral-700">{lead.conversationSummary ?? (classification.isContactable ? "El resumen se generará cuando el cliente continúe a WhatsApp." : "Consulta anónima con señales útiles para aprender y optimizar el flujo.")}</p>
+            <p className="mt-4 leading-7 text-neutral-700">
+              {lead.conversationSummary ??
+                (classification.isContactable
+                  ? "El resumen se generará cuando el cliente continúe a WhatsApp."
+                  : classification.isWhatsappStartedOnly
+                    ? "Contexto preparado para handoff. No hay teléfono del comprador capturado en JAKAWI."
+                    : "Consulta anónima con señales útiles para aprender y optimizar el flujo.")}
+            </p>
           </section>
 
           <section className="rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">

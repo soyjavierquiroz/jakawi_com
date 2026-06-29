@@ -56,8 +56,8 @@ type LeadJourneyLike = {
 
 type LeadEventLike = { eventType: LeadEventType };
 
-export type LeadContactMethod = "PHONE" | "WHATSAPP" | "NONE";
-export type LeadDisplayGroup = "CONTACTABLE" | "ANONYMOUS_INTENT" | "OTHER";
+export type LeadContactMethod = "PHONE" | "NONE";
+export type LeadDisplayGroup = "CONTACTABLE" | "WHATSAPP_STARTED" | "ANONYMOUS_INTENT" | "OTHER";
 
 export type LeadClassificationInput = {
   customerPhone?: string | null;
@@ -74,7 +74,6 @@ export type LeadClassificationInput = {
   events?: LeadEventLike[];
 };
 
-const contactableStatuses = new Set<LeadStatus>([LeadStatus.WHATSAPP_CLICKED, LeadStatus.CONTACTED, LeadStatus.WON]);
 const commercialLeadEvents = new Set<LeadEventType>([
   LeadEventType.PRODUCT_VIEW,
   LeadEventType.CHAT_OPENED,
@@ -95,11 +94,20 @@ function hasText(value?: string | null) {
   return Boolean(value?.trim());
 }
 
-function hasWhatsappClickSignal(lead: LeadClassificationInput) {
+function hasValidBuyerPhone(value?: string | null) {
+  if (!value) return false;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15;
+}
+
+function hasWhatsappStartedSignal(lead: LeadClassificationInput) {
   return (
+    lead.status === LeadStatus.WHATSAPP_CLICKED ||
     Boolean(lead.whatsappClickedAt) ||
+    hasText(lead.whatsappMessage) ||
     lead.events?.some((event) => event.eventType === LeadEventType.WHATSAPP_CLICKED) ||
-    lead.journey?.events?.some((event) => event.type === JourneyEventType.CHANNEL_CLICKED)
+    lead.journey?.events?.some((event) => event.type === JourneyEventType.CHANNEL_CLICKED) ||
+    getLeadSnapshots(lead).some((snapshot) => hasText(snapshot.whatsappMessage) || hasText(snapshot.channelMessage))
   );
 }
 
@@ -130,19 +138,25 @@ export function hasCommercialSignal(lead: LeadClassificationInput) {
 }
 
 export function classifyLead(lead: LeadClassificationInput) {
-  const hasPhone = hasText(lead.customerPhone) || getLeadSnapshots(lead).some((snapshot) => hasText(snapshot.customerPhone));
-  const hasWhatsappHandoff = contactableStatuses.has(lead.status) || hasWhatsappClickSignal(lead);
-  const isContactable = hasPhone || hasWhatsappHandoff;
-  const isAnonymousIntent = !isContactable && Boolean(lead.visitorId) && hasCommercialSignal(lead);
-  const contactMethod: LeadContactMethod = hasPhone ? "PHONE" : hasWhatsappHandoff ? "WHATSAPP" : "NONE";
-  const displayGroup: LeadDisplayGroup = isContactable ? "CONTACTABLE" : isAnonymousIntent ? "ANONYMOUS_INTENT" : "OTHER";
+  const hasBuyerPhone = hasValidBuyerPhone(lead.customerPhone) || getLeadSnapshots(lead).some((snapshot) => hasValidBuyerPhone(snapshot.customerPhone));
+  const hasDirectContact = hasBuyerPhone;
+  const hasWhatsappStarted = hasWhatsappStartedSignal(lead);
+  const isContactable = hasDirectContact;
+  const isWhatsappStartedOnly = !isContactable && hasWhatsappStarted;
+  const isAnonymousIntent = !isContactable && !isWhatsappStartedOnly && hasCommercialSignal(lead);
+  const contactMethod: LeadContactMethod = hasBuyerPhone ? "PHONE" : "NONE";
+  const displayGroup: LeadDisplayGroup = isContactable ? "CONTACTABLE" : isWhatsappStartedOnly ? "WHATSAPP_STARTED" : isAnonymousIntent ? "ANONYMOUS_INTENT" : "OTHER";
 
   return {
+    hasBuyerPhone,
+    hasDirectContact,
+    hasWhatsappStarted,
     isContactable,
+    isWhatsappStartedOnly,
     isAnonymousIntent,
     contactMethod,
     displayGroup,
-    canOpenWhatsapp: hasPhone || (hasWhatsappHandoff && hasText(getLeadWhatsappMessage(lead))),
+    canOpenWhatsapp: hasBuyerPhone,
   };
 }
 
