@@ -62,6 +62,7 @@ export async function getSellerAiRecommendations({
     ? await getPrisma().product.findFirst({ where: { id: currentProductId, storeId, isVisible: true }, include: { category: true } })
     : null;
   const resolvedCategoryId = categoryId ?? currentProduct?.categoryId ?? undefined;
+  const need = normalize(detectedNeed);
 
   const byCurrentCategory =
     currentProduct?.categoryId
@@ -81,7 +82,7 @@ export async function getSellerAiRecommendations({
           take: 10,
         })
       : [];
-  const shouldUseFallback = !currentProduct?.categoryId && !resolvedCategoryId;
+  const shouldUseFallback = !currentProduct && !resolvedCategoryId;
   const fallback = shouldUseFallback
     ? await getPrisma().product.findMany({
         where: { storeId, isVisible: true, id: currentProductId ? { not: currentProductId } : undefined },
@@ -90,9 +91,18 @@ export async function getSellerAiRecommendations({
         take: 20,
       })
     : [];
+  const relatedByNeed =
+    currentProduct && need
+      ? await getPrisma().product.findMany({
+          where: { storeId, isVisible: true, id: { not: currentProduct.id } },
+          include: { category: true },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        })
+      : [];
 
-  const need = normalize(detectedNeed);
-  const candidates = uniqueProducts([...byCurrentCategory, ...byCategory, ...fallback]);
+  const needMatches = relatedByNeed.filter((product) => productText(product).includes(need));
+  const candidates = uniqueProducts([...byCurrentCategory, ...byCategory, ...needMatches, ...fallback]);
   const sorted = [...candidates].sort((first, second) => {
     const firstNeedMatch = need && productText(first).includes(need) ? 1 : 0;
     const secondNeedMatch = need && productText(second).includes(need) ? 1 : 0;
