@@ -1,5 +1,6 @@
 import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
 import { CopyButton } from "@/components/CopyButton";
+import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCard";
 import { Bot, ExternalLink, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
@@ -18,6 +19,9 @@ export default async function StoreSettingsPage({
   const planState = getStorePlanState(store);
   const trialLabel = planState.trialEndsAt ? planState.trialEndsAt.toLocaleDateString(store.locale ?? "es-BO") : null;
   const publicUrl = getPublicStoreUrl(store.slug);
+  const productUsageLabel = `${productUsage.used} / ${productUsage.limit}`;
+  const sellerAiUsageLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido";
+  const voiceNotesLabel = planState.sellerAiEnabled ? "Disponible" : "Pro/Premium";
 
   return (
     <section className="space-y-5 md:space-y-6">
@@ -44,30 +48,21 @@ export default async function StoreSettingsPage({
         </div>
       </section>
 
-      <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+      <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-black uppercase text-neutral-500">Plan actual</p>
             <p className="mt-1 text-xl font-black text-brand-dark">{planState.planName}</p>
             <p className="mt-1 text-sm font-semibold text-neutral-600">{planState.trialExpired ? "Prueba terminada" : planState.planStatus === "TRIALING" && trialLabel ? `Prueba hasta ${trialLabel}` : "Activo"}</p>
           </div>
-          <div>
-            <p className="text-xs font-black uppercase text-neutral-500">Productos</p>
-            <p className="mt-1 text-xl font-black text-brand-dark">{productUsage.used} / {productUsage.limit}</p>
-            {productUsage.isNearLimit ? <p className="mt-1 text-sm font-semibold text-amber-700">Cerca del límite</p> : null}
-          </div>
-          <div>
-            <p className="text-xs font-black uppercase text-neutral-500">Seller AI</p>
-            <p className="mt-1 text-xl font-black text-brand-dark">{sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido"}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-600">Conversaciones mensuales</p>
-          </div>
-          <div className="flex items-start md:justify-end">
-            <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-10 items-center rounded-md bg-brand-dark px-4 text-sm font-black text-white hover:bg-brand">
-              Solicitar upgrade
-            </a>
-          </div>
+          <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-10 items-center justify-center rounded-md bg-brand-dark px-4 text-sm font-black text-white hover:bg-brand">
+            Solicitar upgrade
+          </a>
         </div>
-      </div>
+        {productUsage.isNearLimit ? <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Estás cerca del límite de productos.</p> : null}
+      </section>
+
+      <PlanUsageCompactCard productUsageLabel={productUsageLabel} sellerAiUsageLabel={sellerAiUsageLabel} voiceNotesLabel={voiceNotesLabel} />
 
       <form action={updateStoreAction} className="space-y-5 rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-6">
         <div>
@@ -102,14 +97,19 @@ export default async function StoreSettingsPage({
             <input name="tiktok" defaultValue={store.tiktok ?? ""} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
           </label>
         </div>
-        <section className="rounded-md border border-brand-border bg-brand-muted p-4">
-          <h2 className="text-lg font-black text-brand-dark">País y moneda</h2>
-          <p className="mt-1 text-sm font-semibold text-neutral-600">Esto define cómo se muestran los precios en tu tienda pública.</p>
-          <div className="mt-4">
-            <CountryCurrencyFields initialCountryCode={store.countryCode} initialCurrency={store.currency} compact />
+        <details className="group rounded-md border border-brand-border bg-brand-muted">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-black text-brand-dark">
+            País y moneda
+            <span className="text-lg leading-none group-open:rotate-45">+</span>
+          </summary>
+          <div className="px-4 pb-4">
+            <p className="text-sm font-semibold text-neutral-600">Esto define cómo se muestran los precios en tu tienda pública.</p>
+            <div className="mt-4">
+              <CountryCurrencyFields initialCountryCode={store.countryCode} initialCurrency={store.currency} compact />
+            </div>
+            <p className="mt-3 text-xs font-semibold text-amber-700">Si cambias la moneda, revisa que tus precios sigan teniendo sentido.</p>
           </div>
-          <p className="mt-3 text-xs font-semibold text-amber-700">Si cambias la moneda, revisa que tus precios sigan teniendo sentido.</p>
-        </section>
+        </details>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Foto de portada</span>

@@ -385,6 +385,7 @@ export function SellerAiWidget({
     if (productId) {
       void postJson<{ journeyId?: string }>("/api/seller-ai/events", {
         sessionId,
+        visitorId: sessionId,
         storeSlug,
         eventType: "PRODUCT_VIEW",
         productId,
@@ -456,6 +457,7 @@ export function SellerAiWidget({
     try {
       const eventResponse = await postJson<{ journeyId?: string }>("/api/seller-ai/events", {
         sessionId,
+        visitorId: sessionId,
         storeSlug,
         eventType: "CHAT_OPENED",
         productId,
@@ -479,7 +481,7 @@ export function SellerAiWidget({
           guidance?: SellerVoiceNoteConfig;
           handoff?: SellerVoiceNoteConfig;
         };
-      }>("/api/seller-ai/opening", { sessionId, storeSlug, productId, journeyId: resolvedJourneyId });
+      }>("/api/seller-ai/opening", { sessionId, visitorId: sessionId, storeSlug, productId, journeyId: resolvedJourneyId });
       const [opening] = await Promise.all([openingPromise, openingDelay]);
       setLeadId(opening.leadId);
       nextLeadId = opening.leadId;
@@ -556,7 +558,7 @@ export function SellerAiWidget({
           detectedNeed?: string | null;
           voiceNote?: SellerVoiceNoteConfig | null;
           voiceNoteSuggestion?: SellerVoiceNoteType;
-        }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
+        }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, visitorId: sessionId, storeSlug, message: clean, currentProductId: productId });
         if (response.leadId) setLeadId(response.leadId);
         if (response.leadCode) setLeadCode(response.leadCode);
         if (response.journeyId) setJourneyId(response.journeyId);

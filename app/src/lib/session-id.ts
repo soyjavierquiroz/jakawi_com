@@ -1,6 +1,7 @@
 "use client";
 
 const sessionKey = "jakawi_visitor_session";
+const visitorKey = "jakawi_visitor_id";
 
 function createSessionId() {
   const random = crypto.getRandomValues(new Uint8Array(12));
@@ -11,15 +12,21 @@ function createSessionId() {
 export function getVisitorSessionId() {
   if (typeof window === "undefined") return "";
 
-  const existing = window.localStorage.getItem(sessionKey) || document.cookie.match(/(?:^|; )jakawi_visitor_session=([^;]+)/)?.[1];
+  const cookieVisitor = document.cookie.match(/(?:^|; )jakawi_visitor_id=([^;]+)/)?.[1];
+  const cookieSession = document.cookie.match(/(?:^|; )jakawi_visitor_session=([^;]+)/)?.[1];
+  const existing = window.localStorage.getItem(visitorKey) || window.localStorage.getItem(sessionKey) || cookieVisitor || cookieSession;
   if (existing) {
     const decoded = decodeURIComponent(existing);
+    window.localStorage.setItem(visitorKey, decoded);
     window.localStorage.setItem(sessionKey, decoded);
+    document.cookie = `${visitorKey}=${encodeURIComponent(decoded)}; Path=/; Max-Age=31536000; SameSite=Lax`;
     return decoded;
   }
 
   const sessionId = createSessionId();
+  window.localStorage.setItem(visitorKey, sessionId);
   window.localStorage.setItem(sessionKey, sessionId);
   document.cookie = `${sessionKey}=${encodeURIComponent(sessionId)}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  document.cookie = `${visitorKey}=${encodeURIComponent(sessionId)}; Path=/; Max-Age=31536000; SameSite=Lax`;
   return sessionId;
 }

@@ -7,6 +7,7 @@ import { logLeadEvent } from "@/lib/seller-ai/leads";
 
 const eventSchema = z.object({
   sessionId: z.string().min(6).max(160),
+  visitorId: z.string().min(6).max(160).optional(),
   storeSlug: z.string().min(1).max(80).optional(),
   storeId: z.string().min(1).optional(),
   journeyId: z.string().min(1).optional(),
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
   const { journey } = await getOrCreateCustomerJourney({
     storeId: store.id,
     sessionId: parsed.data.sessionId,
+    visitorId: parsed.data.visitorId,
     source: "seller_ai_event",
     productId: parsed.data.productId,
     categoryId: parsed.data.categoryId,
@@ -65,13 +67,14 @@ export async function POST(request: Request) {
     });
   }
 
+  const identityFilters = [{ sessionId: parsed.data.sessionId }, ...(parsed.data.visitorId ? [{ visitorId: parsed.data.visitorId }] : [])];
   const lead = await getPrisma().lead.findFirst({
     where: {
       storeId: store.id,
-      sessionId: parsed.data.sessionId,
-      status: { in: ["BROWSING", "ENGAGED"] },
+      OR: identityFilters,
+      status: { in: ["BROWSING", "ENGAGED", "WHATSAPP_CLICKED", "CONTACTED"] },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ lastActivityAt: "desc" }, { updatedAt: "desc" }, { createdAt: "desc" }],
   });
 
   await logLeadEvent({

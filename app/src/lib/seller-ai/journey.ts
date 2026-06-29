@@ -282,6 +282,7 @@ export async function updateJourneyCommercialSignals({
 export async function getOrCreateCustomerJourney({
   storeId,
   sessionId,
+  visitorId,
   source,
   productId,
   categoryId,
@@ -289,16 +290,19 @@ export async function getOrCreateCustomerJourney({
 }: {
   storeId: string;
   sessionId: string;
+  visitorId?: string | null;
   source?: string | null;
   productId?: string | null;
   categoryId?: string | null;
   journeyId?: string | null;
 }) {
   const stage = inferJourneyStage({ productId });
+  const identityFilters: Prisma.CustomerJourneyWhereInput[] = [{ sessionId }];
+  if (visitorId) identityFilters.unshift({ visitorId });
   const existing = journeyId
     ? await getPrisma().customerJourney.findFirst({ where: { id: journeyId, storeId } })
     : await getPrisma().customerJourney.findFirst({
-        where: { storeId, sessionId, status: { in: reusableStatuses } },
+        where: { storeId, OR: identityFilters, status: { in: reusableStatuses } },
         orderBy: { updatedAt: "desc" },
       });
 
@@ -306,6 +310,7 @@ export async function getOrCreateCustomerJourney({
     const journey = await getPrisma().customerJourney.update({
       where: { id: existing.id },
       data: {
+        visitorId: visitorId ?? existing.visitorId,
         source: source ?? existing.source,
         stage,
         status: nextStatusForStage(stage, existing.status),
@@ -325,6 +330,7 @@ export async function getOrCreateCustomerJourney({
       journeyCode: await createUniqueJourneyCode(),
       storeId,
       sessionId,
+      visitorId,
       source,
       stage,
       status: nextStatusForStage(stage),
@@ -350,6 +356,7 @@ export async function getOrCreateCustomerJourney({
 export async function createOrUpdateJourneyFromEvent({
   storeId,
   sessionId,
+  visitorId,
   source,
   journeyId,
   type,
@@ -361,6 +368,7 @@ export async function createOrUpdateJourneyFromEvent({
 }: {
   storeId: string;
   sessionId: string;
+  visitorId?: string | null;
   source?: string | null;
   journeyId?: string | null;
   type: JourneyEventType;
@@ -370,7 +378,7 @@ export async function createOrUpdateJourneyFromEvent({
   intentScore?: number | null;
   message?: string | null;
 }) {
-  const { journey } = await getOrCreateCustomerJourney({ storeId, sessionId, source, productId, categoryId, journeyId });
+  const { journey } = await getOrCreateCustomerJourney({ storeId, sessionId, visitorId, source, productId, categoryId, journeyId });
   const stage = inferJourneyStage({ productId: productId ?? journey.currentProductId, intentScore, message, eventType: type });
   const updated = await updateCustomerJourney({
     journeyId: journey.id,

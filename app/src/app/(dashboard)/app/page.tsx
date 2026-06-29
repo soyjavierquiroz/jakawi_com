@@ -1,23 +1,22 @@
-import { Bot, Boxes, ExternalLink, Link as LinkIcon, MessageCircle, Store as StoreIcon, UsersRound } from "lucide-react";
+import { ExternalLink, MessageCircle, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { CopyButton } from "@/components/CopyButton";
+import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCard";
 import { getCountryCommerceConfig } from "@/config/countries";
-import { getPlanPriceForCountry } from "@/config/regional-pricing";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
 import { requireStore } from "@/lib/auth";
 import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
+import { visibleLeadWhere } from "@/lib/seller-ai/leads";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 export default async function DashboardPage() {
   const { user, store } = await requireStore();
   // eslint-disable-next-line react-hooks/purity
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [totalProducts, visibleProducts, whatsappClicks, leadCount, productUsage, sellerAiUsage] = await Promise.all([
-    getPrisma().product.count({ where: { storeId: store.id } }),
-    getPrisma().product.count({ where: { storeId: store.id, isVisible: true } }),
+  const [whatsappClicks, leadCount, productUsage, sellerAiUsage] = await Promise.all([
     getPrisma().analyticsEvent.count({ where: { storeId: store.id, type: "WHATSAPP_CLICK", createdAt: { gte: since } } }),
-    getPrisma().lead.count({ where: { storeId: store.id } }),
+    getPrisma().lead.count({ where: visibleLeadWhere(store.id) }),
     getProductUsage(store.id),
     getSellerAiUsage(store.id),
   ]);
@@ -25,20 +24,13 @@ export default async function DashboardPage() {
   const flow = getStorefrontFlow(store.plan);
   const planState = getStorePlanState(store);
   const country = getCountryCommerceConfig(store.countryCode);
-  const regionalPlanPrice = getPlanPriceForCountry(flow.planCode, store.countryCode);
   const trialDateLabel = planState.trialEndsAt ? planState.trialEndsAt.toLocaleDateString(country.locale) : null;
-  const planStatusLabel = planState.trialExpired ? "Prueba terminada" : flow.planCode === "TRIAL" ? `Prueba hasta ${trialDateLabel}` : "Activo";
   const firstName = user.firstName ?? user.name?.split(" ")[0] ?? store.name;
   const hasVoiceNotes = Boolean(store.sellerIntroAudioUrl || store.sellerGuidanceAudioUrl || store.sellerHandoffAudioUrl);
 
-  const stats = [
-    { label: "Link público", value: store.slug, detail: "Tienda pública", icon: LinkIcon, href: publicUrl, external: true },
-    { label: "Plan actual", value: flow.planName, detail: `${regionalPlanPrice.priceLabel} · ${planStatusLabel}`, icon: StoreIcon, href: siteConfig.routes.plan },
-    { label: "Productos", value: `${productUsage.used} / ${productUsage.limit}`, detail: `${visibleProducts} visibles de ${totalProducts}`, icon: Boxes, href: siteConfig.routes.products },
-    { label: "Seller AI", value: sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido", detail: "Conversaciones mensuales", icon: Bot, href: siteConfig.routes.sellerAi },
-    { label: "Leads con contexto", value: leadCount, detail: "Oportunidades preparadas", icon: UsersRound, href: siteConfig.routes.leads },
-    { label: "Clicks WhatsApp", value: whatsappClicks, detail: "Últimos 7 días", icon: MessageCircle, href: siteConfig.routes.whatsapp },
-  ];
+  const productUsageLabel = `${productUsage.used} / ${productUsage.limit}`;
+  const sellerAiUsageLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido";
+  const voiceNotesLabel = planState.sellerAiEnabled ? "Disponible" : "Pro/Premium";
 
   const nextStep = (() => {
     if (!planState.sellerAiEnabled) {
@@ -138,15 +130,29 @@ export default async function DashboardPage() {
         {flow.planCode === "TRIAL" && !planState.trialExpired && trialDateLabel ? <p className="mt-4 rounded-md bg-brand-muted px-3 py-2 text-sm font-bold text-brand-dark">Tu prueba termina el {trialDateLabel}.</p> : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
-        {stats.map((stat) => (
-          <Link key={stat.label} href={stat.href} target={stat.external ? "_blank" : undefined} className="min-h-[132px] rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm transition hover:border-brand hover:shadow-md md:p-5">
-            <stat.icon className="size-5 text-brand" />
-            <p className="mt-3 truncate text-xl font-black text-brand-dark md:mt-4 md:text-2xl">{stat.value}</p>
-            <p className="mt-1 text-sm font-black text-neutral-700">{stat.label}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">{stat.detail}</p>
-          </Link>
-        ))}
+      <PlanUsageCompactCard productUsageLabel={productUsageLabel} sellerAiUsageLabel={sellerAiUsageLabel} voiceNotesLabel={voiceNotesLabel} />
+
+      <div className="grid gap-3 md:grid-cols-2 md:gap-4">
+        <Link href={siteConfig.routes.leads} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm transition hover:border-brand hover:shadow-md md:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-brand-dark">Leads con contexto</p>
+              <p className="mt-1 text-sm font-semibold text-neutral-500">Oportunidades preparadas por Seller AI.</p>
+            </div>
+            <UsersRound className="size-5 text-brand" />
+          </div>
+          <p className="mt-3 text-2xl font-black text-brand-dark">{leadCount}</p>
+        </Link>
+        <Link href={siteConfig.routes.whatsapp} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm transition hover:border-brand hover:shadow-md md:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-brand-dark">WhatsApp</p>
+              <p className="mt-1 text-sm font-semibold text-neutral-500">Clicks de los últimos 7 días.</p>
+            </div>
+            <MessageCircle className="size-5 text-brand" />
+          </div>
+          <p className="mt-3 text-2xl font-black text-brand-dark">{whatsappClicks}</p>
+        </Link>
       </div>
 
       <div className="rounded-lg bg-brand-dark p-5 text-white md:p-6">

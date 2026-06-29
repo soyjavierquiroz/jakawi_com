@@ -16,6 +16,7 @@ const chatSchema = z.object({
   leadId: z.string().min(1).optional(),
   journeyId: z.string().min(1).optional(),
   sessionId: z.string().min(6).max(160).optional(),
+  visitorId: z.string().min(6).max(160).optional(),
   storeSlug: z.string().min(1).max(80).optional(),
   message: z.string().min(1).max(1000),
   currentProductId: z.string().optional(),
@@ -192,6 +193,7 @@ export async function POST(request: Request) {
     const ensured = await ensureSellerLead({
       storeId: store.id,
       sessionId: parsed.data.sessionId,
+      visitorId: parsed.data.visitorId,
       currentProductId: parsed.data.currentProductId,
       source: "seller_ai_chat",
       journeyId: parsed.data.journeyId,
@@ -206,6 +208,7 @@ export async function POST(request: Request) {
   const { journey } = await getOrCreateCustomerJourney({
     storeId: lead.storeId,
     sessionId: lead.sessionId,
+    visitorId: parsed.data.visitorId ?? lead.visitorId,
     source: "seller_ai_chat",
     productId: parsed.data.currentProductId ?? lead.currentProductId,
     journeyId: parsed.data.journeyId ?? lead.journeyId,
@@ -322,14 +325,23 @@ export async function POST(request: Request) {
   const messages = [...messagesBeforeReply, replyMessage];
   const intentScore = Math.min(100, Math.max(provisionalIntentScore, calculateIntentScore({ events, messages, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED })));
   const shouldShowWhatsappCta = shouldStartPhoneCapture || inferred.mode === "DECISION_SUPPORT" || (intentScore >= 70 && inferred.mode !== "DISCOVERY");
+  const hasVisibleCommercialSignal =
+    signals.intentBoost > 0 ||
+    Boolean(product) ||
+    inferred.mode === "DECISION_SUPPORT" ||
+    inferred.mode === "CLOSING_PREP" ||
+    shouldShowWhatsappCta ||
+    Boolean(signals.detectedNeed || signals.budget || signals.urgency || signals.objections.length > 0);
 
   await getPrisma().lead.update({
     where: { id: lead.id },
     data: {
       journeyId: journey.id,
+      visitorId: parsed.data.visitorId ?? lead.visitorId,
       intentScore,
-      status: lead.status === LeadStatus.BROWSING ? LeadStatus.ENGAGED : lead.status,
+      status: lead.status === LeadStatus.BROWSING && hasVisibleCommercialSignal ? LeadStatus.ENGAGED : lead.status,
       currentProductId: product?.id ?? lead.currentProductId,
+      lastActivityAt: new Date(),
       budget: signals.budget ?? lead.budget,
       urgency: signals.urgency ?? lead.urgency,
       objections: signals.objections.length > 0 ? [...new Set([...(Array.isArray(lead.objections) ? lead.objections : []), ...signals.objections])] : lead.objections,

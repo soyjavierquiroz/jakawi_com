@@ -11,6 +11,7 @@ import { getSellerVoiceNoteConfig } from "@/lib/seller-ai/voice-notes";
 
 const openingSchema = z.object({
   sessionId: z.string().min(6).max(160),
+  visitorId: z.string().min(6).max(160).optional(),
   storeSlug: z.string().min(1).max(80).optional(),
   storeId: z.string().min(1).optional(),
   journeyId: z.string().min(1).optional(),
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
   const { lead, journey } = await ensureSellerLead({
     storeId: store.id,
     sessionId: parsed.data.sessionId,
+    visitorId: parsed.data.visitorId,
     currentProductId: product?.id,
     categoryId: product?.categoryId ?? parsed.data.categoryId,
     source: product ? "product_page" : "store_discovery",

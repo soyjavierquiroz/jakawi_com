@@ -32,6 +32,7 @@ export async function POST(request: Request) {
   const { journey } = await getOrCreateCustomerJourney({
     storeId: lead.storeId,
     sessionId: lead.sessionId,
+    visitorId: lead.visitorId,
     source: "whatsapp_handoff",
     productId: product?.id,
     journeyId: parsed.data.journeyId ?? lead.journeyId,
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
       snapshotId: snapshot.id,
       status: LeadStatus.WHATSAPP_CLICKED,
       whatsappClickedAt: new Date(),
+      lastActivityAt: new Date(),
       customerPhone,
       customerName,
       selectedProductId: product?.id ?? lead.selectedProductId,

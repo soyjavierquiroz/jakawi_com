@@ -1,6 +1,7 @@
 import { Bot, CheckCircle2, ExternalLink, MessageCircle, Mic, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCard";
 import { SellerVoiceNotesSettings } from "@/components/dashboard/SellerVoiceNotesSettings";
 import { getPublicStoreUrl } from "@/config/site";
 import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
@@ -53,7 +54,9 @@ export default async function SellerAiPage({
   const planState = getStorePlanState(store);
   const publicUrl = getPublicStoreUrl(store.slug);
   const sellerAiStatus = planState.sellerAiEnabled ? "Habilitado" : "No incluido";
-  const usageLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} de ${getPlanLimitLabel(sellerAiUsage.limit)} conversaciones` : "0 de 0 conversaciones";
+  const productUsageLabel = `${productUsage.used} / ${productUsage.limit}`;
+  const sellerAiUsageLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido";
+  const voiceNotesLabel = planState.sellerAiEnabled ? "Disponible" : "Pro/Premium";
   const displayName = store.sellerVoiceDisplayName ?? store.name;
   const exampleProductName = sampleProduct?.name ?? "Celular demo";
   const examplePrice = sampleProduct
@@ -102,7 +105,7 @@ export default async function SellerAiPage({
 
       <div className="mt-5 space-y-3 lg:mt-6 lg:space-y-6">
         <SellerAiSection title="Estado" summary={`${sellerAiStatus} · ${planState.planName}`} defaultOpen>
-          <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
             <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm lg:p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -111,16 +114,7 @@ export default async function SellerAiPage({
                 </div>
                 <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-black text-brand-dark">{planState.planName}</span>
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-md bg-brand-muted p-4">
-                  <p className="text-xs font-black uppercase text-neutral-500">Uso mensual</p>
-                  <p className="mt-1 text-lg font-black text-brand-dark">{usageLabel}</p>
-                </div>
-                <div className="rounded-md bg-brand-muted p-4">
-                  <p className="text-xs font-black uppercase text-neutral-500">Productos</p>
-                  <p className="mt-1 text-lg font-black text-brand-dark">{productUsage.used} de {productUsage.limit}</p>
-                </div>
-              </div>
+              <PlanUsageCompactCard productUsageLabel={productUsageLabel} sellerAiUsageLabel={sellerAiUsageLabel} voiceNotesLabel={voiceNotesLabel} className="mt-4 border-0 bg-transparent p-0 shadow-none" />
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <Link href="/app/whatsapp" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
                   <MessageCircle className="size-4" />

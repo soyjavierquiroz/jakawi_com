@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Eye, LogOut, Menu, MoreHorizontal, X } from "lucide-react";
+import { BarChart3, Eye, LogOut, MoreHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -22,26 +22,16 @@ export function DashboardNav({ publicUrl }: { publicUrl?: string }) {
       <header className="fixed inset-x-0 top-0 z-40 border-b border-brand-border bg-brand-paper/95 px-4 py-3 backdrop-blur md:hidden">
         <div className="flex h-11 items-center justify-between gap-3">
           <BrandLogo href="/app" className="min-w-0 text-lg text-brand-dark [&>span]:size-9" />
-          <div className="flex shrink-0 items-center gap-2">
-            {publicUrl ? (
-              <a
-                href={publicUrl}
-                target="_blank"
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-black text-white transition hover:bg-brand"
-              >
-                <Eye className="size-4" />
-                Ver tienda
-              </a>
-            ) : null}
-            <button
-              type="button"
-              aria-label="Abrir más opciones"
-              onClick={() => setIsMoreOpen(true)}
-              className="grid size-10 place-items-center rounded-md border border-brand-border bg-white text-brand-dark"
+          {publicUrl ? (
+            <a
+              href={publicUrl}
+              target="_blank"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-black text-white transition hover:bg-brand"
             >
-              <Menu className="size-5" />
-            </button>
-          </div>
+              <Eye className="size-4" />
+              Ver tienda
+            </a>
+          ) : null}
         </div>
       </header>
 
@@ -88,15 +78,15 @@ export function DashboardNav({ publicUrl }: { publicUrl?: string }) {
         </div>
       </aside>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-brand-border bg-brand-paper/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgb(0_0_0/0.08)] backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#052E24] px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgb(0_0_0/0.22)] md:hidden">
         <div className="grid grid-cols-5 gap-1">
           {mainItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-black text-neutral-500",
-                isActive(item.href) && "bg-brand-soft text-brand-dark",
+                "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-black text-emerald-100/75 transition hover:text-brand-lime",
+                isActive(item.href) && "bg-white/12 text-brand-lime ring-1 ring-brand-lime/25",
               )}
             >
               <item.icon className="size-5" />
@@ -107,8 +97,8 @@ export function DashboardNav({ publicUrl }: { publicUrl?: string }) {
             type="button"
             onClick={() => setIsMoreOpen(true)}
             className={cn(
-              "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-black text-neutral-500",
-              moreItems.some((item) => isActive(item.href)) && "bg-brand-soft text-brand-dark",
+              "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-black text-emerald-100/75 transition hover:text-brand-lime",
+              moreItems.some((item) => isActive(item.href)) && "bg-white/12 text-brand-lime ring-1 ring-brand-lime/25",
             )}
           >
             <MoreHorizontal className="size-5" />
@@ -120,7 +110,7 @@ export function DashboardNav({ publicUrl }: { publicUrl?: string }) {
       {isMoreOpen ? (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Más opciones">
           <button type="button" aria-label="Cerrar menú" onClick={() => setIsMoreOpen(false)} className="absolute inset-0 bg-black/35" />
-          <div className="absolute inset-x-3 bottom-3 rounded-lg bg-brand-paper p-4 shadow-2xl">
+          <div className="absolute inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] rounded-lg bg-brand-paper p-4 shadow-2xl">
             <div className="flex items-center justify-between gap-3">
               <p className="text-lg font-black text-brand-dark">Más</p>
               <button type="button" aria-label="Cerrar más opciones" onClick={() => setIsMoreOpen(false)} className="grid size-10 place-items-center rounded-md border border-brand-border bg-white text-brand-dark">

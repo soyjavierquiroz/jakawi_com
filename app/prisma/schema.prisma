@@ -244,6 +244,7 @@ model Lead {
   leadCode            String     @unique
   storeId             String
   sessionId           String
+  visitorId           String?
   journeyId           String?
   snapshotId          String?
   customerName        String?
@@ -261,6 +262,7 @@ model Lead {
   conversationSummary String?
   whatsappMessage     String?
   whatsappClickedAt   DateTime?
+  lastActivityAt      DateTime?
   viewedProducts      Json?
   recommendedProducts Json?
   createdAt           DateTime   @default(now())
@@ -274,7 +276,9 @@ model Lead {
   events       LeadEvent[]
 
   @@index([storeId, createdAt])
+  @@index([storeId, lastActivityAt])
   @@index([sessionId])
+  @@index([visitorId])
   @@index([journeyId])
   @@index([snapshotId])
   @@index([status])
@@ -286,6 +290,7 @@ model CustomerJourney {
   journeyCode           String                @unique
   storeId               String
   sessionId             String
+  visitorId             String?
   source                String?
   status                CustomerJourneyStatus @default(ACTIVE)
   stage                 CustomerJourneyStage  @default(DISCOVERY)
@@ -322,6 +327,7 @@ model CustomerJourney {
 
   @@index([storeId])
   @@index([sessionId])
+  @@index([visitorId])
   @@index([status])
   @@index([stage])
   @@index([createdAt])

@@ -1,4 +1,4 @@
-import { JourneyEventType, LeadEventType, LeadStatus, Prisma } from "@prisma/client";
+import { CustomerJourneyStage, JourneyEventType, LeadEventType, LeadStatus, Prisma } from "@prisma/client";
 import { sellerAiConfig } from "@/config/seller-ai";
 import { generateLeadCode } from "@/lib/lead-code";
 import { getPrisma } from "@/lib/prisma";
@@ -20,9 +20,25 @@ function mergeViewedProducts(current: Prisma.JsonValue | null | undefined, produ
   return [...existing, productId].slice(-20);
 }
 
+export function visibleLeadWhere(storeId: string): Prisma.LeadWhereInput {
+  return {
+    storeId,
+    OR: [
+      { status: { in: [LeadStatus.ENGAGED, LeadStatus.WHATSAPP_CLICKED, LeadStatus.CONTACTED, LeadStatus.WON, LeadStatus.LOST] } },
+      { intentScore: { gte: 30 } },
+      { customerPhone: { not: null } },
+      { whatsappClickedAt: { not: null } },
+      { journey: { stage: { in: [CustomerJourneyStage.DECISION_SUPPORT, CustomerJourneyStage.CLOSING_PREP] } } },
+      { journey: { detectedNeed: { not: null } } },
+      { journey: { objections: { not: null } } },
+    ],
+  };
+}
+
 export async function ensureSellerLead({
   storeId,
   sessionId,
+  visitorId,
   currentProductId,
   categoryId,
   source,
@@ -30,6 +46,7 @@ export async function ensureSellerLead({
 }: {
   storeId: string;
   sessionId: string;
+  visitorId?: string | null;
   currentProductId?: string | null;
   categoryId?: string | null;
   source?: string | null;
@@ -38,16 +55,19 @@ export async function ensureSellerLead({
   const { journey } = await getOrCreateCustomerJourney({
     storeId,
     sessionId,
+    visitorId,
     source,
     productId: currentProductId,
     categoryId,
     journeyId,
   });
-  const activeStatuses = [LeadStatus.BROWSING, LeadStatus.ENGAGED];
+  const activeStatuses = [LeadStatus.BROWSING, LeadStatus.ENGAGED, LeadStatus.WHATSAPP_CLICKED, LeadStatus.CONTACTED];
+  const identityFilters: Prisma.LeadWhereInput[] = [{ journeyId: journey.id }, { sessionId }];
+  if (visitorId) identityFilters.splice(1, 0, { visitorId });
   const existing = await getPrisma().lead.findFirst({
-    where: { storeId, sessionId, status: { in: activeStatuses } },
+    where: { storeId, OR: identityFilters, status: { in: activeStatuses } },
     include: { conversation: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ lastActivityAt: "desc" }, { updatedAt: "desc" }, { createdAt: "desc" }],
   });
 
   if (existing) {
@@ -55,8 +75,10 @@ export async function ensureSellerLead({
       where: { id: existing.id },
       data: {
         journeyId: existing.journeyId ?? journey.id,
+        visitorId: visitorId ?? existing.visitorId,
         currentProductId: currentProductId ?? existing.currentProductId,
         source: source ?? existing.source,
+        lastActivityAt: new Date(),
         viewedProducts: mergeViewedProducts(existing.viewedProducts, currentProductId),
       },
       include: { conversation: true },
@@ -90,9 +112,11 @@ export async function ensureSellerLead({
       leadCode: await createUniqueLeadCode(),
       storeId,
       sessionId,
+      visitorId,
       journeyId: journey.id,
       currentProductId,
       source,
+      lastActivityAt: new Date(),
       viewedProducts: mergeViewedProducts(null, currentProductId),
       conversation: { create: { storeId } },
       events: {

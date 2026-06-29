@@ -5,6 +5,7 @@ import { ensureSellerLead } from "@/lib/seller-ai/leads";
 
 const leadSchema = z.object({
   sessionId: z.string().min(6).max(160),
+  visitorId: z.string().min(6).max(160).optional(),
   storeSlug: z.string().min(1).max(80),
   journeyId: z.string().min(1).optional(),
   currentProductId: z.string().optional(),
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
   const { lead, journey } = await ensureSellerLead({
     storeId: store.id,
     sessionId: parsed.data.sessionId,
+    visitorId: parsed.data.visitorId,
     currentProductId: parsed.data.currentProductId,
     categoryId: parsed.data.categoryId,
     source: parsed.data.source,
