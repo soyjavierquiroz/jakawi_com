@@ -173,6 +173,14 @@ export function buildQuickRepliesForMode({
   }
 
   const commercialCopy = getCommercialTypeCopy(commercialType);
+  if (mode === "DECISION_SUPPORT") {
+    const productReply = product?.name ? `Me interesa ${product.name}` : "Me interesa";
+    return filterReplies(["Precio", "Disponibilidad", "Envío", productReply]);
+  }
+  if (mode === "CLOSING_PREP") {
+    const recommended = recommendedProducts?.[0]?.name ? `Me interesa ${recommendedProducts[0].name}` : null;
+    return filterReplies([recommended ?? "Me interesa", "Continuar por WhatsApp", "Quiero comprar"]);
+  }
   if (detectedNeed === "regalo") {
     const giftReplies = product?.name ? ["Trabajo", "Estudio", "Uso diario", "Ver otra opción"] : ["Mujer", "Hombre", "Niño/a", "Algo práctico", "Algo económico"];
     return filterReplies(giftReplies);
@@ -182,10 +190,6 @@ export function buildQuickRepliesForMode({
   if (mode === "PRODUCT_ADVISOR") {
     const base = category?.name && /celular|telefono|teléfono|smartphone/i.test(category.name) ? ["Trabajo", "Fotos", "Redes", "Juegos"] : sellerAiConfig.modes.PRODUCT_ADVISOR.quickReplies;
     return filterReplies(base);
-  }
-  if (mode === "DECISION_SUPPORT") {
-    const productReply = product?.name ? `Me interesa ${product.name}` : "Me interesa";
-    return filterReplies(["Precio", "Disponibilidad", "Envío", productReply]);
   }
   const recommended = recommendedProducts?.[0]?.name ? `Me interesa ${recommendedProducts[0].name}` : null;
   return filterReplies([recommended ?? "Me interesa", detectedNeed ? `Lo quiero para ${detectedNeed}` : "Quiero comprar", "Continuar por WhatsApp"]);

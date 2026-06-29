@@ -215,13 +215,17 @@ export async function POST(request: Request) {
     objections: signals.objections,
   });
   const shouldStartPhoneCapture = inferred.mode === "CLOSING_PREP" && inferred.reason === "explicit closing intent";
-  const recommendations = await getSellerAiRecommendations({
-    storeId: lead.storeId,
-    currentProductId: product?.id,
-    categoryId: product?.categoryId,
-    detectedNeed: signals.detectedNeed ?? journey.detectedNeed,
-    budget: signals.budget ?? journey.budget,
-  });
+  const wantsAlternatives = /compar|otra opci[oó]n|otras opciones|ver otra|no me convence|recomienda|recomiendas/i.test(parsed.data.message);
+  const recommendations =
+    product && !wantsAlternatives
+      ? []
+      : await getSellerAiRecommendations({
+          storeId: lead.storeId,
+          currentProductId: product?.id,
+          categoryId: product?.categoryId,
+          detectedNeed: signals.detectedNeed ?? journey.detectedNeed,
+          budget: signals.budget ?? journey.budget,
+        });
   const assistantMessage = buildAssistantMessage({
     mode: inferred.mode,
     userMessage: parsed.data.message,
