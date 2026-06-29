@@ -103,11 +103,14 @@ export function inferSellerAiMode({
   const objectionList = Array.isArray(objections) ? objections : typeof objections === "string" && objections ? objections.split(",").map((item) => item.trim()) : [];
   const isNeedQualifiedIntent = Boolean(signals.detectedNeed && /\b(para|por)\b/.test(text) && !closingIntentPattern.test(text));
 
-  if ((signals.hasStrongIntent && !isNeedQualifiedIntent) || (intentScore ?? 0) >= 70) {
+  if (signals.hasStrongIntent && !isNeedQualifiedIntent) {
     return { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "strong intent or high intent score" };
   }
   if (signals.objections.length > 0 || objectionList.length > 0) {
     return { mode: "DECISION_SUPPORT", stage: "DECISION_SUPPORT", reason: "commercial objection or buying doubt detected" };
+  }
+  if ((intentScore ?? 0) >= 70) {
+    return { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "high intent score" };
   }
   if (productId || hasProductContext) {
     return { mode: "PRODUCT_ADVISOR", stage: "PRODUCT_ADVISOR", reason: "product context is present" };
