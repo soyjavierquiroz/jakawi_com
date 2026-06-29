@@ -68,13 +68,18 @@ function buildAssistantMessage({
   const recommendationNames = recommendations.slice(0, 3).map((item) => item.name);
 
   if (mode === "CLOSING_PREP") {
-    const target = product?.name ? ` sobre ${product.name}` : detectedNeed ? ` para ${detectedNeed}` : "";
-    return `Perfecto. Te dejo la consulta${target} armada para la tienda. ¿A qué WhatsApp pueden escribirte?`;
+    return "Perfecto. Te dejo la consulta armada para la tienda. ¿A qué WhatsApp pueden escribirte?";
   }
 
   if (mode === "DECISION_SUPPORT") {
     if (product && includesAny(text, ["precio", "cuánto", "cuanto", "cuesta", "vale", "costo"])) {
-      return `${priceLine({ product, store })} Sobre disponibilidad, envío o forma de pago, mejor lo confirma la tienda por WhatsApp.`;
+      const price = priceLine({ product, store });
+      const shipping = includesAny(text, ["envío", "envio", "entrega", "delivery"]) ? " Sobre envío, mejor lo confirma la tienda." : "";
+      return `${price}${shipping} Te puedo pasar a WhatsApp con la consulta armada.`;
+    }
+    if (!product && includesAny(text, ["precio", "cuánto", "cuanto", "cuesta", "vale", "costo"])) {
+      const shipping = includesAny(text, ["envío", "envio", "entrega", "delivery"]) ? " Sobre envío, mejor lo confirma la tienda." : "";
+      return `El precio te lo muestro aquí si está disponible.${shipping} Te puedo pasar a WhatsApp con la consulta armada.`;
     }
     if (includesAny(text, ["disponible", "stock", "envío", "envio", "garantía", "garantia", "talla", "color", "pago", "descuento"])) {
       const subject = product?.name ? ` de ${product.name}` : "";
@@ -88,6 +93,9 @@ function buildAssistantMessage({
 
   if (mode === "PRODUCT_ADVISOR") {
     if (!product) return "Cuéntame qué uso le quieres dar y te recomiendo una opción sin marearte.";
+    if (detectedNeed === "fotos") {
+      return `Si lo quieres para fotos, conviene priorizar cámara, memoria y batería. ${product.name} puede servirte para redes y uso diario. ¿Quieres que te pase la consulta armada a WhatsApp?`;
+    }
     if (detectedNeed) {
       return `${product.name} puede encajar si lo quieres para ${detectedNeed}. ¿Priorizas precio, rapidez o que la tienda confirme disponibilidad?`;
     }
@@ -274,6 +282,9 @@ export async function POST(request: Request) {
     recommendedProducts: recommendations,
     intentScore,
     detectedNeed: signals.detectedNeed ?? updatedJourney?.detectedNeed,
+    budget: signals.budget ?? updatedJourney?.budget,
+    urgency: signals.urgency ?? updatedJourney?.urgency,
+    objections: signals.objections.length > 0 ? signals.objections.join(", ") : updatedJourney?.objections,
     intentLabel: classifyIntent(intentScore),
     shouldShowWhatsappCta,
   });

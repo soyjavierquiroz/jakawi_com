@@ -14,6 +14,7 @@ const openingSchema = z.object({
   storeId: z.string().min(1).optional(),
   journeyId: z.string().min(1).optional(),
   productId: z.string().min(1).optional(),
+  productSlug: z.string().min(1).max(120).optional(),
   categoryId: z.string().min(1).optional(),
 }).refine((data) => data.storeSlug || data.storeId, { message: "storeSlug or storeId is required" });
 
@@ -33,13 +34,17 @@ export async function POST(request: Request) {
     : await getPrisma().store.findUnique({ where: { slug: parsed.data.storeSlug }, include: { categories: { orderBy: { name: "asc" } } } });
   if (!store || !store.isPublished) return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
 
-  const product = parsed.data.productId
+  const product = parsed.data.productId || parsed.data.productSlug
     ? await getPrisma().product.findFirst({
-        where: { id: parsed.data.productId, storeId: store.id, isVisible: true },
+        where: {
+          storeId: store.id,
+          isVisible: true,
+          ...(parsed.data.productId ? { id: parsed.data.productId } : { slug: parsed.data.productSlug }),
+        },
         include: { category: true },
       })
     : null;
-  if (parsed.data.productId && !product) return NextResponse.json({ ok: false, error: "Product not found" }, { status: 404 });
+  if ((parsed.data.productId || parsed.data.productSlug) && !product) return NextResponse.json({ ok: false, error: "Product not found" }, { status: 404 });
 
   const { lead, journey } = await ensureSellerLead({
     storeId: store.id,

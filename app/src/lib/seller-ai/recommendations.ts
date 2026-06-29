@@ -56,7 +56,7 @@ export async function getSellerAiRecommendations({
   budget?: string | null;
   limit?: number;
 }): Promise<SellerAiRecommendedProduct[]> {
-  const take = Math.min(Math.max(limit, 1), sellerAiConfig.maxRecommendedProducts);
+  const take = Math.min(Math.max(limit, 1), 3);
   const store = await getPrisma().store.findUnique({ where: { id: storeId }, select: { currency: true, countryCode: true, locale: true } });
   const currentProduct = currentProductId
     ? await getPrisma().product.findFirst({ where: { id: currentProductId, storeId, isVisible: true }, include: { category: true } })

@@ -14,9 +14,10 @@ export type CommercialSignals = {
 type CommercialType = keyof typeof sellerAiConfig.commercialTypes;
 
 const strongIntentPattern = /\b(quiero|comprar|me interesa|como compro|cómo compro|lo quiero|reservar|reserva|pedir|pedido|pagar|lo llevo|pasame info|pásame info)\b/i;
+const closingIntentPattern = /\b(comprar|me interesa comprar|como compro|cómo compro|reservar|reserva|pedir|pedido|pagar|lo llevo|pasame info|pásame info|quiero pagar|quiero comprar)\b/i;
 const objectionPatterns: Array<[RegExp, string]> = [
   [/\b(precio|cuanto|cuánto|cuesta|vale|costo)\b/i, "precio"],
-  [/\b(disponible|disponibilidad|stock|hay)\b/i, "disponibilidad"],
+  [/\b(disponible|disponibilidad|stock)\b/i, "disponibilidad"],
   [/\b(envio|envío|entrega|delivery)\b/i, "envío"],
   [/\b(garantia|garantía)\b/i, "garantía"],
   [/\b(talla|medida|tamano|tamaño)\b/i, "talla"],
@@ -98,9 +99,11 @@ export function inferSellerAiMode({
   journeyStatus?: string | null;
 }): { mode: SellerAiMode; stage: SellerAiMode; reason: string } {
   const signals = extractCommercialSignals(message);
+  const text = normalize(message);
   const objectionList = Array.isArray(objections) ? objections : typeof objections === "string" && objections ? objections.split(",").map((item) => item.trim()) : [];
+  const isNeedQualifiedIntent = Boolean(signals.detectedNeed && /\b(para|por)\b/.test(text) && !closingIntentPattern.test(text));
 
-  if (signals.hasStrongIntent || (intentScore ?? 0) >= 70) {
+  if ((signals.hasStrongIntent && !isNeedQualifiedIntent) || (intentScore ?? 0) >= 70) {
     return { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "strong intent or high intent score" };
   }
   if (signals.objections.length > 0 || objectionList.length > 0) {
