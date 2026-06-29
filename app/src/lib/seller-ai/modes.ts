@@ -26,12 +26,13 @@ const objectionPatterns: Array<[RegExp, string]> = [
   [/\b(forma de pago|formas de pago|pago|cuotas|qr|tarjeta|transferencia)\b/i, "forma de pago"],
 ];
 const needPatterns: Array<[RegExp, string]> = [
+  [/\b(para regalar|regalo|regalar)\b/i, "regalo"],
+  [/\b(para mi|para mí|uso personal)\b/i, "uso personal"],
   [/\b(fotos|foto|camara|cámara)\b/i, "fotos"],
   [/\b(trabajo|oficina|negocio)\b/i, "trabajo"],
   [/\b(estudio|clases|universidad|colegio)\b/i, "estudio"],
   [/\b(redes|instagram|tiktok|facebook)\b/i, "redes"],
   [/\b(juegos|gaming|jugar)\b/i, "juegos"],
-  [/\b(regalo|regalar)\b/i, "regalo"],
   [/\b(compartir|familia|grupo)\b/i, "para compartir"],
   [/\b(rapido|rápido|algo rapido|algo rápido)\b/i, "algo rápido"],
   [/\b(cotizar|cotizacion|cotización)\b/i, "cotizar"],
@@ -103,6 +104,7 @@ export function inferSellerAiMode({
   const objectionList = Array.isArray(objections) ? objections : typeof objections === "string" && objections ? objections.split(",").map((item) => item.trim()) : [];
   const hasExplicitClosingIntent = closingIntentPattern.test(text);
   const hasCurrentObjection = signals.objections.length > 0 || objectionList.length > 0;
+  const hasContextSignal = Boolean(signals.detectedNeed || signals.budget);
 
   if (hasCurrentObjection && !hasExplicitClosingIntent) {
     return { mode: "DECISION_SUPPORT", stage: "DECISION_SUPPORT", reason: "commercial objection or buying doubt detected" };
@@ -110,7 +112,7 @@ export function inferSellerAiMode({
   if (hasExplicitClosingIntent) {
     return { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "explicit closing intent" };
   }
-  if ((intentScore ?? 0) >= 70 && !hasCurrentObjection) {
+  if ((intentScore ?? 0) >= 70 && !hasCurrentObjection && !hasContextSignal) {
     return { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "high intent score" };
   }
   if (productId || hasProductContext) {
@@ -129,6 +131,8 @@ export function buildQuickRepliesForMode({
   category,
   detectedNeed,
   recommendedProducts,
+  usedReplies,
+  lastUserMessage,
 }: {
   mode: SellerAiMode;
   commercialType?: string | null;
@@ -136,17 +140,53 @@ export function buildQuickRepliesForMode({
   category?: { name?: string | null } | null;
   detectedNeed?: string | null;
   recommendedProducts?: Array<{ name: string }>;
+  usedReplies?: string[];
+  lastUserMessage?: string | null;
 }) {
+  function normalizeReply(input?: string | null) {
+    return (input ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  }
+
+  function replyMatchesNeed(reply: string) {
+    const normalizedReply = normalizeReply(reply);
+    const normalizedNeed = normalizeReply(detectedNeed);
+    if (!normalizedNeed) return false;
+    if (normalizedNeed === "regalo") return normalizedReply === "para regalar" || normalizedReply === "es para regalar";
+    if (normalizedNeed === "fotos") return normalizedReply === "fotos";
+    if (normalizedNeed === "uso personal") return normalizedReply === "para mi" || normalizedReply === "lo quiero para mi";
+    return normalizedReply === normalizedNeed;
+  }
+
+  function filterReplies(replies: string[]) {
+    const used = new Set((usedReplies ?? []).map(normalizeReply));
+    const last = normalizeReply(lastUserMessage);
+    return unique(replies)
+      .filter((reply) => {
+        const normalizedReply = normalizeReply(reply);
+        return normalizedReply && normalizedReply !== last && !used.has(normalizedReply) && !replyMatchesNeed(reply);
+      })
+      .slice(0, 4);
+  }
+
   const commercialCopy = getCommercialTypeCopy(commercialType);
-  if (mode === "DISCOVERY") return commercialCopy.quickReplies.slice(0, 4);
+  if (detectedNeed === "regalo") {
+    const giftReplies = product?.name ? ["Trabajo", "Estudio", "Uso diario", "Ver otra opción"] : ["Mujer", "Hombre", "Niño/a", "Algo práctico", "Algo económico"];
+    return filterReplies(giftReplies);
+  }
+  if (detectedNeed === "fotos") return filterReplies(["Buena cámara", "Buena memoria", "Precio accesible", "Comparar opciones"]);
+  if (mode === "DISCOVERY") return filterReplies(commercialCopy.quickReplies);
   if (mode === "PRODUCT_ADVISOR") {
     const base = category?.name && /celular|telefono|teléfono|smartphone/i.test(category.name) ? ["Trabajo", "Fotos", "Redes", "Juegos"] : sellerAiConfig.modes.PRODUCT_ADVISOR.quickReplies;
-    return base.slice(0, 4);
+    return filterReplies(base);
   }
   if (mode === "DECISION_SUPPORT") {
     const productReply = product?.name ? `Me interesa ${product.name}` : "Me interesa";
-    return unique(["Precio", "Disponibilidad", "Envío", productReply]).slice(0, 4);
+    return filterReplies(["Precio", "Disponibilidad", "Envío", productReply]);
   }
   const recommended = recommendedProducts?.[0]?.name ? `Me interesa ${recommendedProducts[0].name}` : null;
-  return unique([recommended ?? "Me interesa", detectedNeed ? `Lo quiero para ${detectedNeed}` : "Quiero comprar", "Continuar por WhatsApp"]).slice(0, 4);
+  return filterReplies([recommended ?? "Me interesa", detectedNeed ? `Lo quiero para ${detectedNeed}` : "Quiero comprar", "Continuar por WhatsApp"]);
 }

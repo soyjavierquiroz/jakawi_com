@@ -121,6 +121,7 @@ export async function POST(request: Request) {
     message,
     mode,
     stage,
+    shouldStartPhoneCapture: false,
     quickReplies: buildQuickRepliesForMode({
       mode,
       commercialType: store.commercialType,

@@ -56,6 +56,7 @@ function buildAssistantMessage({
   store,
   detectedNeed,
   recommendations,
+  shouldAskPhone,
 }: {
   mode: SellerAiMode;
   userMessage: string;
@@ -63,12 +64,15 @@ function buildAssistantMessage({
   store: { name: string; commercialType?: string | null; currency?: string | null; countryCode?: string | null; locale?: string | null };
   detectedNeed?: string | null;
   recommendations: SellerAiRecommendedProduct[];
+  shouldAskPhone?: boolean;
 }) {
   const text = userMessage.toLowerCase();
   const recommendationNames = recommendations.slice(0, 3).map((item) => item.name);
 
   if (mode === "CLOSING_PREP") {
-    return "Perfecto. Te dejo la consulta armada para la tienda. ¿A qué WhatsApp pueden escribirte?";
+    return shouldAskPhone
+      ? "Perfecto. Te dejo la consulta armada para la tienda. ¿A qué WhatsApp pueden escribirte?"
+      : "Perfecto. Ya tengo la consulta bastante armada. Cuando quieras, puedes continuar por WhatsApp con este contexto.";
   }
 
   if (mode === "DECISION_SUPPORT") {
@@ -93,6 +97,9 @@ function buildAssistantMessage({
 
   if (mode === "PRODUCT_ADVISOR") {
     if (!product) return "Cuéntame qué uso le quieres dar y te recomiendo una opción sin marearte.";
+    if (detectedNeed === "regalo") {
+      return `Perfecto. Si es para regalar, te ayudo a ver si ${product.name} encaja. ¿Es para alguien que lo usaría para trabajo, estudio o uso diario?`;
+    }
     if (detectedNeed === "fotos") {
       return `Si lo quieres para fotos, conviene priorizar cámara, memoria y batería. ${product.name} puede servirte para redes y uso diario. ¿Quieres que te pase la consulta armada a WhatsApp?`;
     }
@@ -102,6 +109,9 @@ function buildAssistantMessage({
     return `${product.name} puede ser buena opción si encaja con el uso que tienes en mente. ¿Lo buscas para trabajo, regalo o uso diario?`;
   }
 
+  if (detectedNeed === "regalo") {
+    return "Buenísimo. Para regalar conviene algo práctico y fácil de usar. ¿Para quién es el regalo?";
+  }
   if (detectedNeed && recommendationNames.length > 0) {
     return `Para ${detectedNeed}, empezaría comparando estas opciones: ${recommendationNames.join(", ")}. ¿Quieres precio, disponibilidad o ayuda para elegir una?`;
   }
@@ -166,6 +176,7 @@ export async function POST(request: Request) {
       intentScore: lead.intentScore,
       intentLabel: classifyIntent(lead.intentScore),
       shouldShowWhatsappCta: true,
+      shouldStartPhoneCapture: false,
     });
   }
 
@@ -203,6 +214,7 @@ export async function POST(request: Request) {
     intentScore: provisionalIntentScore,
     objections: signals.objections,
   });
+  const shouldStartPhoneCapture = inferred.mode === "CLOSING_PREP" && inferred.reason === "explicit closing intent";
   const recommendations = await getSellerAiRecommendations({
     storeId: lead.storeId,
     currentProductId: product?.id,
@@ -217,6 +229,7 @@ export async function POST(request: Request) {
     store: lead.store,
     detectedNeed: signals.detectedNeed ?? journey.detectedNeed,
     recommendations,
+    shouldAskPhone: shouldStartPhoneCapture,
   });
   const replyMessage = await getPrisma().conversationMessage.create({
     data: { conversationId: conversation.id, role: MessageRole.ASSISTANT, content: assistantMessage, metadata: { productId: product?.id, journeyId: journey.id, mode: inferred.mode, stage: inferred.stage } },
@@ -232,7 +245,7 @@ export async function POST(request: Request) {
   });
   const messages = [...messagesBeforeReply, replyMessage];
   const intentScore = Math.min(100, Math.max(provisionalIntentScore, calculateIntentScore({ events, messages, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED })));
-  const shouldShowWhatsappCta = inferred.mode === "CLOSING_PREP" || intentScore >= 55 || /quiero|me interesa|comprar|como compro|cómo compro|pedido|precio/.test(parsed.data.message.toLowerCase());
+  const shouldShowWhatsappCta = shouldStartPhoneCapture || inferred.mode === "DECISION_SUPPORT" || (intentScore >= 70 && inferred.mode !== "DISCOVERY");
 
   await getPrisma().lead.update({
     where: { id: lead.id },
@@ -266,6 +279,8 @@ export async function POST(request: Request) {
     category: product?.category,
     detectedNeed: signals.detectedNeed ?? updatedJourney?.detectedNeed,
     recommendedProducts: recommendations,
+    usedReplies: messagesBeforeReply.filter((message) => message.role === MessageRole.USER).map((message) => message.content),
+    lastUserMessage: parsed.data.message,
   });
 
   return NextResponse.json({
@@ -287,5 +302,6 @@ export async function POST(request: Request) {
     objections: signals.objections.length > 0 ? signals.objections.join(", ") : updatedJourney?.objections,
     intentLabel: classifyIntent(intentScore),
     shouldShowWhatsappCta,
+    shouldStartPhoneCapture,
   });
 }

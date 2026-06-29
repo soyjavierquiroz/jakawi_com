@@ -32,6 +32,8 @@ type SellerAiWidgetProps = {
   storeName: string;
   productId?: string;
   productName?: string;
+  productImageUrl?: string | null;
+  productPriceLabel?: string | null;
   categoryName?: string | null;
   whatsapp?: string;
   planCode?: string | null;
@@ -74,13 +76,23 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 function hasStrongIntent(input: string) {
-  return /quiero|me interesa|comprar|precio|disponible|disponibilidad|pedido|lo llevo|cómo compro|como compro/i.test(input);
+  return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|pasar a whatsapp|quiero que me escriban/i.test(input);
+}
+
+function normalizeReply(input?: string | null) {
+  return (input ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 }
 
 export function SellerAiWidget({
   storeSlug,
   productId,
   productName,
+  productImageUrl,
+  productPriceLabel,
   categoryName,
   mode = "assistive",
   requirePhoneBeforeWhatsapp = true,
@@ -105,6 +117,7 @@ export function SellerAiWidget({
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
   const [commercialMode, setCommercialMode] = useState<CommercialSellerAiMode | null>(null);
   const [commercialStage, setCommercialStage] = useState<CommercialSellerAiMode | null>(null);
+  const [detectedNeed, setDetectedNeed] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerPhoneIsValid, setCustomerPhoneIsValid] = useState(false);
@@ -123,6 +136,25 @@ export function SellerAiWidget({
   const chatIsBusy = isLoading || isAssistantTyping;
   const ctaIsStrong = shouldShowWhatsappCta;
   const showWhatsappCta = step === "chat" && messages.length > 0;
+  const contextSubtitle = productName ? `Asesorando: ${productName}` : "Te ayuda a elegir";
+
+  const displayedQuickReplies = useMemo(() => {
+    const userMessages = messages.filter((message) => message.role === "user").map((message) => normalizeReply(message.content));
+    const used = new Set(userMessages);
+    const lastUserMessage = userMessages[userMessages.length - 1] ?? "";
+    const normalizedNeed = normalizeReply(detectedNeed);
+
+    return quickReplies
+      .filter((reply) => {
+        const normalizedReply = normalizeReply(reply);
+        if (!normalizedReply || normalizedReply === lastUserMessage || used.has(normalizedReply)) return false;
+        if (normalizedNeed === "regalo" && (normalizedReply === "para regalar" || normalizedReply === "es para regalar")) return false;
+        if (normalizedNeed === "fotos" && normalizedReply === "fotos") return false;
+        if (normalizedNeed === "uso personal" && normalizedReply === "para mi") return false;
+        return normalizedReply !== normalizedNeed;
+      })
+      .slice(0, 4);
+  }, [detectedNeed, messages, quickReplies]);
 
   const teaserText = useMemo(() => {
     const text = `${productName ?? ""} ${categoryName ?? ""}`.toLowerCase();
@@ -182,7 +214,7 @@ export function SellerAiWidget({
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [error, isAssistantTyping, isLoading, messages.length, phoneError, quickReplies.length, redirectError, shouldShowWhatsappCta, step]);
+  }, [displayedQuickReplies.length, error, isAssistantTyping, isLoading, messages.length, phoneError, redirectError, shouldShowWhatsappCta, step]);
 
   const openChat = useCallback(async (options?: { afterOpen?: WidgetStep }) => {
     setHasInteracted(true);
@@ -273,6 +305,8 @@ export function SellerAiWidget({
           quickReplies: string[];
           recommendedProducts?: RecommendedProduct[];
           shouldShowWhatsappCta: boolean;
+          shouldStartPhoneCapture?: boolean;
+          detectedNeed?: string | null;
         }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
@@ -281,10 +315,12 @@ export function SellerAiWidget({
         if (response.journeyId) setJourneyId(response.journeyId);
         if (response.mode) setCommercialMode(response.mode);
         if (response.stage) setCommercialStage(response.stage);
+        if (response.detectedNeed !== undefined) setDetectedNeed(response.detectedNeed ?? null);
         setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage ?? response.message ?? "" }]);
         setQuickReplies(response.quickReplies);
         setRecommendedProducts((response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts));
         setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
+        if (response.shouldStartPhoneCapture && requirePhoneBeforeWhatsapp) setStep("phone_capture");
       } catch {
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
@@ -294,7 +330,7 @@ export function SellerAiWidget({
         setIsLoading(false);
       }
     },
-    [journeyId, leadId, productId, sessionId, storeSlug],
+    [journeyId, leadId, productId, requirePhoneBeforeWhatsapp, sessionId, storeSlug],
   );
 
   const continueWhatsapp = useCallback(async () => {
@@ -381,34 +417,54 @@ export function SellerAiWidget({
 
   return (
     <div className="fixed inset-x-0 z-50 flex justify-center px-4 sm:inset-x-auto sm:right-5 sm:justify-end" style={{ bottom: "calc(env(safe-area-inset-bottom) + 16px)" }}>
-      {step !== "closed" ? <div className="fixed inset-0 bg-black/10 sm:hidden" onClick={closeWidget} aria-hidden="true" /> : null}
+      {step !== "closed" ? <div className="fixed inset-0 hidden bg-black/10 sm:block" onClick={closeWidget} aria-hidden="true" /> : null}
 
       {step !== "closed" ? (
         <section
           className={cn(
-            "fixed inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-[24px] border border-brand-border bg-[#FAF7EF] shadow-[0_-18px_48px_rgba(0,0,0,0.16)] sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-[400px] sm:rounded-lg sm:bg-[#FAF7EF]",
-            step === "chat" ? "max-h-[72dvh] sm:h-[560px] sm:max-h-[560px]" : "max-h-[62dvh] sm:max-h-[560px]",
+            "fixed inset-0 flex h-[100dvh] max-h-none flex-col overflow-hidden border-0 bg-[#FAF7EF] shadow-none sm:inset-auto sm:right-5 sm:bottom-5 sm:w-[400px] sm:rounded-lg sm:border sm:border-brand-border sm:bg-[#FAF7EF] sm:shadow-[0_18px_48px_rgba(0,0,0,0.16)]",
+            step === "chat" ? "sm:h-[560px] sm:max-h-[560px]" : "sm:max-h-[560px]",
           )}
-          style={step === "chat" ? { height: sellerAiConfig.bottomSheetHeightMobile } : undefined}
           aria-label={widgetTitle}
           data-seller-ai-mode={commercialMode ?? undefined}
           data-seller-ai-stage={commercialStage ?? undefined}
         >
-          <header className="shrink-0 border-b border-black/10 bg-brand-dark px-4 py-3 text-white">
+          <header className="shrink-0 border-b border-black/10 bg-brand-dark px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] text-white sm:pt-3">
             <div className="flex items-center justify-between gap-3">
+              <button type="button" onClick={closeWidget} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 text-sm font-black text-white transition hover:bg-white/15">
+                <ArrowLeft className="size-4" />
+                Volver a la tienda
+              </button>
+              <button type="button" onClick={closeWidget} className="grid size-9 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label="Cerrar Seller AI">
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex min-w-0 items-center gap-2">
                   <Sparkles className="size-4 shrink-0 text-brand-lime" />
                   <h3 className="truncate text-base font-black leading-5">{widgetTitle}</h3>
                   {leadCode ? <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 font-mono text-[11px] font-bold leading-4 text-brand-lime">{leadCode}</span> : null}
                 </div>
-                <p className="mt-0.5 truncate text-xs font-semibold leading-4 text-white/75">{widgetCopy.subtitle}</p>
+                <p className="mt-0.5 truncate text-xs font-semibold leading-4 text-white/75">{contextSubtitle}</p>
               </div>
-              <button type="button" onClick={closeWidget} className="grid size-9 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label="Cerrar Seller AI">
-                <X className="size-4" />
-              </button>
             </div>
           </header>
+
+          <div className="shrink-0 border-b border-brand-border bg-white px-4 py-2.5">
+            {productName ? (
+              <div className="flex items-center gap-3">
+                {productImageUrl ? <img src={productImageUrl} alt="" className="size-11 shrink-0 rounded-md object-cover" /> : null}
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-normal text-neutral-500">Producto seleccionado</p>
+                  <p className="truncate text-sm font-black text-brand-dark">{productName}</p>
+                  <p className="truncate text-xs font-semibold text-neutral-500">{[productPriceLabel, categoryName].filter(Boolean).join(" · ")}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm font-bold text-neutral-600">Estoy aquí para ayudarte a elegir.</p>
+            )}
+          </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             <div className="flex min-h-full flex-col justify-end gap-2.5">
@@ -490,10 +546,10 @@ export function SellerAiWidget({
 
           {step === "chat" ? (
             <div className="shrink-0 border-t border-brand-border bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2.5">
-              {quickReplies.length > 0 ? (
+              {displayedQuickReplies.length > 0 ? (
                 <div className="relative -mx-4 mb-2.5 overflow-hidden">
                   <div className="flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {quickReplies.map((reply) => (
+                    {displayedQuickReplies.map((reply) => (
                       <button
                         key={reply}
                         type="button"

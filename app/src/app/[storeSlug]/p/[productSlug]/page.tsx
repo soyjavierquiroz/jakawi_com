@@ -26,6 +26,12 @@ export default async function PublicProductPage({
 
   await trackEvent("PRODUCT_VIEW", store.id, product.id);
   const flow = getStorefrontFlow(store.plan);
+  const productPriceLabel = formatMoney({
+    amountCents: product.priceCents,
+    currency: store.currency ?? product.currency,
+    countryCode: store.countryCode ?? "BO",
+    locale: store.locale,
+  });
 
   return (
     <main className="min-h-dvh bg-background px-4 py-6">
@@ -38,12 +44,7 @@ export default async function PublicProductPage({
           </Link>
           <h1 className="mt-4 text-3xl font-black">{product.name}</h1>
           <p className="mt-2 text-2xl font-black text-brand-dark">
-            {formatMoney({
-              amountCents: product.priceCents,
-              currency: store.currency ?? product.currency,
-              countryCode: store.countryCode ?? "BO",
-              locale: store.locale,
-            })}
+            {productPriceLabel}
           </p>
           <p className="mt-4 leading-7 text-neutral-600">{product.description ?? "Consulta disponibilidad por WhatsApp."}</p>
           <ProductConversionCta
@@ -64,6 +65,8 @@ export default async function PublicProductPage({
             storeName={store.name}
             productId={product.id}
             productName={product.name}
+            productImageUrl={product.imageUrl}
+            productPriceLabel={productPriceLabel}
             categoryName={product.category?.name}
             whatsapp={store.whatsapp}
             planCode={flow.planCode}

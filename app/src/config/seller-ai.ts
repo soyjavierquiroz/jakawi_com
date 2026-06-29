@@ -38,7 +38,7 @@ export const sellerAiConfig = {
     continueWhatsappLong: "Continuar por WhatsApp",
     leaveWhatsappInquiry: "Dejar consulta por WhatsApp",
     preparingWhatsapp: "Preparando WhatsApp...",
-    inputPlaceholder: "Escribe una respuesta corta...",
+    inputPlaceholder: "Escribe tu respuesta...",
     phoneRequiredError: "Escribe un WhatsApp válido.",
     phoneInvalidError: "Escribe un WhatsApp válido.",
     redirectFailed: "No pudimos abrir WhatsApp automáticamente.",
