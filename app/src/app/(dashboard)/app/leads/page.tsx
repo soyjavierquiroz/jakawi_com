@@ -14,6 +14,13 @@ const statusLabels: Record<string, string> = {
   LOST: "Perdido",
 };
 
+const stageLabels: Record<string, string> = {
+  DISCOVERY: "Descubriendo necesidad",
+  PRODUCT_ADVISOR: "Asesorando producto",
+  DECISION_SUPPORT: "Resolviendo dudas",
+  CLOSING_PREP: "Listo para cierre",
+};
+
 function shortSummary(input?: string | null) {
   if (!input) return "Sin resumen todavía.";
   return input.length > 120 ? `${input.slice(0, 117)}...` : input;
@@ -57,6 +64,8 @@ export default async function LeadsPage() {
           <div className="divide-y divide-neutral-100">
             {leads.map((lead) => {
               const product = productMap.get(lead.selectedProductId ?? lead.currentProductId ?? "");
+              const detectedNeed = lead.journey?.detectedNeed ?? (lead.activeSnapshot ?? lead.snapshots[0])?.detectedNeed;
+              const objections = lead.journey?.objections ?? (lead.activeSnapshot ?? lead.snapshots[0])?.objections;
               return (
                 <Link key={lead.id} href={`/app/leads/${lead.id}`} className="grid gap-3 p-4 transition hover:bg-brand-muted md:grid-cols-[160px_1fr_120px_110px_auto] md:items-center">
                   <div>
@@ -79,6 +88,11 @@ export default async function LeadsPage() {
                         : ""}
                       {shortSummary(lead.conversationSummary)}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-black text-brand-dark">
+                      {lead.journey?.stage ? <span className="rounded-full bg-brand-soft px-2 py-1">{stageLabels[lead.journey.stage] ?? lead.journey.stage}</span> : null}
+                      {detectedNeed ? <span className="rounded-full bg-white px-2 py-1 ring-1 ring-brand-border">Necesidad: {detectedNeed}</span> : null}
+                      {objections ? <span className="rounded-full bg-white px-2 py-1 ring-1 ring-brand-border">Duda: {objections}</span> : null}
+                    </div>
                   </div>
                   <span className="rounded-full bg-brand-soft px-3 py-2 text-center text-xs font-black text-brand-dark">{classifyIntent(lead.intentScore)}</span>
                   <span className="text-sm font-bold text-neutral-600">{statusLabels[lead.status] ?? lead.status}</span>

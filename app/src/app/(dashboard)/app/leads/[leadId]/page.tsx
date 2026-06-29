@@ -16,6 +16,13 @@ const statusLabels: Record<string, string> = {
   LOST: "Perdido",
 };
 
+const stageLabels: Record<string, string> = {
+  DISCOVERY: "Descubriendo necesidad",
+  PRODUCT_ADVISOR: "Asesorando producto",
+  DECISION_SUPPORT: "Resolviendo dudas",
+  CLOSING_PREP: "Listo para cierre",
+};
+
 function jsonIds(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
@@ -57,6 +64,11 @@ export default async function LeadDetailPage({
   const mainProduct = productMap.get(lead.selectedProductId ?? lead.currentProductId ?? "");
   const whatsappUrl = lead.whatsappMessage ? `https://wa.me/${normalizePhone(lead.store.whatsapp)}?text=${encodeURIComponent(lead.whatsappMessage)}` : null;
   const latestSnapshot = lead.activeSnapshot ?? lead.snapshots[0] ?? null;
+  const detectedNeed = lead.journey?.detectedNeed ?? latestSnapshot?.detectedNeed;
+  const budget = lead.journey?.budget ?? latestSnapshot?.budget ?? lead.budget;
+  const urgency = lead.journey?.urgency ?? latestSnapshot?.urgency ?? lead.urgency;
+  const objections = lead.journey?.objections ?? latestSnapshot?.objections ?? (lead.objections.length ? lead.objections.join(", ") : null);
+  const recommendedProducts = recommendedNames(lead.journey?.recommendedProducts ?? lead.recommendedProducts);
   const timeline = [
     ...lead.events.map((event) => ({
       id: `lead-${event.id}`,
@@ -142,10 +154,29 @@ export default async function LeadDetailPage({
               <div className="rounded-md bg-brand-muted p-3">
                 <p className="font-bold text-neutral-500">Journey</p>
                 <p className="mt-1 font-mono font-black">{lead.journey?.journeyCode ?? "Sin journey"}</p>
+                {lead.journey?.stage ? <p className="mt-1 text-xs font-black text-brand-dark">{stageLabels[lead.journey.stage] ?? lead.journey.stage}</p> : null}
               </div>
               <div className="rounded-md bg-brand-muted p-3">
                 <p className="font-bold text-neutral-500">Snapshot</p>
                 <p className="mt-1 font-mono font-black">{latestSnapshot?.snapshotCode ?? "Sin snapshot"}</p>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
+              <div className="rounded-md bg-brand-muted p-3">
+                <p className="font-bold text-neutral-500">Necesidad detectada</p>
+                <p className="mt-1 font-black">{detectedNeed ?? "Sin dato"}</p>
+              </div>
+              <div className="rounded-md bg-brand-muted p-3">
+                <p className="font-bold text-neutral-500">Presupuesto</p>
+                <p className="mt-1 font-black">{budget ?? "Sin dato"}</p>
+              </div>
+              <div className="rounded-md bg-brand-muted p-3">
+                <p className="font-bold text-neutral-500">Urgencia</p>
+                <p className="mt-1 font-black">{urgency ?? "Sin dato"}</p>
+              </div>
+              <div className="rounded-md bg-brand-muted p-3">
+                <p className="font-bold text-neutral-500">Objeciones o dudas</p>
+                <p className="mt-1 font-black">{objections ?? "Sin dato"}</p>
               </div>
             </div>
             <p className="mt-4 leading-7 text-neutral-700">{lead.conversationSummary ?? "El resumen se generará cuando el cliente continúe a WhatsApp."}</p>
@@ -209,10 +240,10 @@ export default async function LeadDetailPage({
           <section className="rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
             <h2 className="text-xl font-black">Recomendados</h2>
             <div className="mt-3 space-y-2">
-              {recommendedNames(lead.recommendedProducts).map((name) => (
+              {recommendedProducts.map((name) => (
                 <p key={name} className="rounded-md bg-brand-muted px-3 py-2 text-sm font-semibold">{name}</p>
               ))}
-              {recommendedNames(lead.recommendedProducts).length === 0 ? <p className="text-neutral-500">Sin recomendaciones todavía.</p> : null}
+              {recommendedProducts.length === 0 ? <p className="text-neutral-500">Sin recomendaciones todavía.</p> : null}
             </div>
           </section>
 
