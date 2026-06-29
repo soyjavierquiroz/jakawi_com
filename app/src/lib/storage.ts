@@ -78,14 +78,18 @@ async function uploadFile(file: File, keyPrefix: string) {
   return putFile(file, key);
 }
 
+function baseMimeType(type: string) {
+  return type.split(";")[0]?.trim().toLowerCase() ?? "";
+}
+
 function audioExtension(file: File) {
   const extension = file.name.includes(".") ? file.name.split(".").pop()?.toLowerCase() : "";
-  return extension && audioExtensions.has(extension) ? extension : audioExtensionByMimeType[file.type];
+  return extension && audioExtensions.has(extension) ? extension : audioExtensionByMimeType[baseMimeType(file.type)];
 }
 
 function assertValidAudio(file: File) {
   const extension = audioExtension(file);
-  if (!allowedAudioTypes.has(file.type) || !extension || !audioExtensions.has(extension)) {
+  if (!allowedAudioTypes.has(baseMimeType(file.type)) || !extension || !audioExtensions.has(extension)) {
     throw new Error("Solo se permiten audios MP3, M4A, MP4, WebM o WAV.");
   }
   if (file.size > maxAudioBytes) throw new Error("El audio no puede superar 3MB.");

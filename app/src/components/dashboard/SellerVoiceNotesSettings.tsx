@@ -68,14 +68,17 @@ function getInitialNotes(store: SellerVoiceNotesSettingsProps["store"]) {
     intro: {
       audioUrl: store.sellerIntroAudioUrl ?? "",
       durationSeconds: store.sellerIntroDurationSeconds?.toString() ?? "",
+      deleteAudio: false,
     },
     guidance: {
       audioUrl: store.sellerGuidanceAudioUrl ?? "",
       durationSeconds: store.sellerGuidanceDurationSeconds?.toString() ?? "",
+      deleteAudio: false,
     },
     handoff: {
       audioUrl: store.sellerHandoffAudioUrl ?? "",
       durationSeconds: store.sellerHandoffDurationSeconds?.toString() ?? "",
+      deleteAudio: false,
     },
   };
 }
@@ -158,7 +161,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
       } else {
         setNotes((current) => ({
           ...current,
-          [type]: { ...current[type], audioUrl: uploadedUrl },
+          [type]: { ...current[type], audioUrl: uploadedUrl, deleteAudio: false },
         }));
       }
       setMessage("Archivo subido. Guarda cambios para aplicarlo.");
@@ -234,7 +237,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
   }
 
   function removeAudio(type: NoteKey) {
-    setNotes((current) => ({ ...current, [type]: { audioUrl: "", durationSeconds: "" } }));
+    setNotes((current) => ({ ...current, [type]: { audioUrl: "", durationSeconds: "", deleteAudio: true } }));
     setMessage("Audio eliminado de esta nota. Guarda cambios para aplicarlo.");
   }
 
@@ -305,7 +308,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                     <span className="block text-xs font-semibold leading-5 text-neutral-600">{meta.description}</span>
                   </span>
                 </label>
-                <input type="hidden" name={meta.audioName} value={note.audioUrl} />
+                <input type="hidden" name={meta.audioName} value={note.deleteAudio ? "__DELETE__" : note.audioUrl} />
                 <div className="mt-3 flex flex-wrap gap-2">
                   <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand">
                     {uploading === key ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}

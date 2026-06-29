@@ -41,9 +41,11 @@ export function SellerAiVoiceNote({ voiceNote, align = "assistant", compact = fa
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
-  const [playbackFailed, setPlaybackFailed] = useState(false);
+  const [playbackFailureKey, setPlaybackFailureKey] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState(voiceNote.durationSeconds);
   const [timestamp] = useState(currentTimeLabel);
+  const playbackKey = `${voiceNote.type}:${voiceNote.audioUrl ?? ""}:${voiceNote.transcript}`;
+  const playbackFailed = playbackFailureKey === playbackKey;
   const bars = useMemo(() => waveformHeights(`${voiceNote.type}:${voiceNote.transcript}`), [voiceNote.transcript, voiceNote.type]);
   const initials = voiceNote.displayName.trim().slice(0, 1).toUpperCase() || "V";
 
@@ -65,7 +67,10 @@ export function SellerAiVoiceNote({ voiceNote, align = "assistant", compact = fa
   }
 
   function openTranscriptFallback() {
-    setPlaybackFailed(true);
+    if (voiceNote.audioUrl && process.env.NODE_ENV === "development") {
+      console.warn("Seller voice note audio failed", { type: voiceNote.type, source: voiceNote.source });
+    }
+    setPlaybackFailureKey(playbackKey);
     setIsPlaying(false);
     setIsTranscriptOpen(true);
   }

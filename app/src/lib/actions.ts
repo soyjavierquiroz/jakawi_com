@@ -353,6 +353,22 @@ function optionalUrlField(formData: FormData, name: string) {
   }
 }
 
+function audioUrlField(formData: FormData, name: string, existingUrl?: string | null) {
+  if (!formData.has(name)) return existingUrl ?? null;
+
+  const value = field(formData, name);
+  if (value === "__DELETE__") return null;
+  if (!value) return existingUrl ?? null;
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return existingUrl ?? null;
+    return parsed.toString();
+  } catch {
+    return existingUrl ?? null;
+  }
+}
+
 function durationField(formData: FormData, name: string) {
   const value = Number.parseInt(field(formData, name), 10);
   if (!Number.isFinite(value) || value <= 0) return null;
@@ -381,11 +397,11 @@ export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
     redirect("/app/seller-ai?error=voice-plan");
   }
 
-  const sellerIntroAudioUrl = optionalUrlField(formData, "sellerIntroAudioUrl");
+  const sellerIntroAudioUrl = audioUrlField(formData, "sellerIntroAudioUrl", store.sellerIntroAudioUrl);
   const sellerIntroTranscript = transcriptField(formData, "sellerIntroTranscript");
-  const sellerGuidanceAudioUrl = optionalUrlField(formData, "sellerGuidanceAudioUrl");
+  const sellerGuidanceAudioUrl = audioUrlField(formData, "sellerGuidanceAudioUrl", store.sellerGuidanceAudioUrl);
   const sellerGuidanceTranscript = transcriptField(formData, "sellerGuidanceTranscript");
-  const sellerHandoffAudioUrl = optionalUrlField(formData, "sellerHandoffAudioUrl");
+  const sellerHandoffAudioUrl = audioUrlField(formData, "sellerHandoffAudioUrl", store.sellerHandoffAudioUrl);
   const sellerHandoffTranscript = transcriptField(formData, "sellerHandoffTranscript");
 
   try {
