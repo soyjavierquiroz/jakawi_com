@@ -1,7 +1,8 @@
 import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
-import { Bot } from "lucide-react";
+import { CopyButton } from "@/components/CopyButton";
+import { Bot, ExternalLink, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
-import { siteConfig } from "@/config/site";
+import { getPublicStoreUrl, siteConfig } from "@/config/site";
 import { updateStoreAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
 import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
@@ -16,17 +17,35 @@ export default async function StoreSettingsPage({
   const [productUsage, sellerAiUsage] = await Promise.all([getProductUsage(store.id), getSellerAiUsage(store.id)]);
   const planState = getStorePlanState(store);
   const trialLabel = planState.trialEndsAt ? planState.trialEndsAt.toLocaleDateString(store.locale ?? "es-BO") : null;
+  const publicUrl = getPublicStoreUrl(store.slug);
 
   return (
-    <section>
+    <section className="space-y-5 md:space-y-6">
       <p className="text-sm font-bold text-brand-dark">Mi espacio</p>
-      <h1 className="text-4xl font-black">Configura tu espacio comercial</h1>
+      <h1 className="text-3xl font-black md:text-4xl">{store.name}</h1>
       <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Mantén actualizada la información pública de tu negocio. La tienda pública sigue siendo el link que ve el cliente.</p>
       {params.ok ? <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Cambios guardados.</p> : null}
       {params.error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{params.error === "voice-plan" ? "Las notas de voz están disponibles en Pro/Premium." : params.error}</p> : null}
 
-      <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-4">
+      <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex items-start gap-3">
+          <LinkIcon className="mt-1 size-5 shrink-0 text-brand" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-brand-dark">Link público</p>
+            <code className="mt-1 block break-all rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{publicUrl}</code>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:flex md:items-center">
+          <a href={publicUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-4 font-bold text-white hover:bg-brand">
+            <ExternalLink className="size-4" />
+            Ver tienda
+          </a>
+          <CopyButton value={publicUrl} />
+        </div>
+      </section>
+
+      <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
           <div>
             <p className="text-xs font-black uppercase text-neutral-500">Plan actual</p>
             <p className="mt-1 text-xl font-black text-brand-dark">{planState.planName}</p>
@@ -50,7 +69,11 @@ export default async function StoreSettingsPage({
         </div>
       </div>
 
-      <form action={updateStoreAction} className="mt-6 space-y-5 rounded-lg border border-brand-border bg-brand-paper p-6 shadow-sm">
+      <form action={updateStoreAction} className="space-y-5 rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-6">
+        <div>
+          <p className="text-sm font-black text-brand-dark">Información básica</p>
+          <p className="mt-1 text-sm font-semibold text-neutral-600">Nombre, descripción y canales visibles para tus clientes.</p>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Nombre</span>
@@ -97,14 +120,14 @@ export default async function StoreSettingsPage({
             <input name="logo" type="file" accept="image/jpeg,image/png,image/webp" className="w-full rounded-md border border-brand-border px-3 py-2 text-sm" />
           </label>
         </div>
-        <button className="h-11 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">Guardar cambios</button>
+        <button className="h-11 w-full rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark sm:w-auto">Guardar cambios</button>
       </form>
 
-      <section className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
+      <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-black text-brand-dark">Seller AI y notas de voz</p>
-            <h2 className="mt-1 text-2xl font-black">Configura la confianza humana en Seller AI</h2>
+            <h2 className="mt-1 text-xl font-black md:text-2xl">Configurar Seller AI y notas de voz</h2>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">Las notas de bienvenida, orientación y cierre ahora viven en el centro de configuración del agente.</p>
           </div>
           <Link href={siteConfig.routes.sellerAi} className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">

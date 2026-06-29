@@ -35,11 +35,11 @@ export default async function PlanPage() {
   ];
 
   return (
-    <section>
+    <section className="space-y-5 md:space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-bold text-brand-dark">Plan</p>
-          <h1 className="text-4xl font-black">Plan y límites</h1>
+          <h1 className="text-3xl font-black md:text-4xl">Plan y límites</h1>
           <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Consulta tu uso actual sin configurar cobros ni checkout desde aquí.</p>
         </div>
         <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
@@ -47,18 +47,18 @@ export default async function PlanPage() {
         </a>
       </div>
 
-      <section className="mt-6 rounded-lg bg-brand-dark p-6 text-white">
+      <section className="rounded-lg bg-brand-dark p-5 text-white md:p-6">
         <Sparkles className="size-8 text-brand-lime" />
         <p className="mt-4 text-sm font-black text-white/60">Plan actual</p>
-        <h2 className="mt-1 text-3xl font-black">{planState.planName}</h2>
+        <h2 className="mt-1 text-2xl font-black md:text-3xl">{planState.planName}</h2>
         <p className="mt-2 text-sm font-semibold text-white/70">{price.priceLabel} · {status}</p>
       </section>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
         {rows.map((row) => (
-          <section key={row.label} className="rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
+          <section key={row.label} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
             <row.icon className="size-5 text-brand" />
-            <p className="mt-4 text-2xl font-black text-brand-dark">{row.value}</p>
+            <p className="mt-3 text-xl font-black text-brand-dark md:mt-4 md:text-2xl">{row.value}</p>
             <p className="mt-1 text-sm font-black text-neutral-700">{row.label}</p>
             <p className="mt-1 text-sm font-semibold text-neutral-500">{row.detail}</p>
           </section>
@@ -66,12 +66,12 @@ export default async function PlanPage() {
       </div>
 
       {!planState.sellerAiEnabled ? (
-        <section className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5">
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 md:p-5">
           <p className="font-black text-amber-900">Seller AI y notas de voz están disponibles en Pro/Premium.</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">Puedes seguir vendiendo con link público y WhatsApp directo mientras evalúas el upgrade.</p>
         </section>
       ) : (
-        <section className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
+        <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
           <p className="font-black text-brand-dark">Tu plan permite operar Seller AI con contexto.</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">Revisa tus notas de voz y handoff para mejorar la confianza antes de WhatsApp.</p>
           <Link href={siteConfig.routes.sellerAi} className="mt-4 inline-flex h-11 items-center rounded-md border border-brand-border px-5 font-bold text-brand-dark hover:border-brand">

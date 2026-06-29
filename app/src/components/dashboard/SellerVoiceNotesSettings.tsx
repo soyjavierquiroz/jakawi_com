@@ -120,6 +120,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
   const [displayName, setDisplayName] = useState(store.sellerVoiceDisplayName ?? "");
   const [notes, setNotes] = useState(getInitialNotes(store));
   const [transcripts, setTranscripts] = useState(getInitialTranscripts(store));
+  const [isDirty, setIsDirty] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [recordingKey, setRecordingKey] = useState<NoteKey | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -183,6 +184,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
           },
         }));
       }
+      setIsDirty(true);
       setMessage(type === "avatar" ? "Archivo subido. Guarda cambios para aplicarlo." : "Archivo optimizado automáticamente para carga rápida. Guarda cambios para aplicarlo.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo subir el archivo.");
@@ -257,15 +259,16 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
 
   function removeAudio(type: NoteKey) {
     setNotes((current) => ({ ...current, [type]: { audioUrl: "", durationSeconds: "", deleteAudio: true, optimized: false, sizeBytes: null } }));
+    setIsDirty(true);
     setMessage("Audio eliminado de esta nota. Guarda cambios para aplicarlo.");
   }
 
   return (
-    <form action={saveSellerVoiceNotesSettingsAction} className="mt-6 space-y-5 rounded-lg border border-brand-border bg-brand-paper p-6 shadow-sm">
+    <form action={saveSellerVoiceNotesSettingsAction} onSubmit={() => setIsDirty(false)} className="space-y-5 rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-bold text-brand-dark">Seller AI</p>
-          <h2 className="text-2xl font-black">Notas de voz del vendedor</h2>
+          <h2 className="text-xl font-black md:text-2xl">Notas de voz del vendedor</h2>
           <p className="mt-1 text-sm font-semibold text-neutral-600">Audios cortos tipo WhatsApp para generar confianza antes de cerrar la consulta.</p>
         </div>
         {!canEdit ? <span className="rounded-md bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">Disponible en Pro/Premium</span> : null}
@@ -274,7 +277,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
       {!canEdit ? <p className="rounded-md bg-brand-muted px-3 py-2 text-sm font-semibold text-neutral-700">Las notas de voz del vendedor están disponibles con Seller AI en Pro/Premium.</p> : null}
       {message ? <p className="rounded-md bg-brand-soft px-3 py-2 text-sm font-bold text-brand-dark">{message}</p> : null}
 
-      <fieldset disabled={!canEdit} className="space-y-5 disabled:opacity-60">
+      <fieldset disabled={!canEdit} onChange={() => setIsDirty(true)} className="space-y-5 disabled:opacity-60">
         <label className="flex items-center gap-2 text-sm font-black text-brand-dark">
           <input type="checkbox" name="sellerVoiceEnabled" defaultChecked={store.sellerVoiceEnabled !== false} className="size-4 accent-brand" />
           Activar notas de voz Seller AI
@@ -283,7 +286,16 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Nombre visible del vendedor</span>
-            <input name="sellerVoiceDisplayName" value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Ej. Andrea de la tienda" className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
+            <input
+              name="sellerVoiceDisplayName"
+              value={displayName}
+              onChange={(event) => {
+                setDisplayName(event.target.value);
+                setIsDirty(true);
+              }}
+              placeholder="Ej. Andrea de la tienda"
+              className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand"
+            />
           </label>
           <div className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Avatar del vendedor</span>
@@ -301,7 +313,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-3 lg:grid-cols-3 lg:gap-4">
           {(Object.keys(noteMeta) as NoteKey[]).map((key) => {
             const meta = noteMeta[key];
             const note = notes[key];
@@ -309,6 +321,8 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
             const previewSource: SellerVoiceNoteSource = note.audioUrl ? "STORE" : fallback.audioUrl ? "JAKAWI_FALLBACK" : "TEXT_FALLBACK";
             const optimizedLabel = note.optimized || note.audioUrl.endsWith(".mp3");
             const optimizedSize = formatBytes(note.sizeBytes);
+            const enabled = getInitialEnabled(store, key);
+            const durationLabel = `${Number.parseInt(note.durationSeconds, 10) || fallback.durationSeconds}s`;
             const previewVoiceNote: SellerVoiceNoteConfig = {
               type: meta.type as SellerVoiceNoteType,
               title: fallback.title,
@@ -326,14 +340,17 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                   <input type="checkbox" name={meta.enabledName} defaultChecked={getInitialEnabled(store, key)} className="mt-1 size-4 accent-brand" />
                   <span>
                     <span className="block text-sm font-black text-brand-dark">{meta.title}</span>
-                    <span className="block text-xs font-semibold leading-5 text-neutral-600">{meta.description}</span>
+                    <span className="mt-0.5 block text-xs font-black leading-5 text-neutral-500">
+                      {enabled ? "Activo" : "Inactivo"} · {sourceLabel(previewSource, optimizedLabel)} · {durationLabel}
+                    </span>
+                    <span className="mt-1 block text-xs font-semibold leading-5 text-neutral-600">{meta.description}</span>
                   </span>
                 </label>
                 <input type="hidden" name={meta.audioName} value={note.deleteAudio ? "__DELETE__" : note.audioUrl} />
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                   <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand">
                     {uploading === key ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
-                    {note.audioUrl ? "Reemplazar" : "Subir audio"}
+                    {note.audioUrl ? "Cambiar" : "Subir audio"}
                     <input type="file" accept="audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/webm,audio/wav,audio/x-wav,audio/ogg,application/ogg,.oga,.ogg" onChange={handleUpload(key)} className="sr-only" />
                   </label>
                   {recordingKey === key ? (
@@ -348,7 +365,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                     </button>
                   )}
                   {note.audioUrl ? (
-                    <button type="button" onClick={() => removeAudio(key)} className="inline-flex h-10 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-red-700 transition hover:border-red-300">
+                    <button type="button" onClick={() => removeAudio(key)} className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-red-700 transition hover:border-red-300">
                       <Trash2 className="size-4" />
                       Eliminar
                     </button>
@@ -363,40 +380,68 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                   </div>
                   <SellerAiVoiceNote voiceNote={previewVoiceNote} compact playLabel="Reproducir preview" />
                 </div>
-                <label className="mt-3 block space-y-2">
-                  <span className="text-sm font-semibold text-neutral-700">Duración en segundos</span>
-                  <input
-                    name={meta.durationName}
-                    inputMode="numeric"
-                    value={note.durationSeconds}
-                    onChange={(event) => setNotes((current) => ({ ...current, [key]: { ...current[key], durationSeconds: event.target.value } }))}
-                    className="h-10 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand"
-                  />
-                </label>
-                <label className="mt-3 block space-y-2">
-                  <span className="text-sm font-semibold text-neutral-700">Transcripción</span>
-                  <textarea
-                    name={meta.transcriptName}
-                    rows={5}
-                    value={transcripts[key]}
-                    onChange={(event) => setTranscripts((current) => ({ ...current, [key]: event.target.value }))}
-                    className="w-full rounded-md border border-brand-border px-3 py-2 text-sm outline-none focus:border-brand"
-                  />
-                </label>
-                <div className="mt-3 rounded-md bg-white/75 p-3">
-                  <p className="text-xs font-black uppercase text-neutral-500">Guion sugerido</p>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-neutral-600">{meta.defaultTranscript}</p>
-                </div>
+                <details className="group mt-3 rounded-md bg-white">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-black text-brand-dark">
+                    Editar transcripción
+                    <span className="text-lg leading-none group-open:rotate-45">+</span>
+                  </summary>
+                  <div className="space-y-3 px-3 pb-3">
+                    <label className="block space-y-2">
+                      <span className="text-sm font-semibold text-neutral-700">Duración en segundos</span>
+                      <input
+                        name={meta.durationName}
+                        inputMode="numeric"
+                        value={note.durationSeconds}
+                        onChange={(event) => {
+                          setNotes((current) => ({ ...current, [key]: { ...current[key], durationSeconds: event.target.value } }));
+                          setIsDirty(true);
+                        }}
+                        className="h-10 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand"
+                      />
+                    </label>
+                    <label className="block space-y-2">
+                      <span className="text-sm font-semibold text-neutral-700">Transcripción</span>
+                      <textarea
+                        name={meta.transcriptName}
+                        rows={4}
+                        value={transcripts[key]}
+                        onChange={(event) => {
+                          setTranscripts((current) => ({ ...current, [key]: event.target.value }));
+                          setIsDirty(true);
+                        }}
+                        className="w-full rounded-md border border-brand-border px-3 py-2 text-sm outline-none focus:border-brand"
+                      />
+                    </label>
+                  </div>
+                </details>
+                <details className="group mt-2 rounded-md bg-white/75">
+                  <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-xs font-black uppercase text-neutral-500">
+                    Guion sugerido
+                    <span className="text-base leading-none text-brand-dark group-open:rotate-45">+</span>
+                  </summary>
+                  <p className="px-3 pb-3 text-xs font-semibold leading-5 text-neutral-600">{meta.defaultTranscript}</p>
+                </details>
                 <p className="mt-2 text-xs font-semibold text-neutral-500">La transcripción aparece si el cliente toca “Transcribir”.</p>
               </section>
             );
           })}
         </div>
 
-        <button className="inline-flex h-11 items-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+        <button className="hidden h-11 items-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark md:inline-flex">
           <RotateCcw className="size-4" />
           Guardar notas de voz
         </button>
+        {isDirty ? (
+          <div className="fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 rounded-lg border border-brand-border bg-brand-paper p-3 shadow-2xl md:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-black text-brand-dark">Cambios sin guardar</p>
+              <button className="inline-flex h-11 items-center gap-2 rounded-md bg-brand px-4 text-sm font-black text-white hover:bg-brand-dark">
+                <RotateCcw className="size-4" />
+                Guardar cambios
+              </button>
+            </div>
+          </div>
+        ) : null}
       </fieldset>
     </form>
   );

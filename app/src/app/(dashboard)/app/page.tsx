@@ -84,11 +84,11 @@ export default async function DashboardPage() {
   })();
 
   return (
-    <section>
+    <section className="space-y-5 md:space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-bold text-brand-dark">Inicio</p>
-          <h1 className="text-4xl font-black">Hola, {firstName}</h1>
+          <h1 className="text-3xl font-black md:text-4xl">Hola, {firstName}</h1>
           <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Gestiona tu espacio comercial y prepara mejores consultas por WhatsApp.</p>
         </div>
         {productUsage.isLimitReached || productUsage.trialExpired ? (
@@ -102,35 +102,29 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
-        <p className="text-sm font-semibold text-neutral-500">Link público de tu espacio comercial</p>
-        <p className="mt-1 text-sm text-neutral-500">Compártelo en TikTok, Instagram, Facebook o estados.</p>
-        <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
-          <code className="flex-1 rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{publicUrl}</code>
-          <CopyButton value={publicUrl} />
-          <a href={publicUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-brand-border px-4 font-bold text-brand-dark hover:border-brand">
+      <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Tu tienda está activa</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Comparte este link en redes o estados.</p>
+          </div>
+          <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-black text-brand-dark">Online</span>
+        </div>
+        <code className="mt-3 block break-all rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{publicUrl}</code>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:flex md:items-center">
+          <a href={publicUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-4 font-bold text-white hover:bg-brand">
             <ExternalLink className="size-4" />
-            Abrir
+            Ver tienda
           </a>
+          <CopyButton value={publicUrl} />
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {stats.map((stat) => (
-          <Link key={stat.label} href={stat.href} target={stat.external ? "_blank" : undefined} className="rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm transition hover:border-brand hover:shadow-md">
-            <stat.icon className="size-5 text-brand" />
-            <p className="mt-4 truncate text-2xl font-black text-brand-dark">{stat.value}</p>
-            <p className="mt-1 text-sm font-black text-neutral-700">{stat.label}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">{stat.detail}</p>
-          </Link>
-        ))}
-      </div>
-
-      <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
+      <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
         <p className="text-sm font-black text-brand-dark">Siguiente paso recomendado</p>
-        <h2 className="mt-2 text-2xl font-black">{nextStep.title}</h2>
+        <h2 className="mt-2 text-xl font-black md:text-2xl">{nextStep.title}</h2>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-neutral-600">{nextStep.text}</p>
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 md:flex md:items-center">
           <Link href={nextStep.href} target={nextStep.external ? "_blank" : undefined} className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
             {nextStep.label}
           </Link>
@@ -144,8 +138,19 @@ export default async function DashboardPage() {
         {flow.planCode === "TRIAL" && !planState.trialExpired && trialDateLabel ? <p className="mt-4 rounded-md bg-brand-muted px-3 py-2 text-sm font-bold text-brand-dark">Tu prueba termina el {trialDateLabel}.</p> : null}
       </div>
 
-      <div className="mt-6 rounded-lg bg-brand-dark p-6 text-white">
-        <h2 className="text-2xl font-black">Commercial Space + Seller AI + WhatsApp</h2>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
+        {stats.map((stat) => (
+          <Link key={stat.label} href={stat.href} target={stat.external ? "_blank" : undefined} className="min-h-[132px] rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm transition hover:border-brand hover:shadow-md md:p-5">
+            <stat.icon className="size-5 text-brand" />
+            <p className="mt-3 truncate text-xl font-black text-brand-dark md:mt-4 md:text-2xl">{stat.value}</p>
+            <p className="mt-1 text-sm font-black text-neutral-700">{stat.label}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">{stat.detail}</p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="rounded-lg bg-brand-dark p-5 text-white md:p-6">
+        <h2 className="text-xl font-black md:text-2xl">Commercial Space + Seller AI + WhatsApp</h2>
         <p className="mt-2 max-w-2xl text-white/70">Seller AI prepara. La voz del vendedor genera confianza. WhatsApp cierra. JAKAWI recuerda.</p>
         <Link href={siteConfig.routes.sellerAi} className="mt-5 inline-flex h-11 items-center rounded-md bg-brand-lime px-5 font-bold text-brand-dark hover:bg-brand-yellow">
           Configurar Seller AI
