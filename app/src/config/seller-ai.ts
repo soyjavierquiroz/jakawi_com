@@ -95,4 +95,56 @@ export const sellerAiConfig = {
     sameCategoryProducts: 10,
     max: 100,
   },
+  modes: {
+    DISCOVERY: {
+      label: "Discovery",
+      purpose: "Descubrir necesidad",
+      maxQuestionCountBeforeRecommendation: 1,
+      defaultOpening: "¿Qué estás buscando hoy?",
+      quickReplies: ["Para mí", "Para regalar", "Económico", "Más recomendado"],
+    },
+    PRODUCT_ADVISOR: {
+      label: "Product Advisor",
+      purpose: "Ayudar a decidir si un producto encaja",
+      maxQuestionCountBeforeRecommendation: 1,
+      defaultOpening: "Ese producto puede encajar bien. ¿Lo buscas para ti, para regalar o para algo específico?",
+      quickReplies: ["Para mí", "Para regalar", "Comparar opciones", "Me interesa"],
+    },
+    DECISION_SUPPORT: {
+      label: "Decision Support",
+      purpose: "Reducir incertidumbre",
+      maxQuestionCountBeforeRecommendation: 0,
+      defaultOpening: "Te ayudo a resolver esa duda sin inventar datos.",
+      quickReplies: ["Precio", "Disponibilidad", "Envío", "Formas de pago"],
+    },
+    CLOSING_PREP: {
+      label: "Closing Prep",
+      purpose: "Preparar handoff al canal",
+      maxQuestionCountBeforeRecommendation: 0,
+      defaultOpening: "Perfecto. Te dejo la consulta armada para la tienda.",
+      quickReplies: ["Continuar por WhatsApp", "Enviar mi consulta", "Quiero comprar"],
+    },
+  },
+  commercialTypes: {
+    PRODUCT_STORE: {
+      discoveryOpening: "¿Qué estás buscando hoy?",
+      quickReplies: ["Para mí", "Para regalar", "Económico", "Más recomendado"],
+    },
+    LIVE_CATALOG: {
+      discoveryOpening: "¿Qué producto del live te interesa?",
+      quickReplies: ["El destacado", "Precio", "Cómo pedir", "Ver opciones"],
+    },
+    MENU: {
+      discoveryOpening: "¿Qué se te antoja hoy?",
+      quickReplies: ["Carne", "Pollo", "Algo rápido", "Para compartir"],
+    },
+    SERVICES: {
+      discoveryOpening: "¿Qué cambio o resultado estás buscando?",
+      quickReplies: ["Cotizar", "Agendar", "Ver opciones", "Preguntar disponibilidad"],
+    },
+    COURSES: {
+      discoveryOpening: "¿Qué quieres aprender o mejorar?",
+      quickReplies: ["Empezar desde cero", "Ganar más", "Certificarme", "Ver cursos"],
+    },
+  },
 };
