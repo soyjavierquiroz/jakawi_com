@@ -125,6 +125,7 @@ export async function POST(request: Request) {
     journeyId: journey.id,
     journeyCode: journey.journeyCode,
     message,
+    assistantMessage: message,
     mode,
     stage,
     shouldStartPhoneCapture: false,

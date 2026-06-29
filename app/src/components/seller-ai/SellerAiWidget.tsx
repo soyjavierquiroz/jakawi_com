@@ -12,16 +12,27 @@ import { cn } from "@/lib/ui";
 import { SellerAiVoiceNote } from "./SellerAiVoiceNote";
 import { TypingIndicator } from "./TypingIndicator";
 
-type ChatMessage = {
+type TextChatMessage = {
   id: string;
   role: "assistant" | "user";
-  content: string;
+  type: "text";
+  text: string;
 };
 
-type VisibleVoiceNote = {
+type VoiceChatMessage = {
   id: string;
-  type: SellerVoiceNoteType;
+  role: "assistant";
+  type: "voice";
   voiceNote: SellerVoiceNoteConfig;
+  text?: string;
+};
+
+type ChatMessage = TextChatMessage | VoiceChatMessage;
+
+type AssistantApiResponse = {
+  assistantMessage?: string | null;
+  message?: string | null;
+  voiceNote?: SellerVoiceNoteConfig | null;
 };
 
 type WidgetStep = "closed" | "chat" | "phone_capture" | "redirecting";
@@ -105,7 +116,7 @@ function getSellerAiLimitMessage(error: unknown) {
 }
 
 function hasStrongIntent(input: string) {
-  return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|consultar por whatsapp|enviar consulta|dejar consulta|pasar a whatsapp|quiero que me escriban/i.test(input);
+  return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|consultar por whatsapp|enviar consulta|dejar consulta|pasar a whatsapp|quiero que me escriban/i.test(input);
 }
 
 function normalizeReply(input?: string | null) {
@@ -125,6 +136,10 @@ function voiceNoteSeenKey(type: SellerVoiceNoteType, storeSlug: string, journeyI
 function introDisabledKey(storeSlug: string) {
   return `jakawi_voice_intro_disabled_${storeSlug}`;
 }
+
+const assistantEmptyFallback = "Listo. Puedo dejar tu consulta preparada para enviarla al vendedor por WhatsApp.";
+const assistantVoiceHiddenFallback = "Listo, preparé tu consulta para continuar por WhatsApp.";
+const assistantFetchFailureFallback = "No pude responder en este momento. Puedes continuar por WhatsApp y el vendedor te ayuda directamente.";
 
 export function SellerAiWidget({
   storeSlug,
@@ -161,7 +176,6 @@ export function SellerAiWidget({
   const [commercialMode, setCommercialMode] = useState<CommercialSellerAiMode | null>(null);
   const [commercialStage, setCommercialStage] = useState<CommercialSellerAiMode | null>(null);
   const [voiceNotesByType, setVoiceNotesByType] = useState<Partial<Record<SellerVoiceNoteType, SellerVoiceNoteConfig>>>({});
-  const [visibleVoiceNotes, setVisibleVoiceNotes] = useState<VisibleVoiceNote[]>([]);
   const [detectedNeed, setDetectedNeed] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -187,10 +201,13 @@ export function SellerAiWidget({
   });
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const openedRef = useRef(false);
+  const assistantBusyRef = useRef(false);
+  const shownVoiceNoteTypesRef = useRef<Set<SellerVoiceNoteType>>(new Set());
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const isClosed = step === "closed";
-  const chatIsBusy = isLoading || isAssistantTyping;
+  const isAssistantBusy = isLoading || isAssistantTyping;
+  const chatIsBusy = isAssistantBusy;
   const ctaIsStrong = hasStrongPurchaseIntent || commercialStage === "CLOSING_PREP";
   const showWhatsappCta = step === "chat" && messages.length > 0;
   const contextSubtitle = productName ? `Asesorando: ${productName}` : `Te ayuda ${storeName}`;
@@ -252,41 +269,79 @@ export function SellerAiWidget({
     });
   }
 
-  const showVoiceNoteOnce = useCallback(
-    (voiceNote: SellerVoiceNoteConfig | null | undefined, resolvedJourneyId?: string | null) => {
-      if (!voiceNote?.enabled || !resolvedJourneyId) return false;
+  const hasSeenVoiceNote = useCallback(
+    (voiceNote: SellerVoiceNoteConfig, resolvedJourneyId?: string | null) => {
+      if (!resolvedJourneyId) return true;
+      if (shownVoiceNoteTypesRef.current.has(voiceNote.type)) return true;
       try {
-        if (voiceNote.type === "INTRO" && window.localStorage.getItem(introDisabledKey(storeSlug)) === "true") return false;
-        const seenKey = voiceNoteSeenKey(voiceNote.type, storeSlug, resolvedJourneyId);
-        if (window.localStorage.getItem(seenKey) === "true") return false;
-        window.localStorage.setItem(seenKey, "true");
+        if (voiceNote.type === "INTRO" && window.localStorage.getItem(introDisabledKey(storeSlug)) === "true") return true;
+        return window.localStorage.getItem(voiceNoteSeenKey(voiceNote.type, storeSlug, resolvedJourneyId)) === "true";
       } catch {
-        // Local visibility state is best effort.
+        return false;
       }
-
-      setVisibleVoiceNotes((current) => {
-        if (current.some((item) => item.type === voiceNote.type)) return current;
-        const withoutAdjacentAudio = voiceNote.type === "INTRO" ? current : current.filter((item) => item.type === "INTRO");
-        return [...withoutAdjacentAudio, { id: messageId(), type: voiceNote.type, voiceNote }];
-      });
-      return true;
     },
     [storeSlug],
   );
 
-  const revealVoiceNoteOnce = useCallback(
-    async (voiceNote: SellerVoiceNoteConfig | null | undefined, resolvedJourneyId?: string | null) => {
-      if (!voiceNote?.enabled || !resolvedJourneyId) return false;
-      setAssistantIndicator("recording");
-      setIsAssistantTyping(true);
-      await wait(voiceRecordingDelay());
-      setIsAssistantTyping(false);
-      setAssistantIndicator("typing");
-      const wasShown = showVoiceNoteOnce(voiceNote, resolvedJourneyId);
-      if (wasShown) playChatTone("receive");
-      return wasShown;
+  const markVoiceNoteSeen = useCallback(
+    (voiceNote: SellerVoiceNoteConfig, resolvedJourneyId?: string | null) => {
+      shownVoiceNoteTypesRef.current.add(voiceNote.type);
+      if (!resolvedJourneyId) return;
+      try {
+        window.localStorage.setItem(voiceNoteSeenKey(voiceNote.type, storeSlug, resolvedJourneyId), "true");
+      } catch {
+        // Local visibility state is best effort.
+      }
     },
-    [playChatTone, showVoiceNoteOnce],
+    [storeSlug],
+  );
+
+  const getVisibleAssistantText = useCallback((response: AssistantApiResponse, fallback: string) => {
+    const voiceTranscript = response.voiceNote?.transcript?.trim();
+    return response.assistantMessage?.trim() || response.message?.trim() || voiceTranscript || fallback;
+  }, []);
+
+  const appendAssistantResponse = useCallback(
+    async (response: AssistantApiResponse, resolvedJourneyId?: string | null) => {
+      const voiceNote = response.voiceNote;
+      const shouldShowVoiceNote = Boolean(voiceNote?.enabled && !hasSeenVoiceNote(voiceNote, resolvedJourneyId));
+
+      try {
+        if (voiceNote && shouldShowVoiceNote) {
+          setIsAssistantTyping(false);
+          setAssistantIndicator("recording");
+          setIsAssistantTyping(true);
+          await wait(voiceRecordingDelay());
+          const voiceMessage: VoiceChatMessage = {
+            id: messageId(),
+            role: "assistant",
+            type: "voice",
+            voiceNote,
+            text: getVisibleAssistantText(response, assistantVoiceHiddenFallback),
+          };
+          setMessages((current) => [...current, voiceMessage]);
+          markVoiceNoteSeen(voiceNote, resolvedJourneyId);
+          playChatTone("receive");
+          return;
+        }
+
+        setIsAssistantTyping(false);
+        setAssistantIndicator("typing");
+        setIsAssistantTyping(true);
+        await wait(assistantTypingDelay());
+        const fallback = voiceNote ? assistantVoiceHiddenFallback : assistantEmptyFallback;
+        const text = getVisibleAssistantText(response, fallback);
+        setMessages((current) => [...current, { id: messageId(), role: "assistant", type: "text", text }]);
+        playChatTone("receive");
+      } finally {
+        setIsAssistantTyping(false);
+        setAssistantIndicator("typing");
+        window.requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+        });
+      }
+    },
+    [getVisibleAssistantText, hasSeenVoiceNote, markVoiceNoteSeen, playChatTone],
   );
 
   const hideIntroVoiceNote = useCallback(() => {
@@ -295,11 +350,11 @@ export function SellerAiWidget({
     } catch {
       // Local preference is best effort.
     }
-    setVisibleVoiceNotes((current) => current.filter((item) => item.type !== "INTRO"));
+    setMessages((current) => current.filter((message) => !(message.type === "voice" && message.voiceNote.type === "INTRO")));
   }, [storeSlug]);
 
   const displayedQuickReplies = useMemo(() => {
-    const userMessages = messages.filter((message) => message.role === "user").map((message) => normalizeReply(message.content));
+    const userMessages = messages.filter((message): message is TextChatMessage => message.role === "user" && message.type === "text").map((message) => normalizeReply(message.text));
     const used = new Set(userMessages);
     const lastUserMessage = userMessages[userMessages.length - 1] ?? "";
     const normalizedNeed = normalizeReply(detectedNeed);
@@ -413,6 +468,7 @@ export function SellerAiWidget({
         leadCode: string;
         journeyId?: string;
         message: string;
+        assistantMessage?: string;
         mode?: CommercialSellerAiMode;
         stage?: CommercialSellerAiMode;
         quickReplies: string[];
@@ -431,22 +487,18 @@ export function SellerAiWidget({
       if (opening.journeyId) setJourneyId(opening.journeyId);
       if (opening.mode) setCommercialMode(opening.mode);
       if (opening.stage) setCommercialStage(opening.stage);
-      setIsAssistantTyping(false);
-      setAssistantIndicator("typing");
-      setMessages([{ id: messageId(), role: "assistant", content: opening.message }]);
-      playChatTone("receive");
       setVoiceNotesByType({
         INTRO: opening.voiceNotes?.intro,
         GUIDANCE: opening.voiceNotes?.guidance,
         HANDOFF: opening.voiceNotes?.handoff,
       });
       const nextJourneyId = opening.journeyId ?? resolvedJourneyId;
-      await revealVoiceNoteOnce(opening.voiceNotes?.intro, nextJourneyId);
+      await appendAssistantResponse({ assistantMessage: opening.assistantMessage ?? opening.message, message: opening.message, voiceNote: opening.voiceNotes?.intro }, nextJourneyId);
       setQuickReplies(opening.quickReplies);
       setShowRecommendedProductCards(opening.showRecommendedProducts === true);
       setRecommendedProductContextKey(opening.showRecommendedProducts === true ? currentProductKey : null);
       setRecommendedProducts(opening.showRecommendedProducts === true ? (opening.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
-      if (options?.afterOpen === "phone_capture") await revealVoiceNoteOnce(opening.voiceNotes?.handoff, nextJourneyId);
+      if (options?.afterOpen === "phone_capture") await appendAssistantResponse({ voiceNote: opening.voiceNotes?.handoff }, nextJourneyId);
       if (options?.afterOpen && nextLeadId) setStep(options.afterOpen);
       return nextLeadId;
     } catch (error) {
@@ -458,7 +510,7 @@ export function SellerAiWidget({
       setAssistantIndicator("typing");
       setIsLoading(false);
     }
-  }, [currentProductKey, journeyId, leadId, messages.length, playChatTone, productId, revealVoiceNoteOnce, sessionId, storeSlug]);
+  }, [appendAssistantResponse, currentProductKey, journeyId, leadId, messages.length, productId, sessionId, storeSlug]);
 
   const closeWidget = useCallback(() => {
     setHasInteracted(true);
@@ -470,9 +522,11 @@ export function SellerAiWidget({
     async (value: string) => {
       const clean = value.trim();
       if (!clean || (!leadId && !journeyId)) return;
+      if (assistantBusyRef.current || isAssistantBusy) return;
+      assistantBusyRef.current = true;
       playChatTone("send");
       setInput("");
-      setMessages((current) => [...current, { id: messageId(), role: "user", content: clean }]);
+      setMessages((current) => [...current, { id: messageId(), role: "user", type: "text", text: clean }]);
       setRecommendedProducts([]);
       setShowRecommendedProductCards(false);
       setRecommendedProductContextKey(null);
@@ -484,15 +538,13 @@ export function SellerAiWidget({
         setShouldShowWhatsappCta(true);
         setHasStrongPurchaseIntent(true);
       }
-      const typingDelay = assistantTypingDelay();
-      const startedAt = Date.now();
 
       try {
         const response = await postJson<{
           leadId?: string;
           leadCode?: string;
           journeyId?: string;
-          assistantMessage: string;
+          assistantMessage?: string;
           message?: string;
           mode?: CommercialSellerAiMode;
           stage?: CommercialSellerAiMode;
@@ -505,21 +557,13 @@ export function SellerAiWidget({
           voiceNote?: SellerVoiceNoteConfig | null;
           voiceNoteSuggestion?: SellerVoiceNoteType;
         }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
-        await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
-        setIsAssistantTyping(false);
-        setAssistantIndicator("typing");
         if (response.leadId) setLeadId(response.leadId);
         if (response.leadCode) setLeadCode(response.leadCode);
         if (response.journeyId) setJourneyId(response.journeyId);
         if (response.mode) setCommercialMode(response.mode);
         if (response.stage) setCommercialStage(response.stage);
         if (response.detectedNeed !== undefined) setDetectedNeed(response.detectedNeed ?? null);
-        if (response.voiceNote) {
-          await revealVoiceNoteOnce(response.voiceNote, response.journeyId ?? journeyId);
-        } else {
-          setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage ?? response.message ?? "" }]);
-          playChatTone("receive");
-        }
+        await appendAssistantResponse(response, response.journeyId ?? journeyId);
         setQuickReplies(response.quickReplies);
         setShowRecommendedProductCards(response.showRecommendedProducts === true);
         setRecommendedProductContextKey(response.showRecommendedProducts === true ? currentProductKey : null);
@@ -528,16 +572,16 @@ export function SellerAiWidget({
         if (response.shouldStartPhoneCapture) setHasStrongPurchaseIntent(true);
         if ((response.shouldStartPhoneCapture || /a qu[eé] whatsapp pueden escribirte/i.test(response.assistantMessage ?? response.message ?? "")) && requirePhoneBeforeWhatsapp) setStep("phone_capture");
       } catch (error) {
-        await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
-        setIsAssistantTyping(false);
-        setAssistantIndicator("typing");
-        setError(getSellerAiLimitMessage(error) ?? "No pude responder eso ahora. La tienda puede confirmarlo por WhatsApp.");
+        await appendAssistantResponse({ assistantMessage: getSellerAiLimitMessage(error) ?? assistantFetchFailureFallback }, journeyId);
         setShouldShowWhatsappCta(true);
       } finally {
         setIsLoading(false);
+        setIsAssistantTyping(false);
+        setAssistantIndicator("typing");
+        assistantBusyRef.current = false;
       }
     },
-    [currentProductKey, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, revealVoiceNoteOnce, sessionId, storeSlug],
+    [appendAssistantResponse, currentProductKey, isAssistantBusy, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, sessionId, storeSlug],
   );
 
   const continueWhatsapp = useCallback(async () => {
@@ -577,20 +621,29 @@ export function SellerAiWidget({
   }, [customerName, customerPhone, customerPhoneIsValid, journeyId, leadId, productId, requirePhoneBeforeWhatsapp, widgetCopy.phoneInvalidError, widgetCopy.redirectFailed]);
 
   const requestWhatsappStep = useCallback(async () => {
+    if (assistantBusyRef.current || isAssistantBusy) return;
     setError(null);
     setRedirectError(null);
     if (!leadId) {
       await openChat({ afterOpen: requirePhoneBeforeWhatsapp ? "phone_capture" : "chat" });
       return;
     }
-    if (requirePhoneBeforeWhatsapp) {
-      await revealVoiceNoteOnce(voiceNotesByType.HANDOFF, journeyId);
-      setStep("phone_capture");
-      return;
+    assistantBusyRef.current = true;
+    try {
+      if (requirePhoneBeforeWhatsapp) {
+        await appendAssistantResponse({ voiceNote: voiceNotesByType.HANDOFF }, journeyId);
+        setStep("phone_capture");
+        return;
+      }
+      await appendAssistantResponse({ voiceNote: voiceNotesByType.HANDOFF }, journeyId);
+      await continueWhatsapp();
+    } finally {
+      assistantBusyRef.current = false;
+      setIsLoading(false);
+      setIsAssistantTyping(false);
+      setAssistantIndicator("typing");
     }
-    await revealVoiceNoteOnce(voiceNotesByType.HANDOFF, journeyId);
-    await continueWhatsapp();
-  }, [continueWhatsapp, journeyId, leadId, openChat, requirePhoneBeforeWhatsapp, revealVoiceNoteOnce, voiceNotesByType.HANDOFF]);
+  }, [appendAssistantResponse, continueWhatsapp, isAssistantBusy, journeyId, leadId, openChat, requirePhoneBeforeWhatsapp, voiceNotesByType.HANDOFF]);
 
   useEffect(() => {
     if (!sellerAiConfig.enabled || mode === "disabled") return;
@@ -681,30 +734,22 @@ export function SellerAiWidget({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             <div className="flex min-h-full flex-col justify-end gap-2.5">
-              {visibleVoiceNotes
-                .filter((item) => item.type === "INTRO")
-                .map((item) => (
-                  <SellerAiVoiceNote key={item.id} voiceNote={item.voiceNote} onDismiss={hideIntroVoiceNote} />
-                ))}
-
-              {messages.map((message) => (
-                <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-                  <div
-                    className={cn(
-                      "max-w-[85%] rounded-2xl px-3 py-2.5 text-[15px] leading-6 shadow-sm",
-                      message.role === "user" ? "rounded-br-md bg-brand text-white" : "rounded-bl-md border border-brand-border bg-white text-neutral-800",
-                    )}
-                  >
-                    {message.content}
+              {messages.map((message) =>
+                message.type === "voice" ? (
+                  <SellerAiVoiceNote key={message.id} voiceNote={message.voiceNote} onDismiss={message.voiceNote.type === "INTRO" ? hideIntroVoiceNote : undefined} />
+                ) : (
+                  <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
+                    <div
+                      className={cn(
+                        "max-w-[85%] rounded-2xl px-3 py-2.5 text-[15px] leading-6 shadow-sm",
+                        message.role === "user" ? "rounded-br-md bg-brand text-white" : "rounded-bl-md border border-brand-border bg-white text-neutral-800",
+                      )}
+                    >
+                      {message.text}
+                    </div>
                   </div>
-                </div>
-              ))}
-
-              {visibleVoiceNotes
-                .filter((item) => item.type !== "INTRO")
-                .map((item) => (
-                  <SellerAiVoiceNote key={item.id} voiceNote={item.voiceNote} />
-                ))}
+                ),
+              )}
 
               {isAssistantTyping && step === "chat" ? (
                 <div className="flex justify-start">
@@ -794,9 +839,10 @@ export function SellerAiWidget({
                 <input
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
+                  disabled={isAssistantBusy}
                   maxLength={1000}
                   placeholder={widgetCopy.inputPlaceholder}
-                  className="h-11 min-w-0 flex-1 rounded-full border border-brand-border bg-[#FAF7EF] px-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-brand focus:ring-4 focus:ring-brand/10"
+                  className="h-11 min-w-0 flex-1 rounded-full border border-brand-border bg-[#FAF7EF] px-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-brand focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
                 />
                 <button type="submit" disabled={chatIsBusy || !input.trim() || !leadId} className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-dark text-white transition hover:bg-brand disabled:opacity-50" aria-label="Enviar mensaje">
                   {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
