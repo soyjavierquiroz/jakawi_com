@@ -2,8 +2,8 @@ import { CustomerJourneyStage, CustomerJourneyStatus, JourneyEventType, Prisma }
 import { getPrisma } from "@/lib/prisma";
 import { generateJourneyCode } from "@/lib/seller-ai/journey-code";
 
-const reusableStatuses = [CustomerJourneyStatus.ACTIVE, CustomerJourneyStatus.ENGAGED, CustomerJourneyStatus.READY_FOR_CHANNEL];
-const terminalStatuses = [CustomerJourneyStatus.CONVERTED, CustomerJourneyStatus.LOST, CustomerJourneyStatus.EXPIRED];
+const reusableStatuses: CustomerJourneyStatus[] = [CustomerJourneyStatus.ACTIVE, CustomerJourneyStatus.ENGAGED, CustomerJourneyStatus.READY_FOR_CHANNEL];
+const terminalStatuses: CustomerJourneyStatus[] = [CustomerJourneyStatus.CONVERTED, CustomerJourneyStatus.LOST, CustomerJourneyStatus.EXPIRED];
 
 export async function createUniqueJourneyCode() {
   for (let attempt = 0; attempt < 8; attempt += 1) {

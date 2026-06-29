@@ -61,8 +61,10 @@ export async function POST(request: Request) {
       include: { conversation: { include: { messages: { orderBy: { createdAt: "asc" } } } }, events: true, store: true, journey: true },
     });
   }
+  const conversation = lead.conversation;
+  if (!conversation) return NextResponse.json({ ok: false, error: "Lead not found" }, { status: 404 });
 
-  const userMessageCount = lead.conversation.messages.filter((message) => message.role === MessageRole.USER).length;
+  const userMessageCount = conversation.messages.filter((message) => message.role === MessageRole.USER).length;
   if (userMessageCount >= 30) {
     return NextResponse.json({
       ok: true,
@@ -86,10 +88,10 @@ export async function POST(request: Request) {
     : "Entiendo. Para orientarte mejor: ¿lo buscas para uso personal, regalo, trabajo o algo específico?";
 
   const userMessage = await getPrisma().conversationMessage.create({
-    data: { conversationId: lead.conversation.id, role: MessageRole.USER, content: parsed.data.message },
+    data: { conversationId: conversation.id, role: MessageRole.USER, content: parsed.data.message },
   });
   const replyMessage = await getPrisma().conversationMessage.create({
-    data: { conversationId: lead.conversation.id, role: MessageRole.ASSISTANT, content: assistantMessage, metadata: { productId: product?.id } },
+    data: { conversationId: conversation.id, role: MessageRole.ASSISTANT, content: assistantMessage, metadata: { productId: product?.id } },
   });
 
   await logLeadEvent({
@@ -112,7 +114,7 @@ export async function POST(request: Request) {
   });
 
   const events = await getPrisma().leadEvent.findMany({ where: { leadId: lead.id } });
-  const messages = [...lead.conversation.messages, userMessage, replyMessage];
+  const messages = [...conversation.messages, userMessage, replyMessage];
   const intentScore = calculateIntentScore({ events, messages, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED });
   const shouldShowWhatsappCta = intentScore >= 55 || /quiero|me interesa|comprar|como compro|cómo compro|pedido|precio/.test(parsed.data.message.toLowerCase());
 
