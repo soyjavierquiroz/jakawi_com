@@ -148,6 +148,21 @@ model Store {
   planRenewsAt DateTime?
   sellerAiPeriodStart DateTime?
   sellerAiConversationCount Int @default(0)
+  sellerVoiceEnabled Boolean @default(true)
+  sellerVoiceDisplayName String?
+  sellerVoiceAvatarUrl String?
+  sellerIntroAudioUrl String?
+  sellerIntroTranscript String?
+  sellerIntroDurationSeconds Int?
+  sellerIntroEnabled Boolean @default(true)
+  sellerGuidanceAudioUrl String?
+  sellerGuidanceTranscript String?
+  sellerGuidanceDurationSeconds Int?
+  sellerGuidanceEnabled Boolean @default(true)
+  sellerHandoffAudioUrl String?
+  sellerHandoffTranscript String?
+  sellerHandoffDurationSeconds Int?
+  sellerHandoffEnabled Boolean @default(true)
   commercialType String? @default("PRODUCT_STORE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

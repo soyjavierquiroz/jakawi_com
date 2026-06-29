@@ -10,6 +10,7 @@ import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/li
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
 import { buildQuickRepliesForMode, extractCommercialSignals, inferSellerAiMode, type SellerAiMode } from "@/lib/seller-ai/modes";
 import { getSellerAiRecommendations, type SellerAiRecommendedProduct } from "@/lib/seller-ai/recommendations";
+import { getSellerVoiceNoteConfig } from "@/lib/seller-ai/voice-notes";
 
 const chatSchema = z.object({
   leadId: z.string().min(1).optional(),
@@ -45,6 +46,11 @@ function normalizeText(input?: string | null) {
 function wantsRecommendationAlternatives(input?: string | null) {
   const text = normalizeText(input);
   return /\b(ver otra opcion|comparar opciones|comparar|no me convence|tienes algo mas barato|algo mas barato|mas economico|algo mas economico|tienes algo parecido|algo parecido|algo similar|muestrame alternativas|mostrar alternativas|otra opcion|quiero comparar)\b/.test(text);
+}
+
+function hasUsefulGuidanceSignal(input: string, signals: ReturnType<typeof extractCommercialSignals>) {
+  if (signals.detectedNeed || signals.budget || signals.urgency || signals.objections.length > 0) return true;
+  return includesAny(input, ["estudio", "regalar", "regalo", "trabajo", "fotos", "precio", "disponibilidad", "disponible", "envio", "entrega"]);
 }
 
 function keepClearlyRelatedAlternatives(recommendations: SellerAiRecommendedProduct[], product?: ProductForReply | null) {
@@ -352,6 +358,15 @@ export async function POST(request: Request) {
     usedReplies: messagesBeforeReply.filter((message) => message.role === MessageRole.USER).map((message) => message.content),
     lastUserMessage: parsed.data.message,
   });
+  const handoffVoiceNote = getSellerVoiceNoteConfig(lead.store, "HANDOFF");
+  const guidanceVoiceNote = getSellerVoiceNoteConfig(lead.store, "GUIDANCE");
+  const voiceNote =
+    (inferred.mode === "CLOSING_PREP" || shouldStartPhoneCapture)
+      ? handoffVoiceNote
+      : (inferred.mode === "PRODUCT_ADVISOR" || inferred.mode === "DECISION_SUPPORT") && hasUsefulGuidanceSignal(parsed.data.message, signals)
+        ? guidanceVoiceNote
+        : null;
+  const voiceNoteSuggestion = voiceNote?.type;
 
   return NextResponse.json({
     ok: true,
@@ -374,5 +389,7 @@ export async function POST(request: Request) {
     intentLabel: classifyIntent(intentScore),
     shouldShowWhatsappCta,
     shouldStartPhoneCapture,
+    voiceNote: voiceNote?.enabled ? voiceNote : null,
+    voiceNoteSuggestion,
   });
 }

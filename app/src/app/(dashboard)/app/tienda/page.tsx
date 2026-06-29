@@ -1,4 +1,5 @@
 import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
+import { SellerVoiceNotesSettings } from "@/components/dashboard/SellerVoiceNotesSettings";
 import { updateStoreAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
 import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
@@ -6,7 +7,7 @@ import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState
 export default async function StoreSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string }>;
+  searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
   const { store } = await requireStore();
   const params = await searchParams;
@@ -19,6 +20,7 @@ export default async function StoreSettingsPage({
       <p className="text-sm font-bold text-brand-dark">Mi tienda</p>
       <h1 className="text-4xl font-black">Configura tu tienda</h1>
       {params.ok ? <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Cambios guardados.</p> : null}
+      {params.error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{params.error === "voice-plan" ? "Las notas de voz están disponibles en Pro/Premium." : params.error}</p> : null}
 
       <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
         <div className="grid gap-4 md:grid-cols-4">
@@ -94,6 +96,8 @@ export default async function StoreSettingsPage({
         </div>
         <button className="h-11 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">Guardar cambios</button>
       </form>
+
+      <SellerVoiceNotesSettings canEdit={planState.sellerAiEnabled} store={store} />
     </section>
   );
 }

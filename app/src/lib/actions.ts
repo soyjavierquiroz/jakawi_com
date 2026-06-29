@@ -12,7 +12,7 @@ import { storePlans } from "@/config/plans";
 import { requireSuperAdmin } from "@/lib/admin";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
-import { assertCanCreateProduct, PlanLimitError } from "@/lib/plan-limits";
+import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { uploadImage } from "@/lib/storage";
@@ -339,6 +339,88 @@ export async function updateWhatsappAction(formData: FormData) {
   });
   revalidatePath("/app/whatsapp");
   revalidatePath(`/${store.slug}`);
+}
+
+function optionalUrlField(formData: FormData, name: string) {
+  const value = field(formData, name);
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function durationField(formData: FormData, name: string) {
+  const value = Number.parseInt(field(formData, name), 10);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.min(value, 60);
+}
+
+function enabledField(formData: FormData, name: string) {
+  return formData.get(name) === "on";
+}
+
+function transcriptField(formData: FormData, name: string) {
+  const value = field(formData, name).replace(/\s+/g, " ");
+  return value ? value.slice(0, 800) : null;
+}
+
+function assertTranscriptForAudio(audioUrl: string | null, transcript: string | null, label: string) {
+  if (audioUrl && !transcript) {
+    throw new Error(`La transcripción de ${label} es obligatoria si subes audio.`);
+  }
+}
+
+export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
+  const { store } = await requireStore();
+  const planState = getStorePlanState(store);
+  if (!planState.sellerAiEnabled) {
+    redirect("/app/tienda?error=voice-plan");
+  }
+
+  const sellerIntroAudioUrl = optionalUrlField(formData, "sellerIntroAudioUrl");
+  const sellerIntroTranscript = transcriptField(formData, "sellerIntroTranscript");
+  const sellerGuidanceAudioUrl = optionalUrlField(formData, "sellerGuidanceAudioUrl");
+  const sellerGuidanceTranscript = transcriptField(formData, "sellerGuidanceTranscript");
+  const sellerHandoffAudioUrl = optionalUrlField(formData, "sellerHandoffAudioUrl");
+  const sellerHandoffTranscript = transcriptField(formData, "sellerHandoffTranscript");
+
+  try {
+    assertTranscriptForAudio(sellerIntroAudioUrl, sellerIntroTranscript, "bienvenida");
+    assertTranscriptForAudio(sellerGuidanceAudioUrl, sellerGuidanceTranscript, "orientación");
+    assertTranscriptForAudio(sellerHandoffAudioUrl, sellerHandoffTranscript, "cierre");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Revisa las transcripciones.";
+    redirect(`/app/tienda?error=${encodeURIComponent(message)}`);
+  }
+
+  await getPrisma().store.update({
+    where: { id: store.id },
+    data: {
+      sellerVoiceEnabled: enabledField(formData, "sellerVoiceEnabled"),
+      sellerVoiceDisplayName: cleanOptional(field(formData, "sellerVoiceDisplayName")),
+      sellerVoiceAvatarUrl: optionalUrlField(formData, "sellerVoiceAvatarUrl"),
+      sellerIntroEnabled: enabledField(formData, "sellerIntroEnabled"),
+      sellerIntroAudioUrl,
+      sellerIntroTranscript,
+      sellerIntroDurationSeconds: durationField(formData, "sellerIntroDurationSeconds"),
+      sellerGuidanceEnabled: enabledField(formData, "sellerGuidanceEnabled"),
+      sellerGuidanceAudioUrl,
+      sellerGuidanceTranscript,
+      sellerGuidanceDurationSeconds: durationField(formData, "sellerGuidanceDurationSeconds"),
+      sellerHandoffEnabled: enabledField(formData, "sellerHandoffEnabled"),
+      sellerHandoffAudioUrl,
+      sellerHandoffTranscript,
+      sellerHandoffDurationSeconds: durationField(formData, "sellerHandoffDurationSeconds"),
+    },
+  });
+
+  revalidatePath("/app/tienda");
+  revalidatePath(`/${store.slug}`);
+  redirect("/app/tienda?ok=voice");
 }
 
 export async function updateStorePlanAction(formData: FormData) {

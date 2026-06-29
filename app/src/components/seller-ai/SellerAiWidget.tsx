@@ -7,14 +7,21 @@ import { sellerAiConfig } from "@/config/seller-ai";
 import { getVisitorSessionId } from "@/lib/session-id";
 import type { SellerAiMode as StorefrontSellerAiMode } from "@/lib/storefront-flow";
 import type { SellerAiMode as CommercialSellerAiMode } from "@/lib/seller-ai/modes";
+import type { SellerVoiceNoteConfig, SellerVoiceNoteType } from "@/lib/seller-ai/voice-notes";
 import { cn } from "@/lib/ui";
-import { SellerAiTrustBubble } from "./SellerAiTrustBubble";
+import { SellerAiVoiceNote } from "./SellerAiVoiceNote";
 import { TypingIndicator } from "./TypingIndicator";
 
 type ChatMessage = {
   id: string;
   role: "assistant" | "user";
   content: string;
+};
+
+type VisibleVoiceNote = {
+  id: string;
+  type: SellerVoiceNoteType;
+  voiceNote: SellerVoiceNoteConfig;
 };
 
 type WidgetStep = "closed" | "chat" | "phone_capture" | "redirecting";
@@ -107,6 +114,14 @@ function normalizeReply(input?: string | null) {
     .trim();
 }
 
+function voiceNoteSeenKey(type: SellerVoiceNoteType, storeSlug: string, journeyId: string) {
+  return `jakawi_voice_${type.toLowerCase()}_seen_${storeSlug}_${journeyId}`;
+}
+
+function introDisabledKey(storeSlug: string) {
+  return `jakawi_voice_intro_disabled_${storeSlug}`;
+}
+
 export function SellerAiWidget({
   storeSlug,
   storeName,
@@ -141,6 +156,8 @@ export function SellerAiWidget({
   const [recommendedProductContextKey, setRecommendedProductContextKey] = useState<string | null>(null);
   const [commercialMode, setCommercialMode] = useState<CommercialSellerAiMode | null>(null);
   const [commercialStage, setCommercialStage] = useState<CommercialSellerAiMode | null>(null);
+  const [voiceNotesByType, setVoiceNotesByType] = useState<Partial<Record<SellerVoiceNoteType, SellerVoiceNoteConfig>>>({});
+  const [visibleVoiceNotes, setVisibleVoiceNotes] = useState<VisibleVoiceNote[]>([]);
   const [detectedNeed, setDetectedNeed] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -171,8 +188,7 @@ export function SellerAiWidget({
   const chatIsBusy = isLoading || isAssistantTyping;
   const ctaIsStrong = hasStrongPurchaseIntent || commercialStage === "CLOSING_PREP";
   const showWhatsappCta = step === "chat" && messages.length > 0;
-  const contextSubtitle = productName ? `Asesorando: ${productName}` : "Te ayuda a elegir";
-  const trustBubbleStorageKey = `jakawi_seller_ai_trust_hidden:${storeSlug}:${productId ?? "store"}:${sessionId}`;
+  const contextSubtitle = productName ? `Asesorando: ${productName}` : `Te ayuda ${storeName}`;
   const whatsappCtaText = ctaIsStrong
     ? widgetCopy.sendWhatsappInquiry
     : commercialStage === "DECISION_SUPPORT"
@@ -230,6 +246,36 @@ export function SellerAiWidget({
       return next;
     });
   }
+
+  const showVoiceNoteOnce = useCallback(
+    (voiceNote: SellerVoiceNoteConfig | null | undefined, resolvedJourneyId?: string | null) => {
+      if (!voiceNote?.enabled || !resolvedJourneyId) return false;
+      try {
+        if (voiceNote.type === "INTRO" && window.localStorage.getItem(introDisabledKey(storeSlug)) === "true") return false;
+        const seenKey = voiceNoteSeenKey(voiceNote.type, storeSlug, resolvedJourneyId);
+        if (window.localStorage.getItem(seenKey) === "true") return false;
+        window.localStorage.setItem(seenKey, "true");
+      } catch {
+        // Local visibility state is best effort.
+      }
+
+      setVisibleVoiceNotes((current) => {
+        if (current.some((item) => item.type === voiceNote.type)) return current;
+        return [...current, { id: messageId(), type: voiceNote.type, voiceNote }];
+      });
+      return true;
+    },
+    [storeSlug],
+  );
+
+  const hideIntroVoiceNote = useCallback(() => {
+    try {
+      window.localStorage.setItem(introDisabledKey(storeSlug), "true");
+    } catch {
+      // Local preference is best effort.
+    }
+    setVisibleVoiceNotes((current) => current.filter((item) => item.type !== "INTRO"));
+  }, [storeSlug]);
 
   const displayedQuickReplies = useMemo(() => {
     const userMessages = messages.filter((message) => message.role === "user").map((message) => normalizeReply(message.content));
@@ -348,6 +394,11 @@ export function SellerAiWidget({
         quickReplies: string[];
         recommendedProducts?: RecommendedProduct[];
         showRecommendedProducts?: boolean;
+        voiceNotes?: {
+          intro?: SellerVoiceNoteConfig;
+          guidance?: SellerVoiceNoteConfig;
+          handoff?: SellerVoiceNoteConfig;
+        };
       }>("/api/seller-ai/opening", { sessionId, storeSlug, productId, journeyId: resolvedJourneyId });
       const [opening] = await Promise.all([openingPromise, openingDelay]);
       setLeadId(opening.leadId);
@@ -357,10 +408,18 @@ export function SellerAiWidget({
       if (opening.mode) setCommercialMode(opening.mode);
       if (opening.stage) setCommercialStage(opening.stage);
       setMessages([{ id: messageId(), role: "assistant", content: opening.message }]);
+      setVoiceNotesByType({
+        INTRO: opening.voiceNotes?.intro,
+        GUIDANCE: opening.voiceNotes?.guidance,
+        HANDOFF: opening.voiceNotes?.handoff,
+      });
+      const nextJourneyId = opening.journeyId ?? resolvedJourneyId;
+      showVoiceNoteOnce(opening.voiceNotes?.intro, nextJourneyId);
       setQuickReplies(opening.quickReplies);
       setShowRecommendedProductCards(opening.showRecommendedProducts === true);
       setRecommendedProductContextKey(opening.showRecommendedProducts === true ? currentProductKey : null);
       setRecommendedProducts(opening.showRecommendedProducts === true ? (opening.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
+      if (options?.afterOpen === "phone_capture") showVoiceNoteOnce(opening.voiceNotes?.handoff, nextJourneyId);
       if (options?.afterOpen && nextLeadId) setStep(options.afterOpen);
       return nextLeadId;
     } catch (error) {
@@ -371,7 +430,7 @@ export function SellerAiWidget({
       setIsAssistantTyping(false);
       setIsLoading(false);
     }
-  }, [currentProductKey, journeyId, leadId, messages.length, productId, sessionId, storeSlug]);
+  }, [currentProductKey, journeyId, leadId, messages.length, productId, sessionId, showVoiceNoteOnce, storeSlug]);
 
   const closeWidget = useCallback(() => {
     setHasInteracted(true);
@@ -414,6 +473,8 @@ export function SellerAiWidget({
           shouldShowWhatsappCta: boolean;
           shouldStartPhoneCapture?: boolean;
           detectedNeed?: string | null;
+          voiceNote?: SellerVoiceNoteConfig | null;
+          voiceNoteSuggestion?: SellerVoiceNoteType;
         }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
@@ -431,6 +492,11 @@ export function SellerAiWidget({
         setRecommendedProducts(response.showRecommendedProducts === true ? (response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
         setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
         if (response.shouldStartPhoneCapture) setHasStrongPurchaseIntent(true);
+        if (response.voiceNote) {
+          showVoiceNoteOnce(response.voiceNote, response.journeyId ?? journeyId);
+        } else if (response.voiceNoteSuggestion) {
+          showVoiceNoteOnce(voiceNotesByType[response.voiceNoteSuggestion], response.journeyId ?? journeyId);
+        }
         if ((response.shouldStartPhoneCapture || /a qu[eé] whatsapp pueden escribirte/i.test(response.assistantMessage ?? response.message ?? "")) && requirePhoneBeforeWhatsapp) setStep("phone_capture");
       } catch (error) {
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
@@ -441,7 +507,7 @@ export function SellerAiWidget({
         setIsLoading(false);
       }
     },
-    [currentProductKey, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, sessionId, storeSlug],
+    [currentProductKey, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, sessionId, showVoiceNoteOnce, storeSlug, voiceNotesByType],
   );
 
   const continueWhatsapp = useCallback(async () => {
@@ -488,11 +554,13 @@ export function SellerAiWidget({
       return;
     }
     if (requirePhoneBeforeWhatsapp) {
+      showVoiceNoteOnce(voiceNotesByType.HANDOFF, journeyId);
       setStep("phone_capture");
       return;
     }
+    showVoiceNoteOnce(voiceNotesByType.HANDOFF, journeyId);
     await continueWhatsapp();
-  }, [continueWhatsapp, leadId, openChat, requirePhoneBeforeWhatsapp]);
+  }, [continueWhatsapp, journeyId, leadId, openChat, requirePhoneBeforeWhatsapp, showVoiceNoteOnce, voiceNotesByType.HANDOFF]);
 
   useEffect(() => {
     if (!sellerAiConfig.enabled || mode === "disabled") return;
@@ -583,7 +651,11 @@ export function SellerAiWidget({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             <div className="flex min-h-full flex-col justify-end gap-2.5">
-              {messages.length > 0 ? <SellerAiTrustBubble key={trustBubbleStorageKey} storeName={storeName} productName={productName} storageKey={trustBubbleStorageKey} /> : null}
+              {visibleVoiceNotes
+                .filter((item) => item.type === "INTRO")
+                .map((item) => (
+                  <SellerAiVoiceNote key={item.id} voiceNote={item.voiceNote} onDismiss={hideIntroVoiceNote} />
+                ))}
 
               {messages.map((message) => (
                 <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
@@ -597,6 +669,12 @@ export function SellerAiWidget({
                   </div>
                 </div>
               ))}
+
+              {visibleVoiceNotes
+                .filter((item) => item.type !== "INTRO")
+                .map((item) => (
+                  <SellerAiVoiceNote key={item.id} voiceNote={item.voiceNote} />
+                ))}
 
               {isAssistantTyping && step === "chat" ? (
                 <div className="flex justify-start">

@@ -7,6 +7,7 @@ import { addJourneyEvent, updateJourneyStage } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
 import { buildQuickRepliesForMode, getCommercialTypeCopy, inferSellerAiMode } from "@/lib/seller-ai/modes";
 import { getOpeningMessage, getQuickReplies } from "@/lib/seller-ai/templates";
+import { getSellerVoiceNoteConfig } from "@/lib/seller-ai/voice-notes";
 
 const openingSchema = z.object({
   sessionId: z.string().min(6).max(160),
@@ -136,5 +137,10 @@ export async function POST(request: Request) {
     }) ?? (product ? getQuickReplies({ product, category: product.category }) : commercialCopy.quickReplies),
     recommendedProducts: recommendations,
     showRecommendedProducts: false,
+    voiceNotes: {
+      intro: getSellerVoiceNoteConfig(store, "INTRO"),
+      guidance: getSellerVoiceNoteConfig(store, "GUIDANCE"),
+      handoff: getSellerVoiceNoteConfig(store, "HANDOFF"),
+    },
   });
 }

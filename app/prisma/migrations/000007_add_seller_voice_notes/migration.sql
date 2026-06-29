@@ -1,0 +1,15 @@
+ALTER TABLE "Store" ADD COLUMN "sellerVoiceEnabled" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Store" ADD COLUMN "sellerVoiceDisplayName" TEXT;
+ALTER TABLE "Store" ADD COLUMN "sellerVoiceAvatarUrl" TEXT;
+ALTER TABLE "Store" ADD COLUMN "sellerIntroAudioUrl" TEXT;
+ALTER TABLE "Store" ADD COLUMN "sellerIntroTranscript" TEXT;
+ALTER TABLE "Store" ADD COLUMN "sellerIntroDurationSeconds" INTEGER;
+ALTER TABLE "Store" ADD COLUMN "sellerIntroEnabled" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Store" ADD COLUMN "sellerGuidanceAudioUrl" TEXT;
+ALTER TABLE "Store" ADD COLUMN "sellerGuidanceTranscript" TEXT;
+ALTER TABLE "Store" ADD COLUMN "sellerGuidanceDurationSeconds" INTEGER;
+ALTER TABLE "Store" ADD COLUMN "sellerGuidanceEnabled" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "Store" ADD COLUMN "sellerHandoffAudioUrl" TEXT;
+ALTER TABLE "Store" ADD COLUMN "sellerHandoffTranscript" TEXT;
+ALTER TABLE "Store" ADD COLUMN "sellerHandoffDurationSeconds" INTEGER;
+ALTER TABLE "Store" ADD COLUMN "sellerHandoffEnabled" BOOLEAN NOT NULL DEFAULT true;
