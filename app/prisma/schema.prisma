@@ -42,6 +42,50 @@ enum LeadEventType {
   LEAD_STATUS_CHANGED
 }
 
+enum CustomerJourneyStatus {
+  ACTIVE
+  ENGAGED
+  READY_FOR_CHANNEL
+  CHANNEL_CONNECTED
+  CONVERTED
+  LOST
+  EXPIRED
+}
+
+enum CustomerJourneyStage {
+  DISCOVERY
+  PRODUCT_ADVISOR
+  DECISION_SUPPORT
+  CLOSING_PREP
+}
+
+enum JourneyEventType {
+  JOURNEY_STARTED
+  STORE_VIEWED
+  CATEGORY_VIEWED
+  PRODUCT_VIEWED
+  SELLER_AI_OPENED
+  AI_MESSAGE_SENT
+  CUSTOMER_MESSAGE_SENT
+  NEED_DETECTED
+  PRODUCT_RECOMMENDED
+  OBJECTION_DETECTED
+  INTENT_UPDATED
+  LEAD_CREATED
+  SNAPSHOT_CREATED
+  CHANNEL_CLICKED
+  STATUS_CHANGED
+}
+
+enum CommercialSnapshotChannel {
+  WHATSAPP
+  WHATSAPP_BOT
+  EMAIL
+  INSTAGRAM
+  MESSENGER
+  MANUAL
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -98,6 +142,7 @@ model Store {
   themeColor  String   @default("#128C4A")
   isPublished Boolean  @default(true)
   plan        String   @default("LAUNCH")
+  commercialType String? @default("PRODUCT_STORE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -106,6 +151,7 @@ model Store {
   categories Category[]
   events     AnalyticsEvent[]
   leads      Lead[]
+  journeys   CustomerJourney[]
 
   @@index([ownerId])
   @@index([slug])
@@ -121,6 +167,8 @@ model Category {
 
   store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
   products Product[]
+  journeys CustomerJourney[]
+  journeyEvents JourneyEvent[]
 
   @@unique([storeId, slug])
   @@index([storeId])
@@ -143,6 +191,8 @@ model Product {
   store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
   category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   events   AnalyticsEvent[]
+  currentJourneys CustomerJourney[] @relation("JourneyCurrentProduct")
+  journeyEvents JourneyEvent[]
 
   @@unique([storeId, slug])
   @@index([storeId, isVisible])
@@ -173,6 +223,8 @@ model Lead {
   leadCode            String     @unique
   storeId             String
   sessionId           String
+  journeyId           String?
+  snapshotId          String?
   customerName        String?
   customerPhone       String?
   source              String?
@@ -194,13 +246,119 @@ model Lead {
   updatedAt           DateTime   @updatedAt
 
   store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  journey      CustomerJourney? @relation(fields: [journeyId], references: [id], onDelete: SetNull)
+  activeSnapshot CommercialSnapshot? @relation("LeadActiveSnapshot", fields: [snapshotId], references: [id], onDelete: SetNull)
+  snapshots    CommercialSnapshot[] @relation("LeadSnapshots")
   conversation Conversation?
   events       LeadEvent[]
 
   @@index([storeId, createdAt])
   @@index([sessionId])
+  @@index([journeyId])
+  @@index([snapshotId])
   @@index([status])
   @@index([intentScore])
+}
+
+model CustomerJourney {
+  id                    String                @id @default(cuid())
+  journeyCode           String                @unique
+  storeId               String
+  sessionId             String
+  source                String?
+  status                CustomerJourneyStatus @default(ACTIVE)
+  stage                 CustomerJourneyStage  @default(DISCOVERY)
+
+  currentProductId      String?
+  currentCategoryId     String?
+
+  detectedNeed          String?
+  budget                String?
+  urgency               String?
+  objections            String?
+  conversationSummary   String?
+
+  intentScore           Int                   @default(0)
+
+  customerName          String?
+  customerPhone         String?
+  city                  String?
+
+  viewedProducts        Json?
+  recommendedProducts   Json?
+
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  store                 Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  currentProduct        Product?              @relation("JourneyCurrentProduct", fields: [currentProductId], references: [id], onDelete: SetNull)
+  currentCategory       Category?             @relation(fields: [currentCategoryId], references: [id], onDelete: SetNull)
+
+  events                JourneyEvent[]
+  snapshots             CommercialSnapshot[]
+  leads                 Lead[]
+
+  @@index([storeId])
+  @@index([sessionId])
+  @@index([status])
+  @@index([stage])
+  @@index([createdAt])
+}
+
+model JourneyEvent {
+  id          String           @id @default(cuid())
+  journeyId   String
+  type        JourneyEventType
+  productId   String?
+  categoryId  String?
+  payload     Json?
+  createdAt   DateTime         @default(now())
+
+  journey     CustomerJourney  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  product     Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  category    Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([journeyId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model CommercialSnapshot {
+  id                String                    @id @default(cuid())
+  snapshotCode      String                    @unique
+
+  journeyId         String
+  leadId            String?
+
+  channel           CommercialSnapshotChannel @default(WHATSAPP)
+
+  customerSummary   String?
+  detectedNeed      String?
+  currentItem       Json?
+  recommendedItems  Json?
+  viewedItems       Json?
+  objections        String?
+  budget            String?
+  urgency           String?
+  intentScore       Int                       @default(0)
+
+  customerName      String?
+  customerPhone     String?
+  city              String?
+
+  channelMessage    String?
+  whatsappMessage   String?
+
+  createdAt         DateTime                  @default(now())
+
+  journey           CustomerJourney           @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  lead              Lead?                     @relation("LeadSnapshots", fields: [leadId], references: [id], onDelete: SetNull)
+  selectedByLeads   Lead[]                    @relation("LeadActiveSnapshot")
+
+  @@index([journeyId])
+  @@index([leadId])
+  @@index([channel])
+  @@index([createdAt])
 }
 
 model Conversation {
