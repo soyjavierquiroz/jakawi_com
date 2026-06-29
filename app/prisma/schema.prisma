@@ -142,6 +142,12 @@ model Store {
   themeColor  String   @default("#128C4A")
   isPublished Boolean  @default(true)
   plan        String   @default("LAUNCH")
+  planStatus  String   @default("ACTIVE")
+  planStartedAt DateTime?
+  trialEndsAt DateTime?
+  planRenewsAt DateTime?
+  sellerAiPeriodStart DateTime?
+  sellerAiConversationCount Int @default(0)
   commercialType String? @default("PRODUCT_STORE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -277,6 +283,7 @@ model CustomerJourney {
   urgency               String?
   objections            String?
   conversationSummary   String?
+  sellerAiCountedAt     DateTime?
 
   intentScore           Int                   @default(0)
 

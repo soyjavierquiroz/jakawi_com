@@ -72,8 +72,25 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error("Request failed");
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const error = new Error(payload?.message ?? "Request failed") as Error & { payload?: Record<string, unknown>; code?: string };
+    error.payload = payload ?? undefined;
+    error.code = typeof payload?.code === "string" ? payload.code : undefined;
+    throw error;
+  }
   return response.json() as Promise<T>;
+}
+
+function getSellerAiLimitMessage(error: unknown) {
+  const payload = error instanceof Error ? (error as Error & { payload?: { code?: string; message?: string } }).payload : undefined;
+  if (payload?.code === "SELLER_AI_LIMIT_REACHED") {
+    return "Esta tienda alcanzó el límite mensual de Seller AI. Puedes dejar tu consulta por WhatsApp y el vendedor te responderá directamente.";
+  }
+  if (payload?.code === "SELLER_AI_NOT_AVAILABLE" || payload?.code === "TRIAL_EXPIRED") {
+    return "Seller AI no está disponible ahora. Puedes dejar tu consulta por WhatsApp y el vendedor te responderá directamente.";
+  }
+  return null;
 }
 
 function hasStrongIntent(input: string) {
@@ -346,8 +363,8 @@ export function SellerAiWidget({
       setRecommendedProducts(opening.showRecommendedProducts === true ? (opening.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
       if (options?.afterOpen && nextLeadId) setStep(options.afterOpen);
       return nextLeadId;
-    } catch {
-      setError("No pude cargar el vendedor ahora. Puedes intentar continuar por WhatsApp.");
+    } catch (error) {
+      setError(getSellerAiLimitMessage(error) ?? "No pude cargar el vendedor ahora. Puedes intentar continuar por WhatsApp.");
       openedRef.current = false;
       return null;
     } finally {
@@ -415,10 +432,10 @@ export function SellerAiWidget({
         setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
         if (response.shouldStartPhoneCapture) setHasStrongPurchaseIntent(true);
         if ((response.shouldStartPhoneCapture || /a qu[eé] whatsapp pueden escribirte/i.test(response.assistantMessage ?? response.message ?? "")) && requirePhoneBeforeWhatsapp) setStep("phone_capture");
-      } catch {
+      } catch (error) {
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
-        setError("No pude responder eso ahora. La tienda puede confirmarlo por WhatsApp.");
+        setError(getSellerAiLimitMessage(error) ?? "No pude responder eso ahora. La tienda puede confirmarlo por WhatsApp.");
         setShouldShowWhatsappCta(true);
       } finally {
         setIsLoading(false);

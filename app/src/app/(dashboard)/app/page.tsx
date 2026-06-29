@@ -6,6 +6,7 @@ import { dashboardConfig } from "@/config/dashboard";
 import { getPlanPriceForCountry } from "@/config/regional-pricing";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
 import { requireStore } from "@/lib/auth";
+import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
@@ -13,18 +14,22 @@ export default async function DashboardPage() {
   const { store } = await requireStore();
   // eslint-disable-next-line react-hooks/purity
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [totalProducts, visibleProducts, storeViews, whatsappClicks] = await Promise.all([
+  const [totalProducts, visibleProducts, storeViews, whatsappClicks, productUsage, sellerAiUsage] = await Promise.all([
     getPrisma().product.count({ where: { storeId: store.id } }),
     getPrisma().product.count({ where: { storeId: store.id, isVisible: true } }),
     getPrisma().analyticsEvent.count({ where: { storeId: store.id, type: "STORE_VIEW", createdAt: { gte: since } } }),
     getPrisma().analyticsEvent.count({ where: { storeId: store.id, type: "WHATSAPP_CLICK", createdAt: { gte: since } } }),
+    getProductUsage(store.id),
+    getSellerAiUsage(store.id),
   ]);
   const publicUrl = getPublicStoreUrl(store.slug);
   const flow = getStorefrontFlow(store.plan);
+  const planState = getStorePlanState(store);
   const country = getCountryCommerceConfig(store.countryCode);
   const regionalPlanPrice = getPlanPriceForCountry(flow.planCode, store.countryCode);
-  const sellerAiLimitLabel =
-    flow.sellerAiMonthlyConversations === null ? "incluido sin limite mensual" : `${flow.sellerAiMonthlyConversations} conversaciones/mes`;
+  const sellerAiLimitLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)} conversaciones este mes` : "No incluido";
+  const trialDateLabel = planState.trialEndsAt ? planState.trialEndsAt.toLocaleDateString(country.locale) : null;
+  const planStatusLabel = planState.trialExpired ? "Prueba terminada" : flow.planCode === "TRIAL" ? `Prueba hasta ${trialDateLabel}` : "Activo";
 
   const stats = [
     { label: dashboardConfig.stats.totalProducts, value: totalProducts, icon: Boxes },
@@ -40,9 +45,15 @@ export default async function DashboardPage() {
           <p className="text-sm font-bold text-brand-dark">Inicio</p>
           <h1 className="text-4xl font-black">Hola, {store.name}</h1>
         </div>
-        <Link href={siteConfig.routes.newProduct} className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
-          Agregar producto
-        </Link>
+        {productUsage.isLimitReached || productUsage.trialExpired ? (
+          <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-11 items-center justify-center rounded-md bg-brand-dark px-5 font-bold text-white hover:bg-brand">
+            Solicitar upgrade
+          </a>
+        ) : (
+          <Link href={siteConfig.routes.newProduct} className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+            Agregar producto
+          </Link>
+        )}
       </div>
 
       <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
@@ -59,7 +70,7 @@ export default async function DashboardPage() {
         <div className="mt-3 grid gap-3 md:grid-cols-5">
           <div>
             <p className="text-2xl font-black text-brand-dark">{flow.planName}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">{regionalPlanPrice.priceLabel}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">{regionalPlanPrice.priceLabel} · {planStatusLabel}</p>
           </div>
           <div>
             <p className="text-2xl font-black text-brand-dark">{country.countryName}</p>
@@ -71,15 +82,19 @@ export default async function DashboardPage() {
           </div>
           <div>
             <p className="text-2xl font-black text-brand-dark">
-              {totalProducts} / {flow.productLimit}
+              {productUsage.used} / {productUsage.limit}
             </p>
             <p className="mt-1 text-sm font-semibold text-neutral-500">Productos</p>
           </div>
           <div>
-            <p className="text-2xl font-black text-brand-dark">{flow.sellerAiEnabled ? "Activo" : "No incluido"}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">Seller AI: {flow.sellerAiEnabled ? sellerAiLimitLabel : "sin conversaciones"}</p>
+            <p className="text-2xl font-black text-brand-dark">{sellerAiUsage.enabled ? "Activo" : "No incluido"}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Seller AI: {sellerAiLimitLabel}</p>
           </div>
         </div>
+        {productUsage.isNearLimit && !productUsage.isLimitReached ? <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">Estás cerca del límite de tu plan: productos {productUsage.used} de {productUsage.limit} usados.</p> : null}
+        {productUsage.isLimitReached ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">Llegaste al límite de productos de tu plan. Tu plan permite {productUsage.limit} productos.</p> : null}
+        {planState.trialExpired ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">Tu prueba gratuita terminó. Puedes elegir un plan para seguir agregando productos y usando JAKAWI.</p> : null}
+        {flow.planCode === "TRIAL" && !planState.trialExpired && trialDateLabel ? <p className="mt-4 rounded-md bg-brand-muted px-3 py-2 text-sm font-bold text-brand-dark">Tu prueba termina el {trialDateLabel}.</p> : null}
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-4">

@@ -8,9 +8,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCountryCommerceConfig, normalizeCountryCode, normalizeCurrency } from "@/config/countries";
 import { registrationConfig } from "@/config/registration";
+import { storePlans } from "@/config/plans";
+import { requireSuperAdmin } from "@/lib/admin";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
-import { canCreateMoreProducts, getProductLimit } from "@/lib/plan-limits";
+import { assertCanCreateProduct, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { uploadImage } from "@/lib/storage";
@@ -111,6 +113,8 @@ export async function registerAction(formData: FormData) {
   const region = cleanOptional(parsed.data.region) ?? visitor.region;
   const ipHash = visitor.ip ? hashIp(visitor.ip) : null;
   const plan = normalizeStorePlanCode(parsed.data.plan);
+  const trialDays = storePlans.TRIAL.trialDays ?? 14;
+  const now = new Date();
 
   try {
     const user = await getPrisma().user.create({
@@ -142,6 +146,9 @@ export async function registerAction(formData: FormData) {
             description: "Mi tienda creada con JAKAWI.",
             isPublished: true,
             plan,
+            planStatus: plan === "TRIAL" ? "TRIALING" : "ACTIVE",
+            planStartedAt: now,
+            trialEndsAt: plan === "TRIAL" ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null,
           },
         },
       },
@@ -273,10 +280,13 @@ export async function saveProductAction(formData: FormData) {
       },
     });
   } else {
-    const currentCount = await getPrisma().product.count({ where: { storeId: store.id } });
-    if (!canCreateMoreProducts(store.plan, currentCount)) {
-      const limit = getProductLimit(store.plan);
-      redirect(`/app/productos/nuevo?error=${encodeURIComponent(`Tu plan permite hasta ${limit} productos.`)}`);
+    try {
+      await assertCanCreateProduct(store.id);
+    } catch (error) {
+      if (error instanceof PlanLimitError) {
+        redirect(`/app/productos/nuevo?error=${encodeURIComponent(error.payload.message)}`);
+      }
+      throw error;
     }
 
     const product = await getPrisma().product.create({
@@ -329,6 +339,52 @@ export async function updateWhatsappAction(formData: FormData) {
   });
   revalidatePath("/app/whatsapp");
   revalidatePath(`/${store.slug}`);
+}
+
+export async function updateStorePlanAction(formData: FormData) {
+  await requireSuperAdmin();
+  const storeId = field(formData, "storeId");
+  const plan = normalizeStorePlanCode(field(formData, "plan"));
+  const store = await getPrisma().store.findUnique({ where: { id: storeId } });
+  if (!store) redirect("/app/admin/stores?error=Tienda no encontrada");
+
+  const now = new Date();
+  const trialDays = storePlans.TRIAL.trialDays ?? 14;
+  await getPrisma().store.update({
+    where: { id: store.id },
+    data: {
+      plan,
+      planStatus: plan === "TRIAL" ? "TRIALING" : "ACTIVE",
+      planStartedAt: store.planStartedAt ?? now,
+      trialEndsAt: plan === "TRIAL" ? store.trialEndsAt ?? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : store.trialEndsAt,
+      sellerAiPeriodStart: now,
+      sellerAiConversationCount: 0,
+    },
+  });
+
+  revalidatePath("/app/admin/stores");
+  redirect("/app/admin/stores?ok=plan");
+}
+
+export async function extendStoreTrialAction(formData: FormData) {
+  await requireSuperAdmin();
+  const storeId = field(formData, "storeId");
+  const days = Math.max(1, Math.min(90, Number(field(formData, "days") || 14)));
+  const store = await getPrisma().store.findUnique({ where: { id: storeId } });
+  if (!store) redirect("/app/admin/stores?error=Tienda no encontrada");
+
+  const base = store.trialEndsAt && store.trialEndsAt > new Date() ? store.trialEndsAt : new Date();
+  await getPrisma().store.update({
+    where: { id: store.id },
+    data: {
+      plan: "TRIAL",
+      planStatus: "TRIALING",
+      trialEndsAt: new Date(base.getTime() + days * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  revalidatePath("/app/admin/stores");
+  redirect("/app/admin/stores?ok=trial");
 }
 
 export async function ensureUserHasStore() {

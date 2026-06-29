@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sellerAiConfig } from "@/config/seller-ai";
 import { formatMoney } from "@/lib/money";
+import { incrementSellerAiConversationUsage, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
 import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/lib/seller-ai/journey";
@@ -234,6 +235,21 @@ export async function POST(request: Request) {
       })
     : null;
   const signals = extractCommercialSignals(parsed.data.message);
+
+  try {
+    await incrementSellerAiConversationUsage(lead.storeId, { journeyId: journey.id });
+  } catch (error) {
+    if (error instanceof PlanLimitError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          ...error.payload,
+        },
+        { status: 403 },
+      );
+    }
+    throw error;
+  }
 
   const userMessage = await getPrisma().conversationMessage.create({
     data: { conversationId: conversation.id, role: MessageRole.USER, content: parsed.data.message, metadata: { journeyId: journey.id, productId: product?.id, signals } },

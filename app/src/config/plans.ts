@@ -57,7 +57,7 @@ export const storePlans = {
     priceLabel: "Bs 1997/año",
     productLimit: 50,
     sellerAiEnabled: true,
-    sellerAiMonthlyConversations: null,
+    sellerAiMonthlyConversations: 100,
     whatsappBotEnabled: true,
     directWhatsappEnabled: false,
     requirePhoneBeforeWhatsapp: true,
@@ -89,6 +89,6 @@ export const plansConfig = [
     name: storePlans.PREMIUM.name,
     price: storePlans.PREMIUM.priceLabel,
     description: "Para tiendas que necesitan seguimiento y cierre guiado.",
-    features: [`Hasta ${storePlans.PREMIUM.productLimit} productos`, "Seller AI Premium", "Conversaciones Seller AI ilimitadas", "WhatsApp bot y seguimiento"],
+    features: [`Hasta ${storePlans.PREMIUM.productLimit} productos`, "Seller AI Premium", `${storePlans.PREMIUM.sellerAiMonthlyConversations} conversaciones Seller AI/mes`, "WhatsApp bot y seguimiento"],
   },
 ];

@@ -38,7 +38,7 @@ const pricingCards: PricingCard[] = [
   {
     code: "PREMIUM",
     description: "Para tiendas que necesitan seguimiento y cierre guiado.",
-    features: [`Hasta ${storePlans.PREMIUM.productLimit} productos`, "Seller AI Premium", "Conversaciones Seller AI ilimitadas", "WhatsApp bot y seguimiento"],
+    features: [`Hasta ${storePlans.PREMIUM.productLimit} productos`, "Seller AI Premium", `${storePlans.PREMIUM.sellerAiMonthlyConversations} conversaciones Seller AI/mes`, "WhatsApp bot y seguimiento"],
   },
 ];
 

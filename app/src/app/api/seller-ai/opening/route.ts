@@ -1,6 +1,7 @@
 import { JourneyEventType, LeadEventType, MessageRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getStorePlanState } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { addJourneyEvent, updateJourneyStage } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
@@ -32,6 +33,18 @@ export async function POST(request: Request) {
     ? await getPrisma().store.findUnique({ where: { id: parsed.data.storeId }, include: { categories: { orderBy: { name: "asc" } } } })
     : await getPrisma().store.findUnique({ where: { slug: parsed.data.storeSlug }, include: { categories: { orderBy: { name: "asc" } } } });
   if (!store || !store.isPublished) return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+  const planState = getStorePlanState(store);
+  if (!planState.sellerAiEnabled) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: planState.trialExpired ? "TRIAL_EXPIRED" : "SELLER_AI_NOT_AVAILABLE",
+        message: planState.trialExpired ? "La prueba gratuita de esta tienda terminó." : "Seller AI no está disponible en tu plan.",
+        planCode: planState.planCode,
+      },
+      { status: 403 },
+    );
+  }
 
   const product = parsed.data.productId || parsed.data.productSlug
     ? await getPrisma().product.findFirst({

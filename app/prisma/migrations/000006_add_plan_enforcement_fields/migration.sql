@@ -1,0 +1,10 @@
+ALTER TABLE "Store"
+ADD COLUMN "planStatus" TEXT NOT NULL DEFAULT 'ACTIVE',
+ADD COLUMN "planStartedAt" TIMESTAMP(3),
+ADD COLUMN "trialEndsAt" TIMESTAMP(3),
+ADD COLUMN "planRenewsAt" TIMESTAMP(3),
+ADD COLUMN "sellerAiPeriodStart" TIMESTAMP(3),
+ADD COLUMN "sellerAiConversationCount" INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE "CustomerJourney"
+ADD COLUMN "sellerAiCountedAt" TIMESTAMP(3);

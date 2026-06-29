@@ -1,6 +1,7 @@
 import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
 import { updateStoreAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
+import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
 
 export default async function StoreSettingsPage({
   searchParams,
@@ -9,12 +10,40 @@ export default async function StoreSettingsPage({
 }) {
   const { store } = await requireStore();
   const params = await searchParams;
+  const [productUsage, sellerAiUsage] = await Promise.all([getProductUsage(store.id), getSellerAiUsage(store.id)]);
+  const planState = getStorePlanState(store);
+  const trialLabel = planState.trialEndsAt ? planState.trialEndsAt.toLocaleDateString(store.locale ?? "es-BO") : null;
 
   return (
     <section>
       <p className="text-sm font-bold text-brand-dark">Mi tienda</p>
       <h1 className="text-4xl font-black">Configura tu tienda</h1>
       {params.ok ? <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Cambios guardados.</p> : null}
+
+      <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
+        <div className="grid gap-4 md:grid-cols-4">
+          <div>
+            <p className="text-xs font-black uppercase text-neutral-500">Plan actual</p>
+            <p className="mt-1 text-xl font-black text-brand-dark">{planState.planName}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-600">{planState.trialExpired ? "Prueba terminada" : planState.planStatus === "TRIALING" && trialLabel ? `Prueba hasta ${trialLabel}` : "Activo"}</p>
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase text-neutral-500">Productos</p>
+            <p className="mt-1 text-xl font-black text-brand-dark">{productUsage.used} / {productUsage.limit}</p>
+            {productUsage.isNearLimit ? <p className="mt-1 text-sm font-semibold text-amber-700">Cerca del límite</p> : null}
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase text-neutral-500">Seller AI</p>
+            <p className="mt-1 text-xl font-black text-brand-dark">{sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido"}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-600">Conversaciones mensuales</p>
+          </div>
+          <div className="flex items-start md:justify-end">
+            <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-10 items-center rounded-md bg-brand-dark px-4 text-sm font-black text-white hover:bg-brand">
+              Solicitar upgrade
+            </a>
+          </div>
+        </div>
+      </div>
 
       <form action={updateStoreAction} className="mt-6 space-y-5 rounded-lg border border-brand-border bg-brand-paper p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
