@@ -34,6 +34,17 @@ function uniqueProducts(products: ProductWithCategory[]) {
   });
 }
 
+function hasStrongTextRelation(product: ProductWithCategory, currentProduct?: ProductWithCategory | null, detectedNeed?: string | null) {
+  const need = normalize(detectedNeed);
+  if (need && productText(product).includes(need)) return true;
+  if (!currentProduct) return true;
+
+  const currentTokens = new Set(productText(currentProduct).split(/\s+/).filter((token) => token.length >= 5));
+  return productText(product)
+    .split(/\s+/)
+    .some((token) => token.length >= 5 && currentTokens.has(token));
+}
+
 function reasonForProduct(product: ProductWithCategory, params: { currentProductId?: string | null; categoryId?: string | null; detectedNeed?: string | null }) {
   if (params.currentProductId && product.categoryId) return "Similar al producto que viste";
   if (params.categoryId && product.categoryId === params.categoryId) return "Opción recomendada de esta categoría";
@@ -103,7 +114,8 @@ export async function getSellerAiRecommendations({
 
   const needMatches = relatedByNeed.filter((product) => productText(product).includes(need));
   const candidates = uniqueProducts([...byCurrentCategory, ...byCategory, ...needMatches, ...fallback]);
-  const sorted = [...candidates].sort((first, second) => {
+  const relevantCandidates = currentProduct ? candidates.filter((product) => hasStrongTextRelation(product, currentProduct, detectedNeed)) : candidates;
+  const sorted = [...relevantCandidates].sort((first, second) => {
     const firstNeedMatch = need && productText(first).includes(need) ? 1 : 0;
     const secondNeedMatch = need && productText(second).includes(need) ? 1 : 0;
     if (firstNeedMatch !== secondNeedMatch) return secondNeedMatch - firstNeedMatch;
