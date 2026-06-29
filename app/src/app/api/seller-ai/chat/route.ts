@@ -2,12 +2,13 @@ import { LeadEventType, LeadStatus, MessageRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sellerAiConfig } from "@/config/seller-ai";
+import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
-import { getRelatedProducts } from "@/lib/seller-ai/context";
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
-import { getOrCreateCustomerJourney, inferJourneyStage, updateCustomerJourney } from "@/lib/seller-ai/journey";
+import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
-import { generateHeuristicReply, getQuickReplies } from "@/lib/seller-ai/templates";
+import { buildQuickRepliesForMode, extractCommercialSignals, inferSellerAiMode, type SellerAiMode } from "@/lib/seller-ai/modes";
+import { getSellerAiRecommendations, type SellerAiRecommendedProduct } from "@/lib/seller-ai/recommendations";
 
 const chatSchema = z.object({
   leadId: z.string().min(1).optional(),
@@ -17,6 +18,90 @@ const chatSchema = z.object({
   message: z.string().min(1).max(1000),
   currentProductId: z.string().optional(),
 });
+
+type ProductForReply = {
+  id: string;
+  name: string;
+  description?: string | null;
+  priceCents: number;
+  currency: string;
+  categoryId?: string | null;
+  category?: { name: string; slug: string } | null;
+};
+
+function includesAny(input: string, words: string[]) {
+  const text = input.toLowerCase();
+  return words.some((word) => text.includes(word));
+}
+
+function priceLine({
+  product,
+  store,
+}: {
+  product: ProductForReply;
+  store: { currency?: string | null; countryCode?: string | null; locale?: string | null };
+}) {
+  return `${product.name} está publicado en ${formatMoney({
+    amountCents: product.priceCents,
+    currency: store.currency ?? product.currency,
+    countryCode: store.countryCode ?? "BO",
+    locale: store.locale,
+  })}.`;
+}
+
+function buildAssistantMessage({
+  mode,
+  userMessage,
+  product,
+  store,
+  detectedNeed,
+  recommendations,
+}: {
+  mode: SellerAiMode;
+  userMessage: string;
+  product?: ProductForReply | null;
+  store: { name: string; commercialType?: string | null; currency?: string | null; countryCode?: string | null; locale?: string | null };
+  detectedNeed?: string | null;
+  recommendations: SellerAiRecommendedProduct[];
+}) {
+  const text = userMessage.toLowerCase();
+  const recommendationNames = recommendations.slice(0, 3).map((item) => item.name);
+
+  if (mode === "CLOSING_PREP") {
+    const target = product?.name ? ` sobre ${product.name}` : detectedNeed ? ` para ${detectedNeed}` : "";
+    return `Perfecto. Te dejo la consulta${target} armada para la tienda. ¿A qué WhatsApp pueden escribirte?`;
+  }
+
+  if (mode === "DECISION_SUPPORT") {
+    if (product && includesAny(text, ["precio", "cuánto", "cuanto", "cuesta", "vale", "costo"])) {
+      return `${priceLine({ product, store })} Sobre disponibilidad, envío o forma de pago, mejor lo confirma la tienda por WhatsApp.`;
+    }
+    if (includesAny(text, ["disponible", "stock", "envío", "envio", "garantía", "garantia", "talla", "color", "pago", "descuento"])) {
+      const subject = product?.name ? ` de ${product.name}` : "";
+      return `Esa duda${subject} conviene confirmarla con la tienda para no inventarte datos. Te puedo pasar a WhatsApp con la consulta armada.`;
+    }
+    if (recommendationNames.length > 0) {
+      return `Para reducir la duda, compararía máximo estas opciones: ${recommendationNames.join(", ")}. ¿Cuál te interesa más?`;
+    }
+    return "Te ayudo a resolverlo corto: si falta disponibilidad, envío o forma de pago, la tienda lo confirma por WhatsApp con tu consulta armada.";
+  }
+
+  if (mode === "PRODUCT_ADVISOR") {
+    if (!product) return "Cuéntame qué uso le quieres dar y te recomiendo una opción sin marearte.";
+    if (detectedNeed) {
+      return `${product.name} puede encajar si lo quieres para ${detectedNeed}. ¿Priorizas precio, rapidez o que la tienda confirme disponibilidad?`;
+    }
+    return `${product.name} puede ser buena opción si encaja con el uso que tienes en mente. ¿Lo buscas para trabajo, regalo o uso diario?`;
+  }
+
+  if (detectedNeed && recommendationNames.length > 0) {
+    return `Para ${detectedNeed}, empezaría comparando estas opciones: ${recommendationNames.join(", ")}. ¿Quieres precio, disponibilidad o ayuda para elegir una?`;
+  }
+  if (recommendationNames.length > 0) {
+    return `Te puedo orientar con estas opciones: ${recommendationNames.join(", ")}. ¿Lo buscas para ti, para regalar o con presupuesto económico?`;
+  }
+  return store.commercialType === "MENU" ? "¿Qué se te antoja hoy: algo rápido, carne, pollo o algo para compartir?" : "¿Qué estás buscando hoy: algo para ti, para regalar, económico o lo más recomendado?";
+}
 
 export async function POST(request: Request) {
   const parsed = chatSchema.safeParse(await request.json().catch(() => null));
@@ -82,16 +167,10 @@ export async function POST(request: Request) {
         include: { category: true },
       })
     : null;
-  const relatedProducts = product ? await getRelatedProducts(lead.storeId, product) : [];
-  const assistantMessage = product
-    ? generateHeuristicReply({ userMessage: parsed.data.message, product, relatedProducts, store: lead.store, lead })
-    : "Entiendo. Para orientarte mejor: ¿lo buscas para uso personal, regalo, trabajo o algo específico?";
+  const signals = extractCommercialSignals(parsed.data.message);
 
   const userMessage = await getPrisma().conversationMessage.create({
-    data: { conversationId: conversation.id, role: MessageRole.USER, content: parsed.data.message },
-  });
-  const replyMessage = await getPrisma().conversationMessage.create({
-    data: { conversationId: conversation.id, role: MessageRole.ASSISTANT, content: assistantMessage, metadata: { productId: product?.id } },
+    data: { conversationId: conversation.id, role: MessageRole.USER, content: parsed.data.message, metadata: { journeyId: journey.id, productId: product?.id, signals } },
   });
 
   await logLeadEvent({
@@ -103,6 +182,37 @@ export async function POST(request: Request) {
     journeyId: journey.id,
     metadata: { message: parsed.data.message },
   });
+
+  const events = await getPrisma().leadEvent.findMany({ where: { leadId: lead.id } });
+  const messagesBeforeReply = [...conversation.messages, userMessage];
+  const calculatedIntentScore = calculateIntentScore({ events, messages: messagesBeforeReply, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED });
+  const provisionalIntentScore = Math.min(100, Math.max(calculatedIntentScore, journey.intentScore + signals.intentBoost, lead.intentScore + signals.intentBoost));
+  const inferred = inferSellerAiMode({
+    currentStage: journey.stage as SellerAiMode,
+    hasProductContext: Boolean(product),
+    productId: product?.id,
+    message: parsed.data.message,
+    intentScore: provisionalIntentScore,
+    objections: signals.objections,
+  });
+  const recommendations = await getSellerAiRecommendations({
+    storeId: lead.storeId,
+    currentProductId: product?.id,
+    categoryId: product?.categoryId,
+    detectedNeed: signals.detectedNeed ?? journey.detectedNeed,
+    budget: signals.budget ?? journey.budget,
+  });
+  const assistantMessage = buildAssistantMessage({
+    mode: inferred.mode,
+    userMessage: parsed.data.message,
+    product,
+    store: lead.store,
+    detectedNeed: signals.detectedNeed ?? journey.detectedNeed,
+    recommendations,
+  });
+  const replyMessage = await getPrisma().conversationMessage.create({
+    data: { conversationId: conversation.id, role: MessageRole.ASSISTANT, content: assistantMessage, metadata: { productId: product?.id, journeyId: journey.id, mode: inferred.mode, stage: inferred.stage } },
+  });
   await logLeadEvent({
     leadId: lead.id,
     sessionId: lead.sessionId,
@@ -110,13 +220,11 @@ export async function POST(request: Request) {
     eventType: LeadEventType.AI_MESSAGE_SENT,
     productId: product?.id,
     journeyId: journey.id,
-    metadata: { message: assistantMessage },
+    metadata: { message: assistantMessage, mode: inferred.mode, stage: inferred.stage },
   });
-
-  const events = await getPrisma().leadEvent.findMany({ where: { leadId: lead.id } });
-  const messages = [...conversation.messages, userMessage, replyMessage];
-  const intentScore = calculateIntentScore({ events, messages, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED });
-  const shouldShowWhatsappCta = intentScore >= 55 || /quiero|me interesa|comprar|como compro|cómo compro|pedido|precio/.test(parsed.data.message.toLowerCase());
+  const messages = [...messagesBeforeReply, replyMessage];
+  const intentScore = Math.min(100, Math.max(provisionalIntentScore, calculateIntentScore({ events, messages, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED })));
+  const shouldShowWhatsappCta = inferred.mode === "CLOSING_PREP" || intentScore >= 55 || /quiero|me interesa|comprar|como compro|cómo compro|pedido|precio/.test(parsed.data.message.toLowerCase());
 
   await getPrisma().lead.update({
     where: { id: lead.id },
@@ -125,14 +233,31 @@ export async function POST(request: Request) {
       intentScore,
       status: lead.status === LeadStatus.BROWSING ? LeadStatus.ENGAGED : lead.status,
       currentProductId: product?.id ?? lead.currentProductId,
+      budget: signals.budget ?? lead.budget,
+      urgency: signals.urgency ?? lead.urgency,
+      objections: signals.objections.length > 0 ? [...new Set([...(Array.isArray(lead.objections) ? lead.objections : []), ...signals.objections])] : lead.objections,
+      recommendedProducts: recommendations.map((item) => ({ id: item.id, name: item.name, slug: item.slug, priceLabel: item.priceLabel, shortReason: item.shortReason })),
     },
   });
-  await updateCustomerJourney({
+  const updatedJourney = await updateJourneyCommercialSignals({
     journeyId: journey.id,
     productId: product?.id,
     categoryId: product?.categoryId,
-    intentScore,
-    stage: inferJourneyStage({ productId: product?.id, intentScore, message: parsed.data.message }),
+    detectedNeed: signals.detectedNeed,
+    budget: signals.budget,
+    urgency: signals.urgency,
+    objections: signals.objections,
+    intentBoost: Math.max(0, intentScore - journey.intentScore),
+    stage: inferred.stage,
+    recommendedProducts: recommendations.map((item) => ({ id: item.id, name: item.name, slug: item.slug, priceLabel: item.priceLabel, shortReason: item.shortReason })),
+  });
+  const quickReplies = buildQuickRepliesForMode({
+    mode: inferred.mode,
+    commercialType: lead.store.commercialType,
+    product,
+    category: product?.category,
+    detectedNeed: signals.detectedNeed ?? updatedJourney?.detectedNeed,
+    recommendedProducts: recommendations,
   });
 
   return NextResponse.json({
@@ -141,9 +266,14 @@ export async function POST(request: Request) {
     leadCode: lead.leadCode,
     journeyId: journey.id,
     journeyCode: journey.journeyCode,
+    message: assistantMessage,
     assistantMessage,
-    quickReplies: getQuickReplies({ product, category: product?.category }),
+    mode: inferred.mode,
+    stage: inferred.stage,
+    quickReplies,
+    recommendedProducts: recommendations,
     intentScore,
+    detectedNeed: signals.detectedNeed ?? updatedJourney?.detectedNeed,
     intentLabel: classifyIntent(intentScore),
     shouldShowWhatsappCta,
   });

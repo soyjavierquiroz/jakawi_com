@@ -1,9 +1,11 @@
-import { LeadEventType, MessageRole } from "@prisma/client";
+import { JourneyEventType, LeadEventType, MessageRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getPrisma } from "@/lib/prisma";
-import { getRelatedProducts } from "@/lib/seller-ai/context";
+import { addJourneyEvent, appendRecommendedProducts, updateJourneyStage } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
+import { buildQuickRepliesForMode, getCommercialTypeCopy, inferSellerAiMode } from "@/lib/seller-ai/modes";
+import { getSellerAiRecommendations } from "@/lib/seller-ai/recommendations";
 import { getOpeningMessage, getQuickReplies } from "@/lib/seller-ai/templates";
 
 const openingSchema = z.object({
@@ -20,11 +22,6 @@ function getDiscoveryOpening(storeName: string, categories: { name: string }[]) 
   return categoryHint
     ? `Hola, soy Seller AI de ${storeName}. ¿Qué estás buscando hoy? Puedo ayudarte a elegir entre ${categoryHint} o encontrar otra opción.`
     : `Hola, soy Seller AI de ${storeName}. ¿Qué estás buscando hoy? Te ayudo a elegir la mejor opción.`;
-}
-
-function getDiscoveryQuickReplies(categories: { name: string }[]) {
-  const replies = categories.slice(0, 3).map((category) => `Busco ${category.name.toLowerCase()}`);
-  return replies.length ? [...replies, "Necesito recomendación"] : ["Necesito recomendación", "Ver opciones", "Quiero comprar"];
 }
 
 export async function POST(request: Request) {
@@ -52,14 +49,34 @@ export async function POST(request: Request) {
     source: product ? "product_page" : "store_discovery",
     journeyId: parsed.data.journeyId,
   });
-  const relatedProducts = product
-    ? await getRelatedProducts(store.id, product)
-    : await getPrisma().product.findMany({
-        where: { storeId: store.id, isVisible: true },
-        orderBy: { createdAt: "desc" },
-        take: 4,
-      });
-  const message = product ? getOpeningMessage({ product, category: product.category, store }) : getDiscoveryOpening(store.name, store.categories);
+  const inferred = inferSellerAiMode({
+    hasProductContext: Boolean(product),
+    productId: product?.id,
+    currentStage: product ? "PRODUCT_ADVISOR" : "DISCOVERY",
+  });
+  const mode = product ? "PRODUCT_ADVISOR" : inferred.mode;
+  const stage = mode;
+  await updateJourneyStage({ journeyId: journey.id, stage });
+  await addJourneyEvent({
+    journeyId: journey.id,
+    type: JourneyEventType.SELLER_AI_OPENED,
+    productId: product?.id,
+    categoryId: product?.categoryId ?? parsed.data.categoryId,
+    payload: { mode, reason: inferred.reason },
+  });
+
+  const recommendations = await getSellerAiRecommendations({
+    storeId: store.id,
+    currentProductId: product?.id,
+    categoryId: product?.categoryId ?? parsed.data.categoryId,
+  });
+  if (recommendations.length > 0) {
+    await appendRecommendedProducts({ journeyId: journey.id, products: recommendations.map((item) => ({ id: item.id, name: item.name, slug: item.slug, priceLabel: item.priceLabel, shortReason: item.shortReason })) });
+  }
+
+  const commercialCopy = getCommercialTypeCopy(store.commercialType);
+  const discoveryOpening = getDiscoveryOpening(store.name, store.categories).replace("¿Qué estás buscando hoy?", commercialCopy.discoveryOpening);
+  const message = product ? getOpeningMessage({ product, category: product.category, store }) : discoveryOpening;
   const conversationId = lead.conversation?.id;
 
   if (conversationId) {
@@ -68,7 +85,7 @@ export async function POST(request: Request) {
         conversationId,
         role: MessageRole.ASSISTANT,
         content: message,
-        metadata: { kind: "opening", productId: product?.id, journeyId: journey.id },
+        metadata: { kind: "opening", mode, stage, productId: product?.id, journeyId: journey.id },
       },
     });
   }
@@ -76,7 +93,7 @@ export async function POST(request: Request) {
   await getPrisma().lead.update({
     where: { id: lead.id },
     data: {
-      recommendedProducts: relatedProducts.map((item) => ({ id: item.id, name: item.name, slug: item.slug })),
+      recommendedProducts: recommendations.map((item) => ({ id: item.id, name: item.name, slug: item.slug, priceLabel: item.priceLabel, shortReason: item.shortReason })),
     },
   });
 
@@ -87,7 +104,7 @@ export async function POST(request: Request) {
     eventType: LeadEventType.AI_MESSAGE_SENT,
     productId: product?.id,
     journeyId: journey.id,
-    metadata: { kind: "opening", mode: product ? "product_advisor" : "discovery" },
+    metadata: { kind: "opening", mode, stage },
   });
 
   return NextResponse.json({
@@ -97,7 +114,15 @@ export async function POST(request: Request) {
     journeyId: journey.id,
     journeyCode: journey.journeyCode,
     message,
-    quickReplies: product ? getQuickReplies({ product, category: product.category }) : getDiscoveryQuickReplies(store.categories),
-    recommendedProducts: relatedProducts.map((item) => ({ id: item.id, name: item.name, slug: item.slug, imageUrl: item.imageUrl })),
+    mode,
+    stage,
+    quickReplies: buildQuickRepliesForMode({
+      mode,
+      commercialType: store.commercialType,
+      product,
+      category: product?.category,
+      recommendedProducts: recommendations,
+    }) ?? (product ? getQuickReplies({ product, category: product.category }) : commercialCopy.quickReplies),
+    recommendedProducts: recommendations,
   });
 }
