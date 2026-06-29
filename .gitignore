@@ -11,3 +11,7 @@ coverage
 
 # Local database backups
 backups/
+
+# Local temporary product docs
+/temp/
+temp/
