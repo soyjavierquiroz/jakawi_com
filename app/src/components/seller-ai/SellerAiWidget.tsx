@@ -73,6 +73,10 @@ function assistantTypingDelay() {
   return minDelay + Math.floor(Math.random() * (maxDelay - minDelay + 1));
 }
 
+function voiceRecordingDelay() {
+  return 700 + Math.floor(Math.random() * 901);
+}
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
@@ -102,10 +106,6 @@ function getSellerAiLimitMessage(error: unknown) {
 
 function hasStrongIntent(input: string) {
   return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|consultar por whatsapp|enviar consulta|dejar consulta|pasar a whatsapp|quiero que me escriban/i.test(input);
-}
-
-function likelyVoiceNoteInput(input: string) {
-  return hasStrongIntent(input) || /estudio|universidad|colegio|trabajo|oficina|regalar|regalo|fotos|redes|juegos|viaje|uso diario|para m[ií]|uso personal/i.test(input);
 }
 
 function normalizeReply(input?: string | null) {
@@ -274,6 +274,21 @@ export function SellerAiWidget({
     [storeSlug],
   );
 
+  const revealVoiceNoteOnce = useCallback(
+    async (voiceNote: SellerVoiceNoteConfig | null | undefined, resolvedJourneyId?: string | null) => {
+      if (!voiceNote?.enabled || !resolvedJourneyId) return false;
+      setAssistantIndicator("recording");
+      setIsAssistantTyping(true);
+      await wait(voiceRecordingDelay());
+      setIsAssistantTyping(false);
+      setAssistantIndicator("typing");
+      const wasShown = showVoiceNoteOnce(voiceNote, resolvedJourneyId);
+      if (wasShown) playChatTone("receive");
+      return wasShown;
+    },
+    [playChatTone, showVoiceNoteOnce],
+  );
+
   const hideIntroVoiceNote = useCallback(() => {
     try {
       window.localStorage.setItem(introDisabledKey(storeSlug), "true");
@@ -375,8 +390,10 @@ export function SellerAiWidget({
     }
     openedRef.current = true;
     setIsLoading(true);
-    if (messages.length === 0) setIsAssistantTyping(true);
-    if (messages.length === 0) setAssistantIndicator("recording");
+    if (messages.length === 0) {
+      setAssistantIndicator("typing");
+      setIsAssistantTyping(true);
+    }
     setError(null);
     let nextLeadId: string | null = null;
     const openingDelay = messages.length === 0 ? wait(sellerAiConfig.typing.openingDelayMs) : Promise.resolve();
@@ -414,6 +431,8 @@ export function SellerAiWidget({
       if (opening.journeyId) setJourneyId(opening.journeyId);
       if (opening.mode) setCommercialMode(opening.mode);
       if (opening.stage) setCommercialStage(opening.stage);
+      setIsAssistantTyping(false);
+      setAssistantIndicator("typing");
       setMessages([{ id: messageId(), role: "assistant", content: opening.message }]);
       playChatTone("receive");
       setVoiceNotesByType({
@@ -422,12 +441,12 @@ export function SellerAiWidget({
         HANDOFF: opening.voiceNotes?.handoff,
       });
       const nextJourneyId = opening.journeyId ?? resolvedJourneyId;
-      showVoiceNoteOnce(opening.voiceNotes?.intro, nextJourneyId);
+      await revealVoiceNoteOnce(opening.voiceNotes?.intro, nextJourneyId);
       setQuickReplies(opening.quickReplies);
       setShowRecommendedProductCards(opening.showRecommendedProducts === true);
       setRecommendedProductContextKey(opening.showRecommendedProducts === true ? currentProductKey : null);
       setRecommendedProducts(opening.showRecommendedProducts === true ? (opening.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
-      if (options?.afterOpen === "phone_capture") showVoiceNoteOnce(opening.voiceNotes?.handoff, nextJourneyId);
+      if (options?.afterOpen === "phone_capture") await revealVoiceNoteOnce(opening.voiceNotes?.handoff, nextJourneyId);
       if (options?.afterOpen && nextLeadId) setStep(options.afterOpen);
       return nextLeadId;
     } catch (error) {
@@ -439,7 +458,7 @@ export function SellerAiWidget({
       setAssistantIndicator("typing");
       setIsLoading(false);
     }
-  }, [currentProductKey, journeyId, leadId, messages.length, playChatTone, productId, sessionId, showVoiceNoteOnce, storeSlug]);
+  }, [currentProductKey, journeyId, leadId, messages.length, playChatTone, productId, revealVoiceNoteOnce, sessionId, storeSlug]);
 
   const closeWidget = useCallback(() => {
     setHasInteracted(true);
@@ -459,7 +478,7 @@ export function SellerAiWidget({
       setRecommendedProductContextKey(null);
       setIsLoading(true);
       setIsAssistantTyping(true);
-      setAssistantIndicator(likelyVoiceNoteInput(clean) ? "recording" : "typing");
+      setAssistantIndicator("typing");
       setError(null);
       if (hasStrongIntent(clean)) {
         setShouldShowWhatsappCta(true);
@@ -486,7 +505,6 @@ export function SellerAiWidget({
           voiceNote?: SellerVoiceNoteConfig | null;
           voiceNoteSuggestion?: SellerVoiceNoteType;
         }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
-        if (response.voiceNote) setAssistantIndicator("recording");
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
         setAssistantIndicator("typing");
@@ -496,17 +514,18 @@ export function SellerAiWidget({
         if (response.mode) setCommercialMode(response.mode);
         if (response.stage) setCommercialStage(response.stage);
         if (response.detectedNeed !== undefined) setDetectedNeed(response.detectedNeed ?? null);
-        setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage ?? response.message ?? "" }]);
-        playChatTone("receive");
+        if (response.voiceNote) {
+          await revealVoiceNoteOnce(response.voiceNote, response.journeyId ?? journeyId);
+        } else {
+          setMessages((current) => [...current, { id: messageId(), role: "assistant", content: response.assistantMessage ?? response.message ?? "" }]);
+          playChatTone("receive");
+        }
         setQuickReplies(response.quickReplies);
         setShowRecommendedProductCards(response.showRecommendedProducts === true);
         setRecommendedProductContextKey(response.showRecommendedProducts === true ? currentProductKey : null);
         setRecommendedProducts(response.showRecommendedProducts === true ? (response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
         setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
         if (response.shouldStartPhoneCapture) setHasStrongPurchaseIntent(true);
-        if (response.voiceNote) {
-          showVoiceNoteOnce(response.voiceNote, response.journeyId ?? journeyId);
-        }
         if ((response.shouldStartPhoneCapture || /a qu[eé] whatsapp pueden escribirte/i.test(response.assistantMessage ?? response.message ?? "")) && requirePhoneBeforeWhatsapp) setStep("phone_capture");
       } catch (error) {
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
@@ -518,7 +537,7 @@ export function SellerAiWidget({
         setIsLoading(false);
       }
     },
-    [currentProductKey, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, sessionId, showVoiceNoteOnce, storeSlug],
+    [currentProductKey, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, revealVoiceNoteOnce, sessionId, storeSlug],
   );
 
   const continueWhatsapp = useCallback(async () => {
@@ -565,13 +584,13 @@ export function SellerAiWidget({
       return;
     }
     if (requirePhoneBeforeWhatsapp) {
-      showVoiceNoteOnce(voiceNotesByType.HANDOFF, journeyId);
+      await revealVoiceNoteOnce(voiceNotesByType.HANDOFF, journeyId);
       setStep("phone_capture");
       return;
     }
-    showVoiceNoteOnce(voiceNotesByType.HANDOFF, journeyId);
+    await revealVoiceNoteOnce(voiceNotesByType.HANDOFF, journeyId);
     await continueWhatsapp();
-  }, [continueWhatsapp, journeyId, leadId, openChat, requirePhoneBeforeWhatsapp, showVoiceNoteOnce, voiceNotesByType.HANDOFF]);
+  }, [continueWhatsapp, journeyId, leadId, openChat, requirePhoneBeforeWhatsapp, revealVoiceNoteOnce, voiceNotesByType.HANDOFF]);
 
   useEffect(() => {
     if (!sellerAiConfig.enabled || mode === "disabled") return;
