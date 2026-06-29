@@ -106,14 +106,11 @@ export default async function PublicStorePage({
 
         <footer className="py-8 text-center text-sm font-semibold text-neutral-500">Hecho con JAKAWI</footer>
       </section>
-      {flow.sellerAiEnabled && store.products[0] ? (
+      {flow.sellerAiEnabled ? (
         <VisitorProvider>
           <SellerAiWidget
             storeSlug={store.slug}
             storeName={store.name}
-            productId={store.products[0].id}
-            productName={store.products[0].name}
-            categoryName={store.products[0].category?.name}
             whatsapp={store.whatsapp}
             planCode={flow.planCode}
             mode={flow.sellerAiMode}
