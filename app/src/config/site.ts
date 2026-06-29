@@ -9,8 +9,10 @@ export const routesConfig = {
   storeSettings: "/app/tienda",
   categories: "/app/categorias",
   whatsapp: "/app/whatsapp",
-  agent: "/app/agente",
+  sellerAi: "/app/seller-ai",
+  agent: "/app/seller-ai",
   leads: "/app/leads",
+  plan: "/app/plan",
 };
 
 export const siteConfig = {

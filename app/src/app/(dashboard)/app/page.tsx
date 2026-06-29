@@ -1,8 +1,7 @@
-import { Boxes, Eye, MessageCircle, Store as StoreIcon } from "lucide-react";
+import { Bot, Boxes, ExternalLink, Link as LinkIcon, MessageCircle, Store as StoreIcon, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { CopyButton } from "@/components/CopyButton";
 import { getCountryCommerceConfig } from "@/config/countries";
-import { dashboardConfig } from "@/config/dashboard";
 import { getPlanPriceForCountry } from "@/config/regional-pricing";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
 import { requireStore } from "@/lib/auth";
@@ -11,14 +10,14 @@ import { getPrisma } from "@/lib/prisma";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 export default async function DashboardPage() {
-  const { store } = await requireStore();
+  const { user, store } = await requireStore();
   // eslint-disable-next-line react-hooks/purity
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [totalProducts, visibleProducts, storeViews, whatsappClicks, productUsage, sellerAiUsage] = await Promise.all([
+  const [totalProducts, visibleProducts, whatsappClicks, leadCount, productUsage, sellerAiUsage] = await Promise.all([
     getPrisma().product.count({ where: { storeId: store.id } }),
     getPrisma().product.count({ where: { storeId: store.id, isVisible: true } }),
-    getPrisma().analyticsEvent.count({ where: { storeId: store.id, type: "STORE_VIEW", createdAt: { gte: since } } }),
     getPrisma().analyticsEvent.count({ where: { storeId: store.id, type: "WHATSAPP_CLICK", createdAt: { gte: since } } }),
+    getPrisma().lead.count({ where: { storeId: store.id } }),
     getProductUsage(store.id),
     getSellerAiUsage(store.id),
   ]);
@@ -27,23 +26,70 @@ export default async function DashboardPage() {
   const planState = getStorePlanState(store);
   const country = getCountryCommerceConfig(store.countryCode);
   const regionalPlanPrice = getPlanPriceForCountry(flow.planCode, store.countryCode);
-  const sellerAiLimitLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)} conversaciones este mes` : "No incluido";
   const trialDateLabel = planState.trialEndsAt ? planState.trialEndsAt.toLocaleDateString(country.locale) : null;
   const planStatusLabel = planState.trialExpired ? "Prueba terminada" : flow.planCode === "TRIAL" ? `Prueba hasta ${trialDateLabel}` : "Activo";
+  const firstName = user.firstName ?? user.name?.split(" ")[0] ?? store.name;
+  const hasVoiceNotes = Boolean(store.sellerIntroAudioUrl || store.sellerGuidanceAudioUrl || store.sellerHandoffAudioUrl);
 
   const stats = [
-    { label: dashboardConfig.stats.totalProducts, value: totalProducts, icon: Boxes },
-    { label: dashboardConfig.stats.visibleProducts, value: visibleProducts, icon: StoreIcon },
-    { label: dashboardConfig.stats.storeViews, value: storeViews, icon: Eye },
-    { label: dashboardConfig.stats.whatsappClicks, value: whatsappClicks, icon: MessageCircle },
+    { label: "Link público", value: store.slug, detail: "Tienda pública", icon: LinkIcon, href: publicUrl, external: true },
+    { label: "Plan actual", value: flow.planName, detail: `${regionalPlanPrice.priceLabel} · ${planStatusLabel}`, icon: StoreIcon, href: siteConfig.routes.plan },
+    { label: "Productos", value: `${productUsage.used} / ${productUsage.limit}`, detail: `${visibleProducts} visibles de ${totalProducts}`, icon: Boxes, href: siteConfig.routes.products },
+    { label: "Seller AI", value: sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido", detail: "Conversaciones mensuales", icon: Bot, href: siteConfig.routes.sellerAi },
+    { label: "Leads con contexto", value: leadCount, detail: "Oportunidades preparadas", icon: UsersRound, href: siteConfig.routes.leads },
+    { label: "Clicks WhatsApp", value: whatsappClicks, detail: "Últimos 7 días", icon: MessageCircle, href: siteConfig.routes.whatsapp },
   ];
+
+  const nextStep = (() => {
+    if (!planState.sellerAiEnabled) {
+      return {
+        title: "Agrega productos y comparte tu link.",
+        text: "Seller AI está disponible en Pro/Premium. Por ahora tu mejor avance es ordenar el catálogo y mover clientes a WhatsApp.",
+        label: productUsage.used === 0 ? "Agregar producto" : "Compartir link público",
+        href: productUsage.used === 0 ? siteConfig.routes.newProduct : publicUrl,
+        external: productUsage.used !== 0,
+      };
+    }
+    if (!hasVoiceNotes) {
+      return {
+        title: "Configura la voz del vendedor para generar más confianza.",
+        text: "Tres audios cortos ayudan a que el cliente sienta presencia humana antes de pasar a WhatsApp.",
+        label: "Configurar Seller AI",
+        href: siteConfig.routes.sellerAi,
+      };
+    }
+    if (productUsage.used === 0) {
+      return {
+        title: "Agrega tu primer producto.",
+        text: "Seller AI necesita catálogo para asesorar mejor y preparar consultas con contexto.",
+        label: "Agregar producto",
+        href: siteConfig.routes.newProduct,
+      };
+    }
+    if (leadCount > 0) {
+      return {
+        title: "Revisa tus leads con contexto.",
+        text: "JAKAWI ya está recordando consultas, dudas y códigos para que cierres mejor por WhatsApp.",
+        label: "Ver leads",
+        href: siteConfig.routes.leads,
+      };
+    }
+    return {
+      title: "Comparte tu espacio comercial.",
+      text: "Publica el link en redes y deja que Seller AI prepare mejores consultas por WhatsApp.",
+      label: "Ver tienda pública",
+      href: publicUrl,
+      external: true,
+    };
+  })();
 
   return (
     <section>
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-bold text-brand-dark">Inicio</p>
-          <h1 className="text-4xl font-black">Hola, {store.name}</h1>
+          <h1 className="text-4xl font-black">Hola, {firstName}</h1>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Gestiona tu espacio comercial y prepara mejores consultas por WhatsApp.</p>
         </div>
         {productUsage.isLimitReached || productUsage.trialExpired ? (
           <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-11 items-center justify-center rounded-md bg-brand-dark px-5 font-bold text-white hover:bg-brand">
@@ -57,39 +103,40 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
-        <p className="text-sm font-semibold text-neutral-500">{dashboardConfig.publicLinkTitle}</p>
-        <p className="mt-1 text-sm text-neutral-500">{dashboardConfig.publicLinkHint}</p>
+        <p className="text-sm font-semibold text-neutral-500">Link público de tu espacio comercial</p>
+        <p className="mt-1 text-sm text-neutral-500">Compártelo en TikTok, Instagram, Facebook o estados.</p>
         <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
           <code className="flex-1 rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{publicUrl}</code>
           <CopyButton value={publicUrl} />
+          <a href={publicUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-brand-border px-4 font-bold text-brand-dark hover:border-brand">
+            <ExternalLink className="size-4" />
+            Abrir
+          </a>
         </div>
       </div>
 
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {stats.map((stat) => (
+          <Link key={stat.label} href={stat.href} target={stat.external ? "_blank" : undefined} className="rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm transition hover:border-brand hover:shadow-md">
+            <stat.icon className="size-5 text-brand" />
+            <p className="mt-4 truncate text-2xl font-black text-brand-dark">{stat.value}</p>
+            <p className="mt-1 text-sm font-black text-neutral-700">{stat.label}</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">{stat.detail}</p>
+          </Link>
+        ))}
+      </div>
+
       <div className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
-        <p className="text-sm font-semibold text-neutral-500">Plan actual</p>
-        <div className="mt-3 grid gap-3 md:grid-cols-5">
-          <div>
-            <p className="text-2xl font-black text-brand-dark">{flow.planName}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">{regionalPlanPrice.priceLabel} · {planStatusLabel}</p>
-          </div>
-          <div>
-            <p className="text-2xl font-black text-brand-dark">{country.countryName}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">País</p>
-          </div>
-          <div>
-            <p className="text-2xl font-black text-brand-dark">{store.currency ?? country.defaultCurrency}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">Moneda</p>
-          </div>
-          <div>
-            <p className="text-2xl font-black text-brand-dark">
-              {productUsage.used} / {productUsage.limit}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">Productos</p>
-          </div>
-          <div>
-            <p className="text-2xl font-black text-brand-dark">{sellerAiUsage.enabled ? "Activo" : "No incluido"}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">Seller AI: {sellerAiLimitLabel}</p>
-          </div>
+        <p className="text-sm font-black text-brand-dark">Siguiente paso recomendado</p>
+        <h2 className="mt-2 text-2xl font-black">{nextStep.title}</h2>
+        <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-neutral-600">{nextStep.text}</p>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Link href={nextStep.href} target={nextStep.external ? "_blank" : undefined} className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+            {nextStep.label}
+          </Link>
+          <Link href={siteConfig.routes.sellerAi} className="inline-flex h-11 items-center justify-center rounded-md border border-brand-border px-5 font-bold text-brand-dark hover:border-brand">
+            Revisar Seller AI
+          </Link>
         </div>
         {productUsage.isNearLimit && !productUsage.isLimitReached ? <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">Estás cerca del límite de tu plan: productos {productUsage.used} de {productUsage.limit} usados.</p> : null}
         {productUsage.isLimitReached ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">Llegaste al límite de productos de tu plan. Tu plan permite {productUsage.limit} productos.</p> : null}
@@ -97,21 +144,11 @@ export default async function DashboardPage() {
         {flow.planCode === "TRIAL" && !planState.trialExpired && trialDateLabel ? <p className="mt-4 rounded-md bg-brand-muted px-3 py-2 text-sm font-bold text-brand-dark">Tu prueba termina el {trialDateLabel}.</p> : null}
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
-            <stat.icon className="size-5 text-brand" />
-            <p className="mt-4 text-3xl font-black">{stat.value}</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
       <div className="mt-6 rounded-lg bg-brand-dark p-6 text-white">
-        <h2 className="text-2xl font-black">{dashboardConfig.productCta.title}</h2>
-        <p className="mt-2 max-w-2xl text-white/70">{dashboardConfig.productCta.text}</p>
-        <Link href={siteConfig.routes.products} className="mt-5 inline-flex h-11 items-center rounded-md bg-brand-lime px-5 font-bold text-brand-dark hover:bg-brand-yellow">
-          {dashboardConfig.productCta.label}
+        <h2 className="text-2xl font-black">Commercial Space + Seller AI + WhatsApp</h2>
+        <p className="mt-2 max-w-2xl text-white/70">Seller AI prepara. La voz del vendedor genera confianza. WhatsApp cierra. JAKAWI recuerda.</p>
+        <Link href={siteConfig.routes.sellerAi} className="mt-5 inline-flex h-11 items-center rounded-md bg-brand-lime px-5 font-bold text-brand-dark hover:bg-brand-yellow">
+          Configurar Seller AI
         </Link>
       </div>
     </section>

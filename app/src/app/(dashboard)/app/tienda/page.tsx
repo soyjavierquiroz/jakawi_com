@@ -1,5 +1,7 @@
 import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
-import { SellerVoiceNotesSettings } from "@/components/dashboard/SellerVoiceNotesSettings";
+import { Bot } from "lucide-react";
+import Link from "next/link";
+import { siteConfig } from "@/config/site";
 import { updateStoreAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
 import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
@@ -17,8 +19,9 @@ export default async function StoreSettingsPage({
 
   return (
     <section>
-      <p className="text-sm font-bold text-brand-dark">Mi tienda</p>
-      <h1 className="text-4xl font-black">Configura tu tienda</h1>
+      <p className="text-sm font-bold text-brand-dark">Mi espacio</p>
+      <h1 className="text-4xl font-black">Configura tu espacio comercial</h1>
+      <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Mantén actualizada la información pública de tu negocio. La tienda pública sigue siendo el link que ve el cliente.</p>
       {params.ok ? <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Cambios guardados.</p> : null}
       {params.error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{params.error === "voice-plan" ? "Las notas de voz están disponibles en Pro/Premium." : params.error}</p> : null}
 
@@ -97,7 +100,19 @@ export default async function StoreSettingsPage({
         <button className="h-11 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">Guardar cambios</button>
       </form>
 
-      <SellerVoiceNotesSettings canEdit={planState.sellerAiEnabled} store={store} />
+      <section className="mt-6 rounded-lg border border-brand-border bg-brand-paper p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Seller AI y notas de voz</p>
+            <h2 className="mt-1 text-2xl font-black">Configura la confianza humana en Seller AI</h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">Las notas de bienvenida, orientación y cierre ahora viven en el centro de configuración del agente.</p>
+          </div>
+          <Link href={siteConfig.routes.sellerAi} className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+            <Bot className="size-4" />
+            Ir a Seller AI
+          </Link>
+        </div>
+      </section>
     </section>
   );
 }

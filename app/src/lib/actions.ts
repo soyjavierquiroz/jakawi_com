@@ -378,7 +378,7 @@ export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
   const { store } = await requireStore();
   const planState = getStorePlanState(store);
   if (!planState.sellerAiEnabled) {
-    redirect("/app/tienda?error=voice-plan");
+    redirect("/app/seller-ai?error=voice-plan");
   }
 
   const sellerIntroAudioUrl = optionalUrlField(formData, "sellerIntroAudioUrl");
@@ -394,7 +394,7 @@ export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
     assertTranscriptForAudio(sellerHandoffAudioUrl, sellerHandoffTranscript, "cierre");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Revisa las transcripciones.";
-    redirect(`/app/tienda?error=${encodeURIComponent(message)}`);
+    redirect(`/app/seller-ai?error=${encodeURIComponent(message)}`);
   }
 
   await getPrisma().store.update({
@@ -419,8 +419,9 @@ export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
   });
 
   revalidatePath("/app/tienda");
+  revalidatePath("/app/seller-ai");
   revalidatePath(`/${store.slug}`);
-  redirect("/app/tienda?ok=voice");
+  redirect("/app/seller-ai?ok=voice");
 }
 
 export async function updateStorePlanAction(formData: FormData) {

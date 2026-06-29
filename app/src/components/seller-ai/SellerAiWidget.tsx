@@ -104,6 +104,10 @@ function hasStrongIntent(input: string) {
   return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|consultar por whatsapp|enviar consulta|dejar consulta|pasar a whatsapp|quiero que me escriban/i.test(input);
 }
 
+function likelyVoiceNoteInput(input: string) {
+  return hasStrongIntent(input) || /estudio|trabajo|regalar|regalo|fotos|precio|disponibilidad|disponible|env[ií]o|entrega/i.test(input);
+}
+
 function normalizeReply(input?: string | null) {
   return (input ?? "")
     .toLowerCase()
@@ -165,6 +169,7 @@ export function SellerAiWidget({
   const [customerName, setCustomerName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+  const [assistantIndicator, setAssistantIndicator] = useState<"typing" | "recording">("typing");
   const [shouldShowWhatsappCta, setShouldShowWhatsappCta] = useState(false);
   const [hasStrongPurchaseIntent, setHasStrongPurchaseIntent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -261,7 +266,8 @@ export function SellerAiWidget({
 
       setVisibleVoiceNotes((current) => {
         if (current.some((item) => item.type === voiceNote.type)) return current;
-        return [...current, { id: messageId(), type: voiceNote.type, voiceNote }];
+        const withoutAdjacentAudio = voiceNote.type === "INTRO" ? current : current.filter((item) => item.type === "INTRO");
+        return [...withoutAdjacentAudio, { id: messageId(), type: voiceNote.type, voiceNote }];
       });
       return true;
     },
@@ -370,6 +376,7 @@ export function SellerAiWidget({
     openedRef.current = true;
     setIsLoading(true);
     if (messages.length === 0) setIsAssistantTyping(true);
+    if (messages.length === 0) setAssistantIndicator("recording");
     setError(null);
     let nextLeadId: string | null = null;
     const openingDelay = messages.length === 0 ? wait(sellerAiConfig.typing.openingDelayMs) : Promise.resolve();
@@ -408,6 +415,7 @@ export function SellerAiWidget({
       if (opening.mode) setCommercialMode(opening.mode);
       if (opening.stage) setCommercialStage(opening.stage);
       setMessages([{ id: messageId(), role: "assistant", content: opening.message }]);
+      playChatTone("receive");
       setVoiceNotesByType({
         INTRO: opening.voiceNotes?.intro,
         GUIDANCE: opening.voiceNotes?.guidance,
@@ -428,9 +436,10 @@ export function SellerAiWidget({
       return null;
     } finally {
       setIsAssistantTyping(false);
+      setAssistantIndicator("typing");
       setIsLoading(false);
     }
-  }, [currentProductKey, journeyId, leadId, messages.length, productId, sessionId, showVoiceNoteOnce, storeSlug]);
+  }, [currentProductKey, journeyId, leadId, messages.length, playChatTone, productId, sessionId, showVoiceNoteOnce, storeSlug]);
 
   const closeWidget = useCallback(() => {
     setHasInteracted(true);
@@ -450,6 +459,7 @@ export function SellerAiWidget({
       setRecommendedProductContextKey(null);
       setIsLoading(true);
       setIsAssistantTyping(true);
+      setAssistantIndicator(likelyVoiceNoteInput(clean) ? "recording" : "typing");
       setError(null);
       if (hasStrongIntent(clean)) {
         setShouldShowWhatsappCta(true);
@@ -476,8 +486,10 @@ export function SellerAiWidget({
           voiceNote?: SellerVoiceNoteConfig | null;
           voiceNoteSuggestion?: SellerVoiceNoteType;
         }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, storeSlug, message: clean, currentProductId: productId });
+        if (response.voiceNote || response.voiceNoteSuggestion) setAssistantIndicator("recording");
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
+        setAssistantIndicator("typing");
         if (response.leadId) setLeadId(response.leadId);
         if (response.leadCode) setLeadCode(response.leadCode);
         if (response.journeyId) setJourneyId(response.journeyId);
@@ -501,6 +513,7 @@ export function SellerAiWidget({
       } catch (error) {
         await wait(Math.max(0, typingDelay - (Date.now() - startedAt)));
         setIsAssistantTyping(false);
+        setAssistantIndicator("typing");
         setError(getSellerAiLimitMessage(error) ?? "No pude responder eso ahora. La tienda puede confirmarlo por WhatsApp.");
         setShouldShowWhatsappCta(true);
       } finally {
@@ -678,7 +691,7 @@ export function SellerAiWidget({
 
               {isAssistantTyping && step === "chat" ? (
                 <div className="flex justify-start">
-                  <TypingIndicator />
+                  <TypingIndicator variant={assistantIndicator} />
                 </div>
               ) : null}
 

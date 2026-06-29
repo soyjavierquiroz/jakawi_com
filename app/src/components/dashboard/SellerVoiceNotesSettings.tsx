@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2, UploadCloud } from "lucide-react";
-import { ChangeEvent, useState } from "react";
+import { Loader2, Mic, RotateCcw, Square, Trash2, UploadCloud } from "lucide-react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { sellerVoiceNoteDefaults } from "@/config/seller-voice-notes";
 import { saveSellerVoiceNotesSettingsAction } from "@/lib/actions";
+import { cn } from "@/lib/ui";
 
 type NoteKey = "intro" | "guidance" | "handoff";
 
@@ -31,7 +32,7 @@ type SellerVoiceNotesSettingsProps = {
 const noteMeta = {
   intro: {
     title: "Audio de bienvenida",
-    description: "Explica cómo funciona la compra.",
+    description: "Aparece cuando el cliente abre Seller AI.",
     enabledName: "sellerIntroEnabled",
     audioName: "sellerIntroAudioUrl",
     transcriptName: "sellerIntroTranscript",
@@ -40,7 +41,7 @@ const noteMeta = {
   },
   guidance: {
     title: "Audio de orientación",
-    description: "Refuerza que estamos preparando la consulta.",
+    description: "Aparece cuando el cliente ya dio contexto y estamos preparando la consulta.",
     enabledName: "sellerGuidanceEnabled",
     audioName: "sellerGuidanceAudioUrl",
     transcriptName: "sellerGuidanceTranscript",
@@ -49,7 +50,7 @@ const noteMeta = {
   },
   handoff: {
     title: "Audio de cierre",
-    description: "Da confianza antes de pasar a WhatsApp.",
+    description: "Aparece antes de pasar a WhatsApp.",
     enabledName: "sellerHandoffEnabled",
     audioName: "sellerHandoffAudioUrl",
     transcriptName: "sellerHandoffTranscript",
@@ -85,7 +86,24 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
   const [avatarUrl, setAvatarUrl] = useState(store.sellerVoiceAvatarUrl ?? "");
   const [notes, setNotes] = useState(getInitialNotes(store));
   const [uploading, setUploading] = useState<string | null>(null);
+  const [recordingKey, setRecordingKey] = useState<NoteKey | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const startedAtRef = useRef<number>(0);
+  const stopTimerRef = useRef<number | null>(null);
+  const tickTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      if (stopTimerRef.current) window.clearTimeout(stopTimerRef.current);
+      if (tickTimerRef.current) window.clearInterval(tickTimerRef.current);
+    };
+  }, []);
 
   async function uploadFile(type: NoteKey | "avatar", file?: File) {
     if (!file || !canEdit) return;
@@ -135,6 +153,68 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
       void uploadFile(type, event.target.files?.[0]);
       event.target.value = "";
     };
+  }
+
+  async function startRecording(type: NoteKey) {
+    if (!canEdit) return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setMessage("Tu navegador no permite grabar audio aquí. Puedes subir un archivo.");
+      return;
+    }
+
+    try {
+      setMessage(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorderOptions = MediaRecorder.isTypeSupported("audio/webm") ? { mimeType: "audio/webm" } : undefined;
+      const recorder = new MediaRecorder(stream, recorderOptions);
+      chunksRef.current = [];
+      streamRef.current = stream;
+      recorderRef.current = recorder;
+      // eslint-disable-next-line react-hooks/purity
+      startedAtRef.current = Date.now();
+      setRecordingSeconds(0);
+      setRecordingKey(type);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const seconds = Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000));
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        const file = new File([blob], `${type}-seller-voice.webm`, { type: blob.type || "audio/webm" });
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        recorderRef.current = null;
+        setRecordingKey(null);
+        setRecordingSeconds(0);
+        if (tickTimerRef.current) window.clearInterval(tickTimerRef.current);
+        setNotes((current) => ({ ...current, [type]: { ...current[type], durationSeconds: String(Math.min(seconds, 15)) } }));
+        void uploadFile(type, file);
+      };
+
+      recorder.start();
+      tickTimerRef.current = window.setInterval(() => {
+        setRecordingSeconds(Math.min(15, Math.round((Date.now() - startedAtRef.current) / 1000)));
+      }, 250);
+      stopTimerRef.current = window.setTimeout(() => {
+        if (recorder.state === "recording") recorder.stop();
+      }, 15000);
+    } catch {
+      setRecordingKey(null);
+      setMessage("No pudimos acceder al micrófono. Revisa permisos o sube un archivo.");
+    }
+  }
+
+  function stopRecording() {
+    if (stopTimerRef.current) window.clearTimeout(stopTimerRef.current);
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.stop();
+    }
+  }
+
+  function removeAudio(type: NoteKey) {
+    setNotes((current) => ({ ...current, [type]: { audioUrl: "", durationSeconds: "" } }));
+    setMessage("Audio eliminado de esta nota. Guarda cambios para aplicarlo.");
   }
 
   return (
@@ -192,13 +272,50 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                   </span>
                 </label>
                 <input type="hidden" name={meta.audioName} value={note.audioUrl} />
-                <label className="mt-3 inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand">
-                  {uploading === key ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
-                  Subir audio
-                  <input type="file" accept="audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/webm,audio/wav" onChange={handleUpload(key)} className="sr-only" />
-                </label>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand">
+                    {uploading === key ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
+                    {note.audioUrl ? "Reemplazar" : "Subir audio"}
+                    <input type="file" accept="audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/webm,audio/wav" onChange={handleUpload(key)} className="sr-only" />
+                  </label>
+                  {recordingKey === key ? (
+                    <button type="button" onClick={stopRecording} className="inline-flex h-10 items-center gap-2 rounded-md bg-red-600 px-3 text-sm font-black text-white transition hover:bg-red-700">
+                      <Square className="size-4" />
+                      Detener {recordingSeconds}s
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => void startRecording(key)} disabled={Boolean(recordingKey) || uploading === key} className="inline-flex h-10 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand disabled:opacity-50">
+                      <Mic className="size-4" />
+                      Grabar
+                    </button>
+                  )}
+                  {note.audioUrl ? (
+                    <button type="button" onClick={() => removeAudio(key)} className="inline-flex h-10 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-red-700 transition hover:border-red-300">
+                      <Trash2 className="size-4" />
+                      Eliminar
+                    </button>
+                  ) : null}
+                </div>
                 <p className="mt-2 text-xs font-semibold text-neutral-500">Recomendado máximo 15 segundos. Límite 3MB.</p>
-                {note.audioUrl ? <audio src={note.audioUrl} controls preload="metadata" className="mt-3 w-full" /> : null}
+                {note.audioUrl ? (
+                  <div className="mt-3 rounded-2xl rounded-bl-md border border-neutral-200 bg-white px-3 py-2 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-dark text-white">
+                        <Mic className="size-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[11px] font-black text-brand-dark">{store.sellerVoiceDisplayName || "Vendedor"}</p>
+                        <div className="mt-1 flex h-7 items-center gap-[3px]">
+                          {Array.from({ length: 18 }).map((_, index) => (
+                            <span key={index} className={cn("w-[3px] rounded-full bg-neutral-300", recordingKey === key && "bg-brand/60")} style={{ height: 8 + ((index * 7) % 18) }} />
+                          ))}
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-neutral-500">{note.durationSeconds ? `0:${String(note.durationSeconds).padStart(2, "0")}` : "0:00"}</span>
+                    </div>
+                    <audio src={note.audioUrl} controls preload="metadata" className="mt-3 w-full" />
+                  </div>
+                ) : null}
                 <label className="mt-3 block space-y-2">
                   <span className="text-sm font-semibold text-neutral-700">Duración en segundos</span>
                   <input
@@ -213,12 +330,20 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                   <span className="text-sm font-semibold text-neutral-700">Transcripción</span>
                   <textarea name={meta.transcriptName} rows={5} defaultValue={key === "intro" ? store.sellerIntroTranscript ?? meta.defaultTranscript : key === "guidance" ? store.sellerGuidanceTranscript ?? meta.defaultTranscript : store.sellerHandoffTranscript ?? meta.defaultTranscript} className="w-full rounded-md border border-brand-border px-3 py-2 text-sm outline-none focus:border-brand" />
                 </label>
+                <div className="mt-3 rounded-md bg-white/75 p-3">
+                  <p className="text-xs font-black uppercase text-neutral-500">Guion sugerido</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-neutral-600">{meta.defaultTranscript}</p>
+                </div>
+                <p className="mt-2 text-xs font-semibold text-neutral-500">La transcripción aparece si el cliente toca “Transcribir”.</p>
               </section>
             );
           })}
         </div>
 
-        <button className="h-11 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">Guardar notas de voz</button>
+        <button className="inline-flex h-11 items-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+          <RotateCcw className="size-4" />
+          Guardar notas de voz
+        </button>
       </fieldset>
     </form>
   );
