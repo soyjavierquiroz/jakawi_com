@@ -7,9 +7,12 @@ type SnapshotMessageInput = {
   customerSummary?: string | null;
   detectedNeed?: string | null;
   currentItem?: Prisma.JsonValue | null;
+  recommendedItems?: Prisma.JsonValue | null;
+  viewedItems?: Prisma.JsonValue | null;
   objections?: string | null;
   budget?: string | null;
   urgency?: string | null;
+  intentScore?: number | null;
   customerName?: string | null;
   customerPhone?: string | null;
   city?: string | null;
@@ -31,19 +34,31 @@ function itemName(value?: Prisma.JsonValue | null) {
   return typeof name === "string" ? name : null;
 }
 
+function itemNames(value?: Prisma.JsonValue | null) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "object" && item && "name" in item ? item.name : null))
+    .filter((name): name is string => typeof name === "string" && name.length > 0)
+    .slice(0, 3);
+}
+
 export function buildChannelMessageFromSnapshot(snapshot: SnapshotMessageInput) {
+  const currentItemName = itemName(snapshot.currentItem);
+  const recommendedNames = itemNames(snapshot.recommendedItems);
   const lines = [
-    "Hola, vengo desde JAKAWI.",
-    itemName(snapshot.currentItem) ? `Me interesa: ${itemName(snapshot.currentItem)}.` : null,
+    "Hola, vengo de JAKAWI.",
+    currentItemName ? `Me interesa: ${currentItemName}.` : null,
+    !currentItemName && snapshot.detectedNeed ? `Estoy buscando: ${snapshot.detectedNeed}.` : null,
+    currentItemName && snapshot.detectedNeed ? `Lo quiero para: ${snapshot.detectedNeed}.` : null,
+    recommendedNames.length > 0 ? `Opciones recomendadas: ${recommendedNames.join(", ")}.` : null,
+    snapshot.objections ? `Duda principal: ${snapshot.objections}.` : null,
     snapshot.customerPhone ? `Mi número: ${snapshot.customerPhone}.` : null,
     snapshot.customerName ? `Mi nombre: ${snapshot.customerName}.` : null,
-    snapshot.detectedNeed ? `Necesidad: ${snapshot.detectedNeed}.` : null,
-    snapshot.customerSummary ? `Resumen: ${snapshot.customerSummary}` : null,
-    snapshot.objections ? `Dudas/objeciones: ${snapshot.objections}.` : null,
     snapshot.budget ? `Presupuesto: ${snapshot.budget}.` : null,
     snapshot.urgency ? `Urgencia: ${snapshot.urgency}.` : null,
     snapshot.city ? `Ciudad: ${snapshot.city}.` : null,
-    `Snapshot: ${snapshot.snapshotCode}`,
+    snapshot.customerSummary ? `Resumen: ${snapshot.customerSummary}` : null,
+    `Código: ${snapshot.snapshotCode}.`,
     "Quiero saber cómo comprar.",
   ].filter(Boolean);
 
@@ -97,9 +112,12 @@ export async function createCommercialSnapshot({
       customerSummary,
       detectedNeed,
       currentItem: currentItem as Prisma.JsonValue,
+      recommendedItems: recommendedItems as Prisma.JsonValue,
+      viewedItems: viewedItems as Prisma.JsonValue,
       objections,
       budget,
       urgency,
+      intentScore,
       customerName,
       customerPhone,
       city,

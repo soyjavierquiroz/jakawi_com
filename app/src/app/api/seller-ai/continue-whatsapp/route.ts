@@ -6,7 +6,7 @@ import { addJourneyEvent, getOrCreateCustomerJourney, updateCustomerJourney } fr
 import { logLeadEvent } from "@/lib/seller-ai/leads";
 import { createCommercialSnapshot } from "@/lib/seller-ai/snapshot";
 import { generateLeadSummary } from "@/lib/seller-ai/templates";
-import { buildWhatsappLeadMessage, buildWhatsappUrl, isReasonableCustomerPhone, normalizeCustomerPhone } from "@/lib/seller-ai/whatsapp";
+import { buildWhatsappUrl, isReasonableCustomerPhone, normalizeCustomerPhone } from "@/lib/seller-ai/whatsapp";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 const continueSchema = z.object({
@@ -56,16 +56,7 @@ export async function POST(request: Request) {
   }
 
   const summary = lead.conversationSummary ?? generateLeadSummary({ lead, messages: lead.conversation.messages, product });
-  const message = buildWhatsappLeadMessage({
-    lead: {
-      ...lead,
-      customerPhone,
-      customerName,
-    },
-    store: lead.store,
-    product,
-    summary,
-  });
+  const enrichedJourney = await getPrisma().customerJourney.findUnique({ where: { id: journey.id } });
   const snapshot = await createCommercialSnapshot({
     journeyId: journey.id,
     leadId: lead.id,
@@ -82,17 +73,16 @@ export async function POST(request: Request) {
           currency: lead.store.currency ?? product.currency,
         }
       : undefined,
-    recommendedItems: lead.recommendedProducts ?? undefined,
-    viewedItems: lead.viewedProducts ?? undefined,
-    detectedNeed: journey.detectedNeed,
-    objections: Array.isArray(lead.objections) ? lead.objections.join(", ") : journey.objections,
-    budget: lead.budget,
-    urgency: lead.urgency,
+    recommendedItems: enrichedJourney?.recommendedProducts ?? lead.recommendedProducts ?? undefined,
+    viewedItems: enrichedJourney?.viewedProducts ?? lead.viewedProducts ?? undefined,
+    detectedNeed: enrichedJourney?.detectedNeed,
+    objections: enrichedJourney?.objections ?? (Array.isArray(lead.objections) ? lead.objections.join(", ") : null),
+    budget: enrichedJourney?.budget ?? lead.budget,
+    urgency: enrichedJourney?.urgency ?? lead.urgency,
     intentScore: Math.max(lead.intentScore, 75),
     customerSummary: summary,
-    whatsappMessage: message,
   });
-  const finalMessage = snapshot.whatsappMessage ?? snapshot.channelMessage ?? message;
+  const finalMessage = snapshot.whatsappMessage ?? snapshot.channelMessage ?? summary;
 
   const updatedLead = await getPrisma().lead.update({
     where: { id: lead.id },
@@ -115,9 +105,9 @@ export async function POST(request: Request) {
     customerName,
     customerPhone,
     city: lead.city,
-    budget: lead.budget,
-    urgency: lead.urgency,
-    objections: Array.isArray(lead.objections) ? lead.objections.join(", ") : null,
+    budget: enrichedJourney?.budget ?? lead.budget,
+    urgency: enrichedJourney?.urgency ?? lead.urgency,
+    objections: enrichedJourney?.objections ?? (Array.isArray(lead.objections) ? lead.objections.join(", ") : null),
     conversationSummary: summary,
     intentScore: Math.max(lead.intentScore, 75),
   });
