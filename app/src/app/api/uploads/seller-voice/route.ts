@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireStore } from "@/lib/auth";
-import { uploadImage, uploadSellerVoiceAudio } from "@/lib/storage";
+import { uploadOptimizedImage, uploadSellerVoiceAudio } from "@/lib/storage";
 
 const uploadSchema = z.object({
   type: z.enum(["intro", "guidance", "handoff", "avatar"]),
@@ -26,8 +26,21 @@ export async function POST(request: Request) {
 
   try {
     if (parsed.data.type === "avatar") {
-      const url = await uploadImage(file, `stores/${store.id}/seller-voice/avatar`);
-      return NextResponse.json({ ok: true, url, publicUrl: url, key: null, mimeType: file.type, size: file.size });
+      const uploaded = await uploadOptimizedImage(file, { type: "SELLER_AVATAR", storeId: store.id });
+      if (!uploaded) return NextResponse.json({ ok: false, error: "Archivo requerido" }, { status: 400 });
+      return NextResponse.json({
+        ok: true,
+        url: uploaded.url,
+        publicUrl: uploaded.url,
+        key: uploaded.key,
+        mimeType: uploaded.mimeType,
+        size: uploaded.size,
+        width: uploaded.width,
+        height: uploaded.height,
+        optimized: uploaded.optimized === true,
+        originalMimeType: uploaded.originalMimeType,
+        originalSize: uploaded.originalSize,
+      });
     }
 
     const uploaded = await uploadSellerVoiceAudio(file, store.id, parsed.data.type);

@@ -1,10 +1,9 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { nanoid } from "nanoid";
 import { optimizeSellerVoiceAudio } from "@/lib/audio/optimize-audio";
+import { imageAllowedPrefixes, prepareOptimizedImageUpload, type ImageUploadTarget, type ImageUploadType } from "@/lib/images/image-storage";
 
-const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const allowedAudioTypes = new Set(["audio/mpeg", "audio/mp3", "audio/mp4", "audio/x-m4a", "audio/webm", "audio/wav", "audio/x-wav", "audio/ogg", "application/ogg"]);
-const maxImageBytes = 5 * 1024 * 1024;
 const maxAudioBytes = 8 * 1024 * 1024;
 const audioExtensions = new Set(["mp3", "mp4", "m4a", "webm", "wav", "ogg", "oga"]);
 const audioExtensionByMimeType: Record<string, string> = {
@@ -24,6 +23,8 @@ export type UploadedObject = {
   key: string;
   mimeType: string;
   size: number;
+  width?: number;
+  height?: number;
   durationSeconds?: number;
   optimized?: boolean;
   originalMimeType?: string;
@@ -127,12 +128,19 @@ function assertValidAudio(file: File) {
   return extension;
 }
 
-export async function uploadImage(file: File, keyPrefix: string) {
-  if (!file || file.size === 0) return null;
-  if (!allowedImageTypes.has(file.type)) throw new Error("Solo se permiten imagenes JPG, PNG o WebP.");
-  if (file.size > maxImageBytes) throw new Error("La imagen no puede superar 5MB.");
+export async function uploadOptimizedImage(file: File, target: ImageUploadTarget) {
+  const optimized = await prepareOptimizedImageUpload(file, target);
+  if (!optimized) return null;
 
-  return (await uploadFile(file, keyPrefix)).url;
+  const uploaded = await putBuffer(optimized.buffer, optimized.key, optimized.mimeType);
+  return {
+    ...uploaded,
+    width: optimized.width,
+    height: optimized.height,
+    optimized: optimized.optimized,
+    originalMimeType: optimized.originalMimeType,
+    originalSize: optimized.originalSize,
+  };
 }
 
 export async function uploadAudio(file: File, keyPrefix: string) {
@@ -162,22 +170,118 @@ function keyFromOwnedUrl(url: string) {
   if (!bucket || !publicUrl) return null;
 
   let parsed: URL;
-  let publicOrigin: string;
+  let publicBase: URL;
   try {
     parsed = new URL(url);
-    publicOrigin = new URL(publicUrl).origin;
+    publicBase = new URL(publicUrl);
   } catch {
     return null;
   }
 
-  if (parsed.origin !== publicOrigin && parsed.hostname !== "media.jakawi.com") return null;
+  if (parsed.origin !== publicBase.origin && parsed.hostname !== "media.jakawi.com") return null;
   const pathParts = parsed.pathname.split("/").filter(Boolean);
-  if (pathParts[0] !== bucket) return null;
+  const publicPathParts = publicBase.pathname.split("/").filter(Boolean);
 
-  const key = pathParts.slice(1).join("/");
+  let keyParts: string[];
+  if (pathParts[0] === bucket) {
+    keyParts = pathParts.slice(1);
+  } else if (publicPathParts.length > 0 && publicPathParts.every((part, index) => pathParts[index] === part)) {
+    keyParts = pathParts.slice(publicPathParts.length);
+  } else {
+    return null;
+  }
+
+  const key = keyParts.join("/");
   if (!key) return null;
   const isSellerVoiceKey = key.startsWith("seller-voice/") || /^stores\/[^/]+\/seller-voice\//.test(key);
   return isSellerVoiceKey ? key : null;
+}
+
+function keyFromJakawiMediaUrl(url: string) {
+  const bucket = process.env.S3_BUCKET;
+  const publicUrl = process.env.S3_PUBLIC_URL;
+  if (!bucket || !publicUrl) return null;
+
+  let parsed: URL;
+  let publicBase: URL;
+  try {
+    parsed = new URL(url);
+    publicBase = new URL(publicUrl);
+  } catch {
+    return null;
+  }
+
+  if (parsed.origin !== publicBase.origin && parsed.hostname !== "media.jakawi.com") return null;
+  const pathParts = parsed.pathname.split("/").filter(Boolean);
+  const publicPathParts = publicBase.pathname.split("/").filter(Boolean);
+  let keyParts: string[];
+
+  if (pathParts[0] === bucket) {
+    keyParts = pathParts.slice(1);
+  } else if (publicPathParts.length > 0 && publicPathParts.every((part, index) => pathParts[index] === part)) {
+    keyParts = pathParts.slice(publicPathParts.length);
+  } else {
+    return null;
+  }
+
+  const key = keyParts.join("/");
+  if (!key) return null;
+
+  const blockedGlobalPrefixes = ["assets/", "defaults/", "fallback/", "global/", "placeholders/", "templates/"];
+  if (blockedGlobalPrefixes.some((prefix) => key.startsWith(prefix)) || key.includes("placeholder")) return null;
+
+  return key;
+}
+
+export function isJakawiMediaUrl(url?: string | null) {
+  return Boolean(url && keyFromJakawiMediaUrl(url));
+}
+
+function hasAllowedPrefix(key: string, allowedPrefixes: string[]) {
+  return allowedPrefixes.some((prefix) => {
+    const cleanPrefix = prefix.replace(/^\/+|\/+$/g, "");
+    return key === cleanPrefix || key.startsWith(`${cleanPrefix}/`);
+  });
+}
+
+export function isJakawiMediaUrlOwnedByStore(
+  url: string | null | undefined,
+  options: {
+    storeId: string;
+    allowedPrefixes: string[];
+  },
+) {
+  if (!url || !options.storeId) return false;
+  const key = keyFromJakawiMediaUrl(url);
+  if (!key) return false;
+  return key.split("/").includes(options.storeId) && hasAllowedPrefix(key, options.allowedPrefixes);
+}
+
+export async function deleteJakawiMediaObjectIfOwned(
+  oldUrl?: string | null,
+  options?: {
+    storeId: string;
+    allowedPrefixes: string[];
+    newUrl?: string | null;
+  },
+) {
+  const bucket = process.env.S3_BUCKET;
+  if (!oldUrl || !options?.storeId || oldUrl === options.newUrl || !bucket) return false;
+
+  const key = keyFromJakawiMediaUrl(oldUrl);
+  if (!key || !isJakawiMediaUrlOwnedByStore(oldUrl, options)) return false;
+
+  try {
+    await getS3Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    return true;
+  } catch (error) {
+    console.warn("No se pudo eliminar imagen anterior", { key, error });
+    return false;
+  }
+}
+
+export function allowedImageDeletePrefixes(storeId: string, type: ImageUploadType) {
+  return imageAllowedPrefixes(storeId, type);
 }
 
 export async function deleteSellerVoiceObjectIfOwned(url?: string | null) {

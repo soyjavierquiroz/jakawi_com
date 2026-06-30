@@ -129,14 +129,16 @@ export default async function StoreSettingsPage({
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Foto de portada</span>
-            <input name="cover" type="file" accept="image/jpeg,image/png,image/webp" className="w-full rounded-md border border-brand-border px-3 py-2 text-sm" />
+            <input name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" className="w-full rounded-md border border-brand-border px-3 py-2 text-sm" />
             <span className="block text-xs font-semibold leading-5 text-neutral-500">Esta imagen aparece como hero principal de tu espacio comercial. Usa una imagen horizontal de buena calidad.</span>
             <span className="block text-xs font-semibold leading-5 text-neutral-500">Recomendado: 1600x900 o formato horizontal.</span>
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">Las imágenes se optimizan automáticamente para carga rápida.</span>
             {!store.coverUrl ? <span className="block text-xs font-black leading-5 text-amber-700">Sube una foto de portada para que el template Showcase luzca mejor.</span> : null}
           </label>
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Logo</span>
-            <input name="logo" type="file" accept="image/jpeg,image/png,image/webp" className="w-full rounded-md border border-brand-border px-3 py-2 text-sm" />
+            <input name="logo" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" className="w-full rounded-md border border-brand-border px-3 py-2 text-sm" />
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">Las imágenes se optimizan automáticamente para carga rápida.</span>
           </label>
         </div>
         <button className="h-11 w-full rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark sm:w-auto">Guardar cambios</button>

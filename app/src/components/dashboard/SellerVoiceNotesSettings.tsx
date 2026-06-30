@@ -185,7 +185,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
         }));
       }
       setIsDirty(true);
-      setMessage(type === "avatar" ? "Archivo subido. Guarda cambios para aplicarlo." : "Archivo optimizado automáticamente para carga rápida. Guarda cambios para aplicarlo.");
+      setMessage("Archivo optimizado automáticamente para carga rápida. Guarda cambios para aplicarlo.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo subir el archivo.");
     } finally {
@@ -307,7 +307,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
               <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand">
                 {uploading === "avatar" ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
                 Subir avatar
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUpload("avatar")} className="sr-only" />
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" onChange={handleUpload("avatar")} className="sr-only" />
               </label>
             </div>
           </div>

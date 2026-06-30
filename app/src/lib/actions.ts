@@ -17,7 +17,7 @@ import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
-import { deleteSellerVoiceObjectIfOwned, uploadImage } from "@/lib/storage";
+import { allowedImageDeletePrefixes, deleteJakawiMediaObjectIfOwned, deleteSellerVoiceObjectIfOwned, isJakawiMediaUrlOwnedByStore, uploadOptimizedImage } from "@/lib/storage";
 import { getVisitorInfoFromHeaders, hashIp } from "@/lib/visitor";
 import { normalizeStorePlanCode } from "@/lib/storefront-flow";
 
@@ -33,6 +33,10 @@ function field(formData: FormData, name: string) {
 function cleanOptional(value?: string | null) {
   const cleanValue = value?.trim() ?? "";
   return cleanValue.length ? cleanValue : null;
+}
+
+function uploadErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "No pudimos procesar esta imagen. Sube una imagen JPG, PNG o WebP.";
 }
 
 async function uniqueStoreSlug(input: string, currentStoreId?: string) {
@@ -197,8 +201,16 @@ export async function updateStoreAction(formData: FormData) {
   const countryConfig = getCountryCommerceConfig(countryCode);
   const currency = normalizeCurrency(field(formData, "currency") || store.currency, countryCode);
 
-  const coverUrl = cover instanceof File ? await uploadImage(cover, `stores/${store.id}/cover`) : null;
-  const logoUrl = logo instanceof File ? await uploadImage(logo, `stores/${store.id}/logo`) : null;
+  let coverUrl: string | null = null;
+  let logoUrl: string | null = null;
+  try {
+    const uploadedCover = cover instanceof File && cover.size > 0 ? await uploadOptimizedImage(cover, { type: "STORE_COVER", storeId: store.id }) : null;
+    const uploadedLogo = logo instanceof File && logo.size > 0 ? await uploadOptimizedImage(logo, { type: "STORE_LOGO", storeId: store.id }) : null;
+    coverUrl = uploadedCover?.url ?? null;
+    logoUrl = uploadedLogo?.url ?? null;
+  } catch (error) {
+    redirect(`/app/tienda?error=${encodeURIComponent(uploadErrorMessage(error))}`);
+  }
 
   await getPrisma().store.update({
     where: { id: store.id },
@@ -220,8 +232,14 @@ export async function updateStoreAction(formData: FormData) {
     },
   });
 
+  await Promise.all([
+    coverUrl ? deleteJakawiMediaObjectIfOwned(store.coverUrl, { storeId: store.id, allowedPrefixes: allowedImageDeletePrefixes(store.id, "STORE_COVER"), newUrl: coverUrl }) : Promise.resolve(false),
+    logoUrl ? deleteJakawiMediaObjectIfOwned(store.logoUrl, { storeId: store.id, allowedPrefixes: allowedImageDeletePrefixes(store.id, "STORE_LOGO"), newUrl: logoUrl }) : Promise.resolve(false),
+  ]);
+
   revalidatePath("/app");
   revalidatePath("/app/tienda");
+  revalidatePath(`/${store.slug}`);
   revalidatePath(`/${slug}`);
   redirect("/app/tienda?ok=1");
 }
@@ -318,10 +336,17 @@ export async function saveProductAction(formData: FormData) {
   const storeCurrency = normalizeCurrency(store.currency, store.countryCode);
 
   if (productId) {
-    const currentProduct = await getPrisma().product.findUnique({ where: { id: productId, storeId: store.id }, select: { isFeatured: true } });
+    const currentProduct = await getPrisma().product.findUnique({ where: { id: productId, storeId: store.id }, select: { imageUrl: true, isFeatured: true } });
     if (!currentProduct) redirect("/app/productos");
 
-    const imageUrl = image instanceof File && image.size > 0 ? await uploadImage(image, `stores/${store.id}/products/${productId}`) : null;
+    let imageUrl: string | null = null;
+    try {
+      const uploadedImage = image instanceof File && image.size > 0 ? await uploadOptimizedImage(image, { type: "PRODUCT_IMAGE", storeId: store.id, entityId: productId }) : null;
+      imageUrl = uploadedImage?.url ?? null;
+    } catch (error) {
+      redirect(`/app/productos/${productId}/editar?error=${encodeURIComponent(uploadErrorMessage(error))}`);
+    }
+
     await getPrisma().product.update({
       where: { id: productId, storeId: store.id },
       data: {
@@ -337,6 +362,10 @@ export async function saveProductAction(formData: FormData) {
         ...(imageUrl ? { imageUrl } : {}),
       },
     });
+
+    if (imageUrl) {
+      await deleteJakawiMediaObjectIfOwned(currentProduct.imageUrl, { storeId: store.id, allowedPrefixes: allowedImageDeletePrefixes(store.id, "PRODUCT_IMAGE"), newUrl: imageUrl });
+    }
   } else {
     try {
       await assertCanCreateProduct(store.id);
@@ -361,7 +390,15 @@ export async function saveProductAction(formData: FormData) {
         featuredAt: isFeatured ? new Date() : null,
       },
     });
-    const imageUrl = image instanceof File && image.size > 0 ? await uploadImage(image, `stores/${store.id}/products/${product.id}`) : null;
+    let imageUrl: string | null = null;
+    try {
+      const uploadedImage = image instanceof File && image.size > 0 ? await uploadOptimizedImage(image, { type: "PRODUCT_IMAGE", storeId: store.id, entityId: product.id }) : null;
+      imageUrl = uploadedImage?.url ?? null;
+    } catch (error) {
+      await getPrisma().product.delete({ where: { id: product.id, storeId: store.id } });
+      redirect(`/app/productos/nuevo?error=${encodeURIComponent(uploadErrorMessage(error))}`);
+    }
+
     if (imageUrl) {
       await getPrisma().product.update({ where: { id: product.id }, data: { imageUrl } });
     }
@@ -419,15 +456,17 @@ export async function updateWhatsappAction(formData: FormData) {
   revalidatePath(`/${store.slug}`);
 }
 
-function optionalUrlField(formData: FormData, name: string) {
+function jakawiMediaUrlField(formData: FormData, name: string, storeId: string, existingUrl?: string | null) {
   const value = field(formData, name);
   if (!value) return null;
   try {
     const parsed = new URL(value);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    const url = parsed.toString();
+    const isOwnedAvatarUrl = isJakawiMediaUrlOwnedByStore(url, { storeId, allowedPrefixes: allowedImageDeletePrefixes(storeId, "SELLER_AVATAR") });
+    if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") || !isOwnedAvatarUrl) return existingUrl ?? null;
     return parsed.toString();
   } catch {
-    return null;
+    return existingUrl ?? null;
   }
 }
 
@@ -481,6 +520,7 @@ export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
   const sellerGuidanceTranscript = transcriptField(formData, "sellerGuidanceTranscript");
   const sellerHandoffAudioUrl = audioUrlField(formData, "sellerHandoffAudioUrl", store.sellerHandoffAudioUrl);
   const sellerHandoffTranscript = transcriptField(formData, "sellerHandoffTranscript");
+  const sellerVoiceAvatarUrl = jakawiMediaUrlField(formData, "sellerVoiceAvatarUrl", store.id, store.sellerVoiceAvatarUrl);
 
   try {
     assertTranscriptForAudio(sellerIntroAudioUrl, sellerIntroTranscript, "bienvenida");
@@ -496,7 +536,7 @@ export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
     data: {
       sellerVoiceEnabled: enabledField(formData, "sellerVoiceEnabled"),
       sellerVoiceDisplayName: cleanOptional(field(formData, "sellerVoiceDisplayName")),
-      sellerVoiceAvatarUrl: optionalUrlField(formData, "sellerVoiceAvatarUrl"),
+      sellerVoiceAvatarUrl,
       sellerIntroEnabled: enabledField(formData, "sellerIntroEnabled"),
       sellerIntroAudioUrl,
       sellerIntroTranscript,
@@ -516,6 +556,9 @@ export async function saveSellerVoiceNotesSettingsAction(formData: FormData) {
     store.sellerIntroAudioUrl !== sellerIntroAudioUrl ? deleteSellerVoiceObjectIfOwned(store.sellerIntroAudioUrl) : Promise.resolve(false),
     store.sellerGuidanceAudioUrl !== sellerGuidanceAudioUrl ? deleteSellerVoiceObjectIfOwned(store.sellerGuidanceAudioUrl) : Promise.resolve(false),
     store.sellerHandoffAudioUrl !== sellerHandoffAudioUrl ? deleteSellerVoiceObjectIfOwned(store.sellerHandoffAudioUrl) : Promise.resolve(false),
+    store.sellerVoiceAvatarUrl !== sellerVoiceAvatarUrl
+      ? deleteJakawiMediaObjectIfOwned(store.sellerVoiceAvatarUrl, { storeId: store.id, allowedPrefixes: allowedImageDeletePrefixes(store.id, "SELLER_AVATAR"), newUrl: sellerVoiceAvatarUrl })
+      : Promise.resolve(false),
   ]);
 
   revalidatePath("/app/tienda");

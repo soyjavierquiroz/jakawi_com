@@ -33,7 +33,7 @@ export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: strin
           ref={inputRef}
           name="image"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
           className="w-full rounded-md border border-brand-border bg-brand-paper px-3 py-2 text-sm"
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
@@ -60,6 +60,7 @@ export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: strin
           </button>
         ) : null}
       </div>
+      <p className="text-xs font-semibold leading-5 text-neutral-500">Las imágenes se optimizan automáticamente para carga rápida.</p>
     </div>
   );
 }
