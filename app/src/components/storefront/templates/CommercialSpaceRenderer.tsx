@@ -17,6 +17,7 @@ export function CommercialSpaceRenderer({ store, categories, products }: Commerc
   const flow = getStorefrontFlow(store.plan);
   const template = normalizeCommercialTemplate(store.commercialTemplate);
   const templateProps = { store, categories, products, flow };
+  const hideInitialSellerAiTrigger = template === "APP_COMMERCE" || (template === "SHOWCASE" && products.length > 0);
 
   return (
     <>
@@ -33,7 +34,7 @@ export function CommercialSpaceRenderer({ store, categories, products }: Commerc
             planCode={flow.planCode}
             mode={flow.sellerAiMode}
             requirePhoneBeforeWhatsapp={flow.requirePhoneBeforeWhatsapp}
-            initiallyHidden={template === "APP_COMMERCE"}
+            initiallyHidden={hideInitialSellerAiTrigger}
             triggerLabel={flow.productPagePrimaryCta}
           />
         </VisitorProvider>

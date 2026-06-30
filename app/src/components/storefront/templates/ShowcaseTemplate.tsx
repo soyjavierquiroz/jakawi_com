@@ -1,7 +1,9 @@
-import { ArrowRight, MessageCircle, Sparkles } from "lucide-react";
+import { ArrowRight, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { CommercialCategoryChips, CommercialEmptyProducts, CommercialFooter, type CommercialTemplateProduct, type CommercialTemplateProps, type CommercialTemplateStore } from "@/components/storefront/templates/components";
 import { formatMoney } from "@/lib/money";
+import type { StorefrontFlow } from "@/lib/storefront-flow";
 import { cn } from "@/lib/ui";
 
 const SHOWCASE_TAGLINE_FALLBACK = "Compra guiada con contexto.";
@@ -30,38 +32,40 @@ function getShowcaseHeroVisual(store: CommercialTemplateStore): ShowcaseHeroVisu
 
 function ShowcaseHero({
   store,
-  hasProducts,
 }: {
   store: CommercialTemplateStore;
-  hasProducts: boolean;
 }) {
   const visual = getShowcaseHeroVisual(store);
+
+  return (
+    <section className="relative isolate h-[clamp(320px,42svh,430px)] overflow-hidden rounded-b-[2rem] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--space-primary)_92%,#000)_0%,#111827_58%,color-mix(in_srgb,var(--space-primary)_62%,var(--space-accent))_100%)] text-[var(--space-primary-contrast)] shadow-[0_18px_46px_rgb(0_0_0/0.12)] md:mx-auto md:mt-4 md:h-[440px] md:max-w-6xl md:rounded-[1.75rem] lg:h-[480px]">
+      {visual.type === "cover" ? <img src={visual.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover saturate-105" /> : null}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,.08)_46%,rgba(0,0,0,.50)_100%)]" />
+
+      <div className="relative mx-auto flex h-full max-w-6xl items-end px-5 pb-8 pt-[calc(env(safe-area-inset-top)+24px)] sm:px-8 md:pb-10 md:pt-[calc(env(safe-area-inset-top)+34px)] lg:px-10">
+        <div className="max-w-2xl">
+          <h1 className="text-[2.35rem] font-black leading-[1.02] drop-shadow-[0_2px_14px_rgb(0_0_0/0.34)] sm:text-5xl md:text-6xl">{store.name}</h1>
+          <p className="mt-3 line-clamp-2 max-w-xl text-sm font-semibold leading-6 opacity-95 drop-shadow-[0_2px_10px_rgb(0_0_0/0.30)] sm:text-base md:text-lg md:leading-7">{getShowcaseTagline(store)}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ShowcaseHeroActions({ store }: { store: CommercialTemplateStore }) {
   const whatsappHref = `https://wa.me/${store.whatsapp}`;
 
   return (
-    <section className="relative isolate h-[clamp(300px,38svh,390px)] overflow-hidden rounded-b-[2rem] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--space-primary)_92%,#000)_0%,#111827_58%,color-mix(in_srgb,var(--space-primary)_62%,var(--space-accent))_100%)] text-[var(--space-primary-contrast)] shadow-[0_18px_46px_rgb(0_0_0/0.14)] md:mx-auto md:mt-4 md:h-[420px] md:max-w-6xl md:rounded-[1.75rem] lg:h-[460px]">
-      {visual.type === "cover" ? <img src={visual.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55 saturate-110" /> : null}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_20%,color-mix(in_srgb,var(--space-accent)_55%,transparent)_0%,transparent_30%),radial-gradient(circle_at_18%_82%,color-mix(in_srgb,var(--space-primary-contrast)_18%,transparent)_0%,transparent_26%),linear-gradient(180deg,rgba(0,0,0,.08)_0%,rgba(0,0,0,.28)_52%,rgba(0,0,0,.66)_100%)]" />
-
-      <div className="relative mx-auto flex h-full max-w-6xl px-4 pb-6 pt-[calc(env(safe-area-inset-top)+24px)] sm:px-6 md:pb-8 md:pt-[calc(env(safe-area-inset-top)+34px)] lg:px-8">
-        <div className="flex max-w-2xl flex-col justify-center">
-          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white/14 px-3 py-1.5 text-[11px] font-black uppercase ring-1 ring-white/20 backdrop-blur">
-            <Sparkles className="size-3.5 text-[var(--space-accent)]" />
-            Compra guiada
-          </span>
-          <h1 className="mt-4 text-[2rem] font-black leading-[1.02] sm:text-5xl md:text-6xl">{store.name}</h1>
-          <p className="mt-3 line-clamp-2 max-w-xl text-sm font-semibold leading-6 opacity-90 sm:text-base md:text-lg md:leading-7">{getShowcaseTagline(store)}</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <a href={hasProducts ? "#productos" : whatsappHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--space-accent)] px-5 text-sm font-black text-[var(--space-accent-contrast)] shadow-sm transition hover:brightness-95">
-              {hasProducts ? "Ver productos" : "Consultar"}
-              <ArrowRight className="size-4" />
-            </a>
-            <a href={whatsappHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/12 px-5 text-sm font-black text-white ring-1 ring-white/20 transition hover:bg-white/18">
-              <MessageCircle className="size-4" />
-              Consultar
-            </a>
-          </div>
-        </div>
+    <section className="relative z-10 mx-auto -mt-4 max-w-6xl px-4 sm:px-6 lg:px-8">
+      <div className="flex w-fit max-w-full gap-2 rounded-full border border-[var(--space-border)] bg-[var(--space-background)]/92 p-1.5 text-[var(--space-background-contrast)] shadow-[0_14px_34px_rgb(0_0_0/0.10)] backdrop-blur">
+        <a href="#productos" className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full bg-[var(--space-primary)] px-4 text-xs font-black text-[var(--space-primary-contrast)] transition hover:brightness-95 sm:text-sm">
+          Ver productos
+          <ArrowRight className="size-3.5 shrink-0" />
+        </a>
+        <a href={whatsappHref} className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full px-4 text-xs font-black text-[var(--space-primary)] ring-1 ring-[var(--space-border)] transition hover:bg-[var(--space-surface)] sm:text-sm">
+          <MessageCircle className="size-3.5 shrink-0" />
+          Consultar
+        </a>
       </div>
     </section>
   );
@@ -77,7 +81,7 @@ function ShowcaseProductImage({ product, featured = false }: { product: Commerci
   );
 }
 
-function ShowcaseFeaturedProduct({ store, product }: { store: CommercialTemplateStore; product: CommercialTemplateProduct }) {
+function ShowcaseFeaturedProduct({ store, product, flow }: { store: CommercialTemplateStore; product: CommercialTemplateProduct; flow: StorefrontFlow }) {
   const productHref = `/${store.slug}/p/${product.slug}`;
   const price = getShowcasePrice(store, product);
 
@@ -96,10 +100,22 @@ function ShowcaseFeaturedProduct({ store, product }: { store: CommercialTemplate
           </Link>
           <p className="mt-2 text-2xl font-black text-[var(--space-primary)]">{price}</p>
           {product.description ? <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 opacity-70">{product.description}</p> : null}
-          <Link href={productHref} className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--space-primary)] px-5 text-sm font-black text-[var(--space-primary-contrast)] transition hover:brightness-95">
-            Ver producto
-            <ArrowRight className="size-4" />
-          </Link>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">
+            <ProductConversionCta
+              storeSlug={store.slug}
+              storePlan={store.plan}
+              productId={product.id}
+              productName={product.name}
+              productHref={productHref}
+              fallbackWhatsappHref={`/api/whatsapp/click?productId=${product.id}`}
+              variant="product-page"
+              className={cn("showcase-assisted-cta", flow.sellerAiEnabled && "showcase-assisted-cta-pulse")}
+            />
+            <Link href={productHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--space-border)] bg-[var(--space-surface)] px-5 text-sm font-black text-[var(--space-surface-contrast)] transition hover:bg-[var(--space-muted)]">
+              Ver producto
+              <ArrowRight className="size-4" />
+            </Link>
+          </div>
         </div>
       </article>
     </section>
@@ -139,19 +155,20 @@ function ShowcaseProductGrid({ store, products, title }: { store: CommercialTemp
   );
 }
 
-export function ShowcaseTemplate({ store, categories, products }: CommercialTemplateProps) {
+export function ShowcaseTemplate({ store, categories, products, flow }: CommercialTemplateProps) {
   const featuredProducts = products.filter((product) => product.isFeatured);
   const featuredProduct = featuredProducts[0] ?? products[0];
   const remainingProducts = featuredProduct ? products.filter((product) => product.id !== featuredProduct.id) : [];
 
   return (
     <>
-      <ShowcaseHero store={store} hasProducts={products.length > 0} />
+      <ShowcaseHero store={store} />
+      <ShowcaseHeroActions store={store} />
 
       <section id="productos" className="mx-auto mt-6 max-w-6xl px-4 sm:px-6 lg:px-8">
         <CommercialCategoryChips categories={categories} variant="showcase" />
         {products.length === 0 ? <CommercialEmptyProducts /> : null}
-        {featuredProduct ? <ShowcaseFeaturedProduct store={store} product={featuredProduct} /> : null}
+        {featuredProduct ? <ShowcaseFeaturedProduct store={store} product={featuredProduct} flow={flow} /> : null}
         {remainingProducts.length > 0 ? <ShowcaseProductGrid store={store} products={remainingProducts} title="También disponible" /> : null}
         <CommercialFooter />
       </section>

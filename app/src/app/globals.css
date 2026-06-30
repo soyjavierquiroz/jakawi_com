@@ -68,6 +68,75 @@ button {
   animation: seller-ai-pick-me 900ms ease-in-out;
 }
 
+.showcase-assisted-cta {
+  width: 100%;
+}
+
+.showcase-assisted-cta > :not(:first-child) {
+  display: none;
+}
+
+.showcase-assisted-cta > button:first-child,
+.showcase-assisted-cta:is(a, button) {
+  min-height: 3rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #07130f 0%, var(--space-primary) 62%, #07130f 100%);
+  color: var(--space-primary-contrast);
+  box-shadow:
+    0 16px 36px rgb(0 0 0 / 0.24),
+    0 0 0 1px rgb(255 255 255 / 0.08) inset,
+    0 0 24px color-mix(in srgb, var(--space-accent) 22%, transparent);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+
+.showcase-assisted-cta > button:first-child:hover,
+.showcase-assisted-cta:is(a, button):hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.showcase-assisted-cta > button:first-child:active,
+.showcase-assisted-cta:is(a, button):active {
+  transform: scale(0.98);
+}
+
+.showcase-assisted-cta-pulse > button:first-child {
+  animation: showcase-assisted-cta-breathe 3.6s ease-in-out infinite;
+}
+
+@keyframes showcase-assisted-cta-breathe {
+  0%,
+  58%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 16px 36px rgb(0 0 0 / 0.24),
+      0 0 0 1px rgb(255 255 255 / 0.08) inset,
+      0 0 24px color-mix(in srgb, var(--space-accent) 22%, transparent);
+  }
+  72% {
+    transform: scale(1.02);
+    box-shadow:
+      0 20px 46px rgb(0 0 0 / 0.30),
+      0 0 0 1px rgb(255 255 255 / 0.12) inset,
+      0 0 36px color-mix(in srgb, var(--space-accent) 34%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .showcase-assisted-cta-pulse > button:first-child {
+    animation: none;
+  }
+
+  .showcase-assisted-cta > button:first-child,
+  .showcase-assisted-cta:is(a, button) {
+    transition: none;
+  }
+}
+
 @keyframes jakawiTypingDot {
   0%,
   80%,
