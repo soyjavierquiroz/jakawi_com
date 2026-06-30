@@ -9,11 +9,13 @@ export default async function NewProductPage({
   const { store } = await requireStore();
   const params = await searchParams;
   return (
-    <section>
-      <p className="text-sm font-bold text-brand-dark">Productos</p>
-      <h1 className="text-4xl font-black">Agregar producto</h1>
+    <section className="space-y-4 md:space-y-6">
+      <div>
+        <p className="text-sm font-bold leading-none text-brand-dark">Productos</p>
+        <h1 className="mt-1 text-3xl font-black md:text-4xl">Agregar producto</h1>
+      </div>
       {params.error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{params.error}</p> : null}
-      <div className="mt-6">
+      <div>
         <ProductForm categories={store.categories} currency={store.currency} />
       </div>
     </section>

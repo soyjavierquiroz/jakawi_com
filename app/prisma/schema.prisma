@@ -206,6 +206,9 @@ model Product {
   currency    String   @default("BOB")
   imageUrl    String?
   isVisible   Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  featuredAt  DateTime?
+  sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -217,6 +220,8 @@ model Product {
 
   @@unique([storeId, slug])
   @@index([storeId, isVisible])
+  @@index([storeId, isFeatured])
+  @@index([storeId, sortOrder])
   @@index([categoryId])
   @@index([createdAt])
 }

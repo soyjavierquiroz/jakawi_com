@@ -25,7 +25,7 @@ export default async function PublicStorePage({
       products: {
         where: { isVisible: true },
         include: { category: true },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
       },
     },
   });
@@ -80,6 +80,7 @@ export default async function PublicStorePage({
             <article key={product.id} className="rounded-lg border border-brand-border bg-brand-paper p-3 shadow-sm">
               <Link href={`/${store.slug}/p/${product.slug}`}>
                 <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="aspect-square w-full rounded-md object-cover" />
+                {product.isFeatured ? <span className="mt-2 inline-flex rounded-full bg-brand-lime px-2 py-1 text-[11px] font-black text-brand-dark">Destacado</span> : null}
                 <h2 className="mt-3 line-clamp-2 min-h-10 text-sm font-black">{product.name}</h2>
               </Link>
               <p className="mt-1 font-black text-brand-dark">

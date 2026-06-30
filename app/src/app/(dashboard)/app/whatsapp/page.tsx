@@ -8,7 +8,10 @@ import { buildWhatsappLeadMessage } from "@/lib/seller-ai/whatsapp";
 
 export default async function WhatsappPage() {
   const { store } = await requireStore();
-  const sampleProduct = await getPrisma().product.findFirst({ where: { storeId: store.id, isVisible: true }, orderBy: { createdAt: "desc" } });
+  const sampleProduct = await getPrisma().product.findFirst({
+    where: { storeId: store.id, isVisible: true },
+    orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
+  });
   const publicUrl = getPublicStoreUrl(store.slug);
   const previewMessage = buildWhatsappLeadMessage({
     lead: {

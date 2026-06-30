@@ -81,7 +81,7 @@ export async function getSellerAiRecommendations({
       ? await getPrisma().product.findMany({
           where: { storeId, isVisible: true, categoryId: currentProduct.categoryId, id: { not: currentProduct.id } },
           include: { category: true },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
           take: 10,
         })
       : [];
@@ -90,7 +90,7 @@ export async function getSellerAiRecommendations({
       ? await getPrisma().product.findMany({
           where: { storeId, isVisible: true, categoryId: resolvedCategoryId, id: { not: currentProductId ?? undefined } },
           include: { category: true },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
           take: 10,
         })
       : [];
@@ -99,7 +99,7 @@ export async function getSellerAiRecommendations({
     ? await getPrisma().product.findMany({
         where: { storeId, isVisible: true, id: currentProductId ? { not: currentProductId } : undefined },
         include: { category: true },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
         take: 20,
       })
     : [];
@@ -108,7 +108,7 @@ export async function getSellerAiRecommendations({
       ? await getPrisma().product.findMany({
           where: { storeId, isVisible: true, id: { not: currentProduct.id } },
           include: { category: true },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
           take: 20,
         })
       : [];
@@ -121,6 +121,8 @@ export async function getSellerAiRecommendations({
     const secondNeedMatch = need && productText(second).includes(need) ? 1 : 0;
     if (firstNeedMatch !== secondNeedMatch) return secondNeedMatch - firstNeedMatch;
     if (budget === "económico" && first.priceCents !== second.priceCents) return first.priceCents - second.priceCents;
+    if (first.isFeatured !== second.isFeatured) return first.isFeatured ? -1 : 1;
+    if (first.sortOrder !== second.sortOrder) return first.sortOrder - second.sortOrder;
     return second.createdAt.getTime() - first.createdAt.getTime();
   });
 

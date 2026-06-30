@@ -42,6 +42,7 @@ export default async function PublicProductPage({
             <ArrowLeft className="size-4" />
             Volver a tienda
           </Link>
+          {product.isFeatured ? <span className="mt-4 inline-flex rounded-full bg-brand-lime px-2 py-1 text-[11px] font-black text-brand-dark">Destacado</span> : null}
           <h1 className="mt-4 text-3xl font-black">{product.name}</h1>
           <p className="mt-2 text-2xl font-black text-brand-dark">
             {productPriceLabel}

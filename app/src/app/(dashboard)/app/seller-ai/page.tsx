@@ -49,7 +49,11 @@ export default async function SellerAiPage({
   const [productUsage, sellerAiUsage, sampleProduct] = await Promise.all([
     getProductUsage(store.id),
     getSellerAiUsage(store.id),
-    getPrisma().product.findFirst({ where: { storeId: store.id, isVisible: true }, include: { category: true }, orderBy: { createdAt: "desc" } }),
+    getPrisma().product.findFirst({
+      where: { storeId: store.id, isVisible: true },
+      include: { category: true },
+      orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
+    }),
   ]);
   const planState = getStorePlanState(store);
   const publicUrl = getPublicStoreUrl(store.slug);

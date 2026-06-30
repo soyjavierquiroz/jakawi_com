@@ -262,10 +262,14 @@ export async function saveProductAction(formData: FormData) {
   const image = formData.get("image");
   const categoryId = cleanOptional(field(formData, "categoryId"));
   const isVisible = formData.get("isVisible") === "on";
+  const isFeatured = formData.get("isFeatured") === "on";
   const storeCurrency = normalizeCurrency(store.currency, store.countryCode);
 
   if (productId) {
-    const imageUrl = image instanceof File ? await uploadImage(image, `stores/${store.id}/products/${productId}`) : null;
+    const currentProduct = await getPrisma().product.findUnique({ where: { id: productId, storeId: store.id }, select: { isFeatured: true } });
+    if (!currentProduct) redirect("/app/productos");
+
+    const imageUrl = image instanceof File && image.size > 0 ? await uploadImage(image, `stores/${store.id}/products/${productId}`) : null;
     await getPrisma().product.update({
       where: { id: productId, storeId: store.id },
       data: {
@@ -276,6 +280,8 @@ export async function saveProductAction(formData: FormData) {
         currency: storeCurrency,
         categoryId,
         isVisible,
+        isFeatured,
+        featuredAt: isFeatured ? currentProduct.isFeatured ? undefined : new Date() : null,
         ...(imageUrl ? { imageUrl } : {}),
       },
     });
@@ -299,9 +305,11 @@ export async function saveProductAction(formData: FormData) {
         priceCents: priceToCents(formData.get("price")),
         currency: storeCurrency,
         isVisible,
+        isFeatured,
+        featuredAt: isFeatured ? new Date() : null,
       },
     });
-    const imageUrl = image instanceof File ? await uploadImage(image, `stores/${store.id}/products/${product.id}`) : null;
+    const imageUrl = image instanceof File && image.size > 0 ? await uploadImage(image, `stores/${store.id}/products/${product.id}`) : null;
     if (imageUrl) {
       await getPrisma().product.update({ where: { id: product.id }, data: { imageUrl } });
     }
@@ -310,6 +318,24 @@ export async function saveProductAction(formData: FormData) {
   revalidatePath("/app/productos");
   revalidatePath(`/${store.slug}`);
   redirect("/app/productos");
+}
+
+export async function toggleFeaturedProductAction(formData: FormData) {
+  const { store } = await requireStore();
+  const id = field(formData, "productId");
+  const product = await getPrisma().product.findUnique({ where: { id, storeId: store.id } });
+  if (!product) redirect("/app/productos");
+
+  const nextFeatured = !product.isFeatured;
+  await getPrisma().product.update({
+    where: { id },
+    data: {
+      isFeatured: nextFeatured,
+      featuredAt: nextFeatured ? new Date() : null,
+    },
+  });
+  revalidatePath("/app/productos");
+  revalidatePath(`/${store.slug}`);
 }
 
 export async function toggleProductAction(formData: FormData) {

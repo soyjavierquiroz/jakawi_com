@@ -20,7 +20,7 @@ export async function getRelatedProducts(storeId: string, product: ProductLike) 
     ? await getPrisma().product.findMany({
         where: { storeId, isVisible: true, categoryId: product.categoryId, id: { not: product.id } },
         include: { category: true },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
         take: sellerAiConfig.maxRecommendedProducts,
       })
     : [];
@@ -30,7 +30,7 @@ export async function getRelatedProducts(storeId: string, product: ProductLike) 
   const fallback = await getPrisma().product.findMany({
     where: { storeId, isVisible: true, id: { notIn: [product.id, ...categoryMatches.map((item) => item.id)] } },
     include: { category: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
     take: sellerAiConfig.maxRecommendedProducts - categoryMatches.length,
   });
 
