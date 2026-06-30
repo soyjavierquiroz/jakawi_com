@@ -32,7 +32,7 @@ export default async function LoginPage({
         <p className="mt-6 text-center text-sm text-neutral-600">
           No tienes cuenta?{" "}
           <Link href="/registro" className="font-bold text-brand-dark">
-            Crear mi tienda
+            Crear espacio comercial
           </Link>
         </p>
       </div>

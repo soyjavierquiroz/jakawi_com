@@ -95,7 +95,7 @@ export default async function DashboardPage() {
     return {
       title: "Comparte tu espacio comercial.",
       text: "Publica el link en redes y deja que Seller AI prepare mejores consultas por WhatsApp.",
-      label: "Ver tienda pública",
+      label: "Ver espacio público",
       href: publicUrl,
       external: true,
     };
@@ -123,7 +123,7 @@ export default async function DashboardPage() {
       <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-black text-brand-dark">Tu tienda está activa</p>
+            <p className="text-sm font-black text-brand-dark">Tu espacio comercial está activo</p>
             <p className="mt-1 text-sm font-semibold text-neutral-500">Comparte este link en redes o estados.</p>
           </div>
           <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-black text-brand-dark">Online</span>
@@ -132,7 +132,7 @@ export default async function DashboardPage() {
         <div className="mt-3 grid grid-cols-2 gap-3 md:flex md:items-center">
           <a href={publicUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-4 font-bold text-white hover:bg-brand">
             <ExternalLink className="size-4" />
-            Ver tienda
+            Ver espacio
           </a>
           <CopyButton value={publicUrl} />
         </div>

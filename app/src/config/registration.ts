@@ -1,9 +1,9 @@
 export const registrationConfig = {
-  title: "Crea tu tienda",
-  subtitle: "Tu link para vender queda listo en minutos.",
+  title: "Crea tu espacio comercial",
+  subtitle: "Tu link comercial queda listo para recibir clientes con contexto.",
   sections: {
     personal: "Tus datos",
-    store: "Tu tienda",
+    store: "Tu negocio",
   },
   fields: {
     firstName: {
@@ -27,13 +27,13 @@ export const registrationConfig = {
       placeholder: "Minimo 8 caracteres",
     },
     storeName: {
-      label: "Nombre de tienda",
+      label: "Nombre del negocio",
       placeholder: "Boutique Ana",
     },
     storeSlug: {
-      label: "Link de tu tienda",
+      label: "Link comercial",
       placeholder: "boutique-ana",
-      helper: "Este sera el enlace que compartiras en TikTok, Instagram y WhatsApp.",
+      helper: "Este será el enlace comercial que compartirás en TikTok, Instagram, WhatsApp o tus redes.",
       prefix: "jakawi.com/",
     },
     city: {
@@ -46,7 +46,7 @@ export const registrationConfig = {
     },
   },
   actions: {
-    submit: "Crear mi tienda",
+    submit: "Crear espacio comercial",
     loginPrompt: "¿Ya tienes cuenta?",
     login: "Entrar",
   },

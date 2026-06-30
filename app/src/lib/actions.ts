@@ -35,10 +35,10 @@ function cleanOptional(value?: string | null) {
 
 async function uniqueStoreSlug(input: string, currentStoreId?: string) {
   const base = slugifyStoreName(input);
-  if (!base || !isValidStoreSlug(base)) throw new Error("Ese link no esta disponible.");
+  if (!base || !isValidStoreSlug(base)) throw new Error("Ese link comercial no esta disponible.");
 
   const existing = await getPrisma().store.findUnique({ where: { slug: base } });
-  if (existing && existing.id !== currentStoreId) throw new Error("Ese link ya esta en uso.");
+  if (existing && existing.id !== currentStoreId) throw new Error("Ese link comercial ya esta en uso.");
   return base;
 }
 
@@ -96,7 +96,7 @@ export async function registerAction(formData: FormData) {
   const requestHeaders = await headers();
   const visitor = getVisitorInfoFromHeaders(requestHeaders);
   const slug = await uniqueStoreSlug(parsed.data.storeSlug).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : "Ese link no esta disponible.";
+    const message = error instanceof Error ? error.message : "Ese link comercial no esta disponible.";
     redirect(`/registro?error=${encodeURIComponent(message)}`);
   });
   const passwordHash = await hashPassword(parsed.data.password);
@@ -143,7 +143,7 @@ export async function registerAction(formData: FormData) {
             timezone,
             city,
             region,
-            description: "Mi tienda creada con JAKAWI.",
+            description: "Mi espacio comercial creado con JAKAWI.",
             isPublished: true,
             plan,
             planStatus: plan === "TRIAL" ? "TRIALING" : "ACTIVE",
@@ -157,7 +157,7 @@ export async function registerAction(formData: FormData) {
     await createSession(user.id);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      redirect("/registro?error=Este email o link ya esta registrado");
+      redirect("/registro?error=Este email o link comercial ya esta registrado");
     }
     throw error;
   }

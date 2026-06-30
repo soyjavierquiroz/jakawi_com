@@ -47,7 +47,7 @@ export function CountryCurrencyFields({
   return (
     <div className={compact ? "grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2" : "space-y-4"}>
       <label className="block min-w-0 space-y-2">
-        <span className="text-sm font-bold">País de tu tienda</span>
+        <span className="text-sm font-bold">País del negocio</span>
         <select name="countryCode" value={countryCode} onChange={(event) => handleCountryChange(event.target.value)} className={selectClass}>
           {countries.map((country) => (
             <option key={country.countryCode} value={country.countryCode}>
@@ -55,11 +55,11 @@ export function CountryCurrencyFields({
             </option>
           ))}
         </select>
-        <span className="block text-xs font-semibold text-neutral-500">Esto nos ayuda a configurar WhatsApp, moneda y formato de precios.</span>
+        <span className="block text-xs font-semibold text-neutral-500">Esto nos ayuda a configurar WhatsApp, moneda y formato comercial.</span>
       </label>
 
       <label className="block min-w-0 space-y-2">
-        <span className="text-sm font-bold">Moneda de tus productos</span>
+        <span className="text-sm font-bold">Moneda de tus precios</span>
         <select name="currency" value={currency} onChange={(event) => setCurrency(normalizeCurrency(event.target.value, countryCode))} className={selectClass}>
           {currencies.map((currencyOption) => (
             <option key={currencyOption} value={currencyOption}>
@@ -67,7 +67,7 @@ export function CountryCurrencyFields({
             </option>
           ))}
         </select>
-        <span className="block text-xs font-semibold text-neutral-500">Usaremos esta moneda para mostrar los precios de tu tienda.</span>
+        <span className="block text-xs font-semibold text-neutral-500">Usaremos esta moneda para mostrar precios en tu espacio comercial.</span>
       </label>
 
       {includeCountryName ? <input type="hidden" name="countryName" value={countryConfig.countryName} /> : null}
