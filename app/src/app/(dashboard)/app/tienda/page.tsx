@@ -5,6 +5,7 @@ import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCar
 import { VisualIdentitySettings } from "@/components/dashboard/VisualIdentitySettings";
 import { Bot, ExternalLink, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
+import { imageUploadGuidance } from "@/config/image-upload-guidance";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
 import { updateStoreAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
@@ -24,6 +25,8 @@ export default async function StoreSettingsPage({
   const productUsageLabel = `${productUsage.used} / ${productUsage.limit}`;
   const sellerAiUsageLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido";
   const voiceNotesLabel = planState.sellerAiEnabled ? "Disponible" : "Pro/Premium";
+  const coverGuidance = imageUploadGuidance.cover;
+  const logoGuidance = imageUploadGuidance.logo;
 
   return (
     <section className="space-y-5 md:space-y-6">
@@ -128,17 +131,19 @@ export default async function StoreSettingsPage({
         </details>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
-            <span className="text-sm font-semibold text-neutral-700">Foto de portada</span>
+            <span className="text-sm font-semibold text-neutral-700">{coverGuidance.label}</span>
             <input name="cover" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" className="w-full rounded-md border border-brand-border px-3 py-2 text-sm" />
-            <span className="block text-xs font-semibold leading-5 text-neutral-500">Esta imagen aparece como hero principal de tu espacio comercial. Usa una imagen horizontal de buena calidad.</span>
-            <span className="block text-xs font-semibold leading-5 text-neutral-500">Recomendado: 1600x900 o formato horizontal.</span>
-            <span className="block text-xs font-semibold leading-5 text-neutral-500">Las imágenes se optimizan automáticamente para carga rápida.</span>
+            <span className="block text-xs font-medium leading-5 text-brand-dark">{coverGuidance.recommendation}</span>
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">{coverGuidance.helper}</span>
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">{coverGuidance.technical}</span>
             {!store.coverUrl ? <span className="block text-xs font-black leading-5 text-amber-700">Sube una foto de portada para que el template Showcase luzca mejor.</span> : null}
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-semibold text-neutral-700">Logo</span>
+            <span className="text-sm font-semibold text-neutral-700">{logoGuidance.label}</span>
             <input name="logo" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" className="w-full rounded-md border border-brand-border px-3 py-2 text-sm" />
-            <span className="block text-xs font-semibold leading-5 text-neutral-500">Las imágenes se optimizan automáticamente para carga rápida.</span>
+            <span className="block text-xs font-medium leading-5 text-brand-dark">{logoGuidance.recommendation}</span>
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">{logoGuidance.helper}</span>
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">{logoGuidance.technical}</span>
           </label>
         </div>
         <button className="h-11 w-full rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark sm:w-auto">Guardar cambios</button>

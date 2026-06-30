@@ -2,10 +2,12 @@
 
 import { ImagePlus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { imageUploadGuidance } from "@/config/image-upload-guidance";
 
 export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: string | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const guidance = imageUploadGuidance.product;
 
   useEffect(() => {
     return () => {
@@ -15,6 +17,12 @@ export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: strin
 
   return (
     <div className="space-y-3">
+      <div>
+        <p className="text-sm font-black text-brand-dark">{guidance.label}</p>
+        <p className="mt-1 text-xs font-medium leading-5 text-brand-dark">{guidance.recommendation}</p>
+        <p className="text-xs font-semibold leading-5 text-neutral-500">{guidance.helper}</p>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <p className="text-sm font-black text-brand-dark">Imagen actual</p>
@@ -60,7 +68,7 @@ export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: strin
           </button>
         ) : null}
       </div>
-      <p className="text-xs font-semibold leading-5 text-neutral-500">Las imágenes se optimizan automáticamente para carga rápida.</p>
+      <p className="text-xs font-semibold leading-5 text-neutral-500">{guidance.technical}</p>
     </div>
   );
 }

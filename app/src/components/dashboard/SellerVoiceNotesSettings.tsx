@@ -3,6 +3,7 @@
 import { Loader2, Mic, RotateCcw, Square, Trash2, UploadCloud } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { SellerAiVoiceNote } from "@/components/seller-ai/SellerAiVoiceNote";
+import { imageUploadGuidance } from "@/config/image-upload-guidance";
 import { sellerVoiceNoteDefaults } from "@/config/seller-voice-notes";
 import { saveSellerVoiceNotesSettingsAction } from "@/lib/actions";
 import type { SellerVoiceNoteConfig, SellerVoiceNoteSource, SellerVoiceNoteType } from "@/lib/seller-ai/voice-notes";
@@ -116,6 +117,7 @@ function sourceLabel(source: SellerVoiceNoteSource, optimized?: boolean) {
 }
 
 export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSettingsProps) {
+  const avatarGuidance = imageUploadGuidance.sellerAvatar;
   const [avatarUrl, setAvatarUrl] = useState(store.sellerVoiceAvatarUrl ?? "");
   const [displayName, setDisplayName] = useState(store.sellerVoiceDisplayName ?? "");
   const [notes, setNotes] = useState(getInitialNotes(store));
@@ -298,7 +300,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
             />
           </label>
           <div className="space-y-2">
-            <span className="text-sm font-semibold text-neutral-700">Avatar del vendedor</span>
+            <span className="text-sm font-semibold text-neutral-700">{avatarGuidance.label}</span>
             <input type="hidden" name="sellerVoiceAvatarUrl" value={avatarUrl} />
             <div className="flex items-center gap-3">
               <div className="size-12 overflow-hidden rounded-full bg-brand-dark">
@@ -309,6 +311,11 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
                 Subir avatar
                 <input type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif" onChange={handleUpload("avatar")} className="sr-only" />
               </label>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium leading-5 text-brand-dark">{avatarGuidance.recommendation}</p>
+              <p className="text-xs font-semibold leading-5 text-neutral-500">{avatarGuidance.helper}</p>
+              <p className="text-xs font-semibold leading-5 text-neutral-500">{avatarGuidance.technical}</p>
             </div>
           </div>
         </div>
