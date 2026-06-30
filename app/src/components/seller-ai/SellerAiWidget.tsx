@@ -697,7 +697,7 @@ export function SellerAiWidget({
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
               <button type="button" onClick={closeWidget} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white/10 px-2 text-xs font-black transition hover:bg-white/15 min-[380px]:px-2.5">
                 <ArrowLeft className="size-4" />
-                <span className="max-[340px]:hidden">Volver a la tienda</span>
+                <span className="max-[340px]:hidden">Volver al espacio</span>
                 <span className="hidden max-[340px]:inline">Volver</span>
               </button>
               <div className="flex min-w-0 items-center justify-center gap-1.5">

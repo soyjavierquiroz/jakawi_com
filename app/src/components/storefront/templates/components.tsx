@@ -28,6 +28,7 @@ export type CommercialTemplateStore = {
   name: string;
   slug: string;
   description: string | null;
+  commercialTagline: string | null;
   whatsapp: string;
   instagram: string | null;
   tiktok: string | null;

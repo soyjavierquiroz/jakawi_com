@@ -73,7 +73,7 @@ export default async function StoreSettingsPage({
       <form action={updateStoreAction} className="space-y-5 rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-6">
         <div>
           <p className="text-sm font-black text-brand-dark">Información básica</p>
-          <p className="mt-1 text-sm font-semibold text-neutral-600">Nombre, descripción y canales visibles para tus clientes.</p>
+          <p className="mt-1 text-sm font-semibold text-neutral-600">Nombre, slogan, descripción y canales visibles para tus clientes.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2">
@@ -85,6 +85,16 @@ export default async function StoreSettingsPage({
             <input name="slug" required defaultValue={store.slug} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
           </label>
         </div>
+        <label className="block space-y-2">
+          <span className="text-sm font-semibold text-neutral-700">Slogan comercial</span>
+          <input
+            name="commercialTagline"
+            placeholder="Ej. Celulares seleccionados para comprar con confianza"
+            defaultValue={store.commercialTagline ?? ""}
+            className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand"
+          />
+          <span className="block text-xs font-semibold leading-5 text-neutral-500">Una frase corta que aparecerá en la portada de tu espacio comercial.</span>
+        </label>
         <label className="block space-y-2">
           <span className="text-sm font-semibold text-neutral-700">Descripción corta</span>
           <textarea name="description" rows={3} defaultValue={store.description ?? ""} className="w-full rounded-md border border-brand-border px-3 py-2 outline-none focus:border-brand" />

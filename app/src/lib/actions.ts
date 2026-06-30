@@ -206,6 +206,7 @@ export async function updateStoreAction(formData: FormData) {
       name,
       slug,
       description: cleanOptional(field(formData, "description")),
+      commercialTagline: cleanOptional(field(formData, "commercialTagline")),
       whatsapp: normalizePhone(field(formData, "whatsapp")),
       instagram: cleanOptional(field(formData, "instagram")),
       tiktok: cleanOptional(field(formData, "tiktok")),
