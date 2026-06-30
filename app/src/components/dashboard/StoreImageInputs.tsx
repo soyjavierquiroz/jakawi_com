@@ -6,7 +6,7 @@ import { ImageCropperDialog } from "@/components/images/ImageCropperDialog";
 import type { CropAspectPreset } from "@/components/images/types";
 import { imageUploadGuidance } from "@/config/image-upload-guidance";
 
-const coverPresets: CropAspectPreset[] = [{ id: "cover", label: "Portada", aspect: 16 / 9, outputWidth: 1600, outputHeight: 900 }];
+const coverPresets: CropAspectPreset[] = [{ id: "cover", label: "Portada", aspect: 4 / 3, outputWidth: 1200, outputHeight: 900 }];
 const logoPresets: CropAspectPreset[] = [{ id: "logo", label: "Cuadrada", aspect: 1, outputWidth: 600, outputHeight: 600 }];
 
 type StoreImageType = "cover" | "logo";
@@ -83,12 +83,14 @@ export function StoreImageInputs({
     pendingCrop?.type === "logo"
       ? {
           title: "Ajustar logo",
+          description: undefined,
           presets: logoPresets,
           defaultPresetId: "logo",
           outputMimeType: "image/png",
         }
       : {
           title: "Ajustar foto de portada",
+          description: "Encuadra la imagen para que funcione bien como portada móvil.",
           presets: coverPresets,
           defaultPresetId: "cover",
           outputMimeType: "image/jpeg",
@@ -100,7 +102,7 @@ export function StoreImageInputs({
         <div className="space-y-3">
           <span className="block text-sm font-semibold text-neutral-700">{coverGuidance.label}</span>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-            <div className="aspect-video w-full overflow-hidden rounded-md border border-brand-border bg-brand-muted">
+            <div className="aspect-[4/3] w-full max-w-md overflow-hidden rounded-md border border-brand-border bg-brand-muted">
               {coverPreviewUrl || currentCoverUrl ? (
                 <img src={coverPreviewUrl ?? currentCoverUrl ?? ""} alt="" className="h-full w-full object-cover" />
               ) : (
@@ -120,6 +122,7 @@ export function StoreImageInputs({
           <span className="block text-xs font-medium leading-5 text-brand-dark">{coverGuidance.recommendation}</span>
           <span className="block text-xs font-semibold leading-5 text-neutral-500">{coverGuidance.helper}</span>
           <span className="block text-xs font-semibold leading-5 text-neutral-500">{coverGuidance.technical}</span>
+          <span className="block text-xs font-semibold leading-5 text-neutral-500">Evita flyers con mucho texto; usa una imagen visual del negocio o producto principal.</span>
           {!currentCoverUrl ? <span className="block text-xs font-black leading-5 text-amber-700">Sube una foto de portada para que el template Showcase luzca mejor.</span> : null}
         </div>
 
@@ -153,6 +156,7 @@ export function StoreImageInputs({
         open={Boolean(pendingCrop)}
         file={pendingCrop?.file ?? null}
         title={cropConfig.title}
+        description={cropConfig.description}
         presets={cropConfig.presets}
         defaultPresetId={cropConfig.defaultPresetId}
         outputMimeType={cropConfig.outputMimeType}

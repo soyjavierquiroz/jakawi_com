@@ -39,19 +39,19 @@ function ShowcaseHero({
   const whatsappHref = `https://wa.me/${store.whatsapp}`;
 
   return (
-    <section className="relative isolate overflow-hidden rounded-b-[2.25rem] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--space-primary)_92%,#000)_0%,#111827_58%,color-mix(in_srgb,var(--space-primary)_62%,var(--space-accent))_100%)] text-[var(--space-primary-contrast)] shadow-[0_22px_60px_rgb(0_0_0/0.16)]">
+    <section className="relative isolate h-[clamp(300px,38svh,390px)] overflow-hidden rounded-b-[2rem] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--space-primary)_92%,#000)_0%,#111827_58%,color-mix(in_srgb,var(--space-primary)_62%,var(--space-accent))_100%)] text-[var(--space-primary-contrast)] shadow-[0_18px_46px_rgb(0_0_0/0.14)] md:mx-auto md:mt-4 md:h-[420px] md:max-w-6xl md:rounded-[1.75rem] lg:h-[460px]">
       {visual.type === "cover" ? <img src={visual.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-55 saturate-110" /> : null}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_20%,color-mix(in_srgb,var(--space-accent)_55%,transparent)_0%,transparent_30%),radial-gradient(circle_at_18%_82%,color-mix(in_srgb,var(--space-primary-contrast)_18%,transparent)_0%,transparent_26%),linear-gradient(180deg,rgba(0,0,0,.08)_0%,rgba(0,0,0,.28)_52%,rgba(0,0,0,.66)_100%)]" />
 
-      <div className="relative mx-auto flex min-h-[500px] max-w-6xl px-4 pb-10 pt-[calc(env(safe-area-inset-top)+34px)] sm:min-h-[560px] sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex h-full max-w-6xl px-4 pb-6 pt-[calc(env(safe-area-inset-top)+24px)] sm:px-6 md:pb-8 md:pt-[calc(env(safe-area-inset-top)+34px)] lg:px-8">
         <div className="flex max-w-2xl flex-col justify-center">
           <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white/14 px-3 py-1.5 text-[11px] font-black uppercase ring-1 ring-white/20 backdrop-blur">
             <Sparkles className="size-3.5 text-[var(--space-accent)]" />
             Compra guiada
           </span>
-          <h1 className="mt-5 text-4xl font-black leading-[1.02] sm:text-6xl">{store.name}</h1>
-          <p className="mt-4 max-w-xl text-base font-semibold leading-7 opacity-90 sm:text-lg">{getShowcaseTagline(store)}</p>
-          <div className="mt-7 flex flex-wrap gap-2">
+          <h1 className="mt-4 text-[2rem] font-black leading-[1.02] sm:text-5xl md:text-6xl">{store.name}</h1>
+          <p className="mt-3 line-clamp-2 max-w-xl text-sm font-semibold leading-6 opacity-90 sm:text-base md:text-lg md:leading-7">{getShowcaseTagline(store)}</p>
+          <div className="mt-5 flex flex-wrap gap-2">
             <a href={hasProducts ? "#productos" : whatsappHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--space-accent)] px-5 text-sm font-black text-[var(--space-accent-contrast)] shadow-sm transition hover:brightness-95">
               {hasProducts ? "Ver productos" : "Consultar"}
               <ArrowRight className="size-4" />

@@ -7,8 +7,8 @@ export const imageUploadGuidance = {
   },
   cover: {
     label: "Foto de portada",
-    recommendation: "Recomendado: 1600 × 900 px · Formato horizontal",
-    helper: "Esta imagen aparece como hero principal de tu espacio comercial.",
+    recommendation: "Recomendado: 1200 × 900 px · Formato 4:3",
+    helper: "Esta imagen aparece como hero principal de tu espacio comercial, especialmente en móvil.",
     technical: "Máximo 10MB. Se optimiza automáticamente a WebP.",
   },
   logo: {
