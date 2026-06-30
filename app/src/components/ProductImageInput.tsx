@@ -2,11 +2,27 @@
 
 import { ImagePlus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ImageCropperDialog } from "@/components/images/ImageCropperDialog";
+import type { CropAspectPreset } from "@/components/images/types";
 import { imageUploadGuidance } from "@/config/image-upload-guidance";
+
+const productImagePresets: CropAspectPreset[] = [
+  { id: "square", label: "Cuadrada", aspect: 1, outputWidth: 1200, outputHeight: 1200 },
+  { id: "vertical", label: "Vertical 4:5", aspect: 4 / 5, outputWidth: 1200, outputHeight: 1500 },
+  { id: "full", label: "Completa", aspect: null },
+];
+
+function setInputFile(input: HTMLInputElement | null, file: File) {
+  if (!input) return;
+  const dataTransfer = new DataTransfer();
+  dataTransfer.items.add(file);
+  input.files = dataTransfer.files;
+}
 
 export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: string | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const guidance = imageUploadGuidance.product;
 
   useEffect(() => {
@@ -14,6 +30,25 @@ export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: strin
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  function updatePreview(file: File | null) {
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return file ? URL.createObjectURL(file) : null;
+    });
+  }
+
+  function clearSelection() {
+    if (inputRef.current) inputRef.current.value = "";
+    updatePreview(null);
+    setPendingFile(null);
+  }
+
+  function useCroppedImage(file: File) {
+    setInputFile(inputRef.current, file);
+    updatePreview(file);
+    setPendingFile(null);
+  }
 
   return (
     <div className="space-y-3">
@@ -45,22 +80,14 @@ export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: strin
           className="w-full rounded-md border border-brand-border bg-brand-paper px-3 py-2 text-sm"
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
-            setPreviewUrl((current) => {
-              if (current) URL.revokeObjectURL(current);
-              return file ? URL.createObjectURL(file) : null;
-            });
+            event.currentTarget.value = "";
+            if (file) setPendingFile(file);
           }}
         />
         {previewUrl ? (
           <button
             type="button"
-            onClick={() => {
-              if (inputRef.current) inputRef.current.value = "";
-              setPreviewUrl((current) => {
-                if (current) URL.revokeObjectURL(current);
-                return null;
-              });
-            }}
+            onClick={clearSelection}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border px-3 text-sm font-black text-brand-dark hover:border-brand"
           >
             <X className="size-4" />
@@ -69,6 +96,19 @@ export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: strin
         ) : null}
       </div>
       <p className="text-xs font-semibold leading-5 text-neutral-500">{guidance.technical}</p>
+      <ImageCropperDialog
+        open={Boolean(pendingFile)}
+        file={pendingFile}
+        title="Ajustar imagen del producto"
+        presets={productImagePresets}
+        defaultPresetId="square"
+        outputMimeType="image/jpeg"
+        onCancel={() => {
+          if (inputRef.current) inputRef.current.value = "";
+          setPendingFile(null);
+        }}
+        onConfirm={useCroppedImage}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "react-phone-number-input/style.css";
+@import "react-easy-crop/react-easy-crop.css";
 
 :root {
   --background: #FAF7EF;
@@ -90,6 +91,15 @@ button {
 
 .jakawi-typing-dot:nth-child(3) {
   animation-delay: 0.3s;
+}
+
+.image-cropper-container {
+  background: #0a0a0a;
+}
+
+.image-cropper-area {
+  border: 2px solid rgb(255 255 255 / 0.96);
+  box-shadow: 0 0 0 9999em rgb(0 0 0 / 0.48);
 }
 
 .smart-phone-input {

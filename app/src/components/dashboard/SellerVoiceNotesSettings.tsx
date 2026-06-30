@@ -2,6 +2,8 @@
 
 import { Loader2, Mic, RotateCcw, Square, Trash2, UploadCloud } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ImageCropperDialog } from "@/components/images/ImageCropperDialog";
+import type { CropAspectPreset } from "@/components/images/types";
 import { SellerAiVoiceNote } from "@/components/seller-ai/SellerAiVoiceNote";
 import { imageUploadGuidance } from "@/config/image-upload-guidance";
 import { sellerVoiceNoteDefaults } from "@/config/seller-voice-notes";
@@ -9,6 +11,8 @@ import { saveSellerVoiceNotesSettingsAction } from "@/lib/actions";
 import type { SellerVoiceNoteConfig, SellerVoiceNoteSource, SellerVoiceNoteType } from "@/lib/seller-ai/voice-notes";
 
 type NoteKey = "intro" | "guidance" | "handoff";
+
+const sellerAvatarPresets: CropAspectPreset[] = [{ id: "avatar", label: "Cuadrada", aspect: 1, outputWidth: 600, outputHeight: 600 }];
 
 type SellerVoiceNotesSettingsProps = {
   canEdit: boolean;
@@ -127,6 +131,7 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
   const [recordingKey, setRecordingKey] = useState<NoteKey | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -197,7 +202,12 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
 
   function handleUpload(type: NoteKey | "avatar") {
     return (event: ChangeEvent<HTMLInputElement>) => {
-      void uploadFile(type, event.target.files?.[0]);
+      const file = event.target.files?.[0];
+      if (type === "avatar") {
+        if (file) setPendingAvatarFile(file);
+      } else {
+        void uploadFile(type, file);
+      }
       event.target.value = "";
     };
   }
@@ -450,6 +460,19 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
           </div>
         ) : null}
       </fieldset>
+      <ImageCropperDialog
+        open={Boolean(pendingAvatarFile)}
+        file={pendingAvatarFile}
+        title="Ajustar avatar"
+        presets={sellerAvatarPresets}
+        defaultPresetId="avatar"
+        outputMimeType="image/png"
+        onCancel={() => setPendingAvatarFile(null)}
+        onConfirm={(file) => {
+          setPendingAvatarFile(null);
+          void uploadFile("avatar", file);
+        }}
+      />
     </form>
   );
 }
