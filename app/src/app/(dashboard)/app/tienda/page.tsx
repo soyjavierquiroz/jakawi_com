@@ -1,5 +1,6 @@
 import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
 import { CopyButton } from "@/components/CopyButton";
+import { CommercialTemplateSettings } from "@/components/dashboard/CommercialTemplateSettings";
 import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCard";
 import { VisualIdentitySettings } from "@/components/dashboard/VisualIdentitySettings";
 import { Bot, ExternalLink, Link as LinkIcon } from "lucide-react";
@@ -64,6 +65,8 @@ export default async function StoreSettingsPage({
       </section>
 
       <PlanUsageCompactCard productUsageLabel={productUsageLabel} sellerAiUsageLabel={sellerAiUsageLabel} voiceNotesLabel={voiceNotesLabel} />
+
+      <CommercialTemplateSettings store={store} />
 
       <VisualIdentitySettings store={store} />
 

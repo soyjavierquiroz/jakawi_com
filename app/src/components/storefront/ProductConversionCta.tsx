@@ -42,14 +42,14 @@ export function ProductConversionCta({
   if (isCard) {
     if (flow.showProductCardWhatsappButton && whatsappHref) {
       return (
-        <a href={whatsappHref} className={cn("flex h-10 items-center justify-center rounded-md bg-[var(--space-primary)] text-center text-xs font-bold text-[var(--space-primary-contrast)] transition hover:brightness-95 sm:text-sm", className)}>
+        <a href={whatsappHref} className={cn("flex h-11 items-center justify-center rounded-full bg-[var(--space-primary)] text-center text-xs font-black text-[var(--space-primary-contrast)] transition hover:brightness-95 sm:text-sm", className)}>
           {flow.productCardCta}
         </a>
       );
     }
 
     return (
-      <Link href={productHref ?? "#"} className={cn("flex h-10 items-center justify-center rounded-md border border-[var(--space-border)] bg-[var(--space-surface)] text-center text-xs font-black text-[var(--space-surface-contrast)] transition hover:bg-[var(--space-muted)] sm:text-sm", className)}>
+      <Link href={productHref ?? "#"} className={cn("flex h-11 items-center justify-center rounded-full border border-[var(--space-border)] bg-[var(--space-surface)] text-center text-xs font-black text-[var(--space-surface-contrast)] transition hover:bg-[var(--space-muted)] sm:text-sm", className)}>
         {flow.productCardCta}
       </Link>
     );

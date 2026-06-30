@@ -144,6 +144,7 @@ model Store {
   brandBackgroundColor String? @default("#FAF7EF")
   brandAccentColor String? @default("#A3E635")
   brandThemePreset String? @default("JAKAWI")
+  commercialTemplate String? @default("SHOWCASE")
   isPublished Boolean  @default(true)
   plan        String   @default("LAUNCH")
   planStatus  String   @default("ACTIVE")

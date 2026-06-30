@@ -1,0 +1,1 @@
+ALTER TABLE "Store" ADD COLUMN "commercialTemplate" TEXT DEFAULT 'SHOWCASE';

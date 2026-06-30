@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCountryCommerceConfig, normalizeCountryCode, normalizeCurrency } from "@/config/countries";
+import { COMMERCIAL_SPACE_TEMPLATES, normalizeCommercialTemplate } from "@/config/commercial-templates";
 import { registrationConfig } from "@/config/registration";
 import { storePlans } from "@/config/plans";
 import { requireSuperAdmin } from "@/lib/admin";
@@ -252,6 +253,25 @@ export async function updateStoreVisualIdentityAction(formData: FormData) {
   revalidatePath("/app/tienda");
   revalidatePath(`/${store.slug}`);
   redirect("/app/tienda?ok=visual");
+}
+
+export async function updateStoreCommercialTemplateAction(formData: FormData) {
+  const { store } = await requireStore();
+  const commercialTemplate = normalizeCommercialTemplate(field(formData, "commercialTemplate"));
+  const templateConfig = COMMERCIAL_SPACE_TEMPLATES[commercialTemplate];
+
+  if (!templateConfig.isAvailable) {
+    redirect("/app/tienda?error=Ese estilo aun no esta disponible");
+  }
+
+  await getPrisma().store.update({
+    where: { id: store.id },
+    data: { commercialTemplate },
+  });
+
+  revalidatePath("/app/tienda");
+  revalidatePath(`/${store.slug}`);
+  redirect("/app/tienda?ok=template");
 }
 
 export async function createCategoryAction(formData: FormData) {
