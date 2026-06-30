@@ -50,11 +50,9 @@ export default async function PublicProductPage({
       </header>
 
       <article className="mx-auto mt-3 grid max-w-5xl gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)] md:items-start lg:px-8">
-        <div className="overflow-hidden rounded-[1.6rem] border border-[var(--space-border)] bg-[var(--space-surface)] p-2.5 shadow-[0_18px_50px_rgb(0_0_0/0.12)]">
+        <div className="overflow-hidden rounded-[1.6rem] border border-[var(--space-border)] bg-[var(--space-surface)] p-2 shadow-[0_18px_50px_rgb(0_0_0/0.12)]">
           <div className="relative isolate aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-[var(--space-muted)] md:aspect-square">
-            <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-[0.22] blur-2xl" />
-            <div className="absolute inset-0 bg-white/[0.04]" />
-            <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="relative z-10 h-full w-full object-contain p-2" />
+            <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="h-full w-full object-cover" />
           </div>
         </div>
         <div className="rounded-[1.35rem] border border-[var(--space-border)] bg-[var(--space-surface)] p-4 text-[var(--space-surface-contrast)] shadow-sm md:p-5">

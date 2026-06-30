@@ -130,6 +130,9 @@ export default async function StoreSettingsPage({
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Foto de portada</span>
             <input name="cover" type="file" accept="image/jpeg,image/png,image/webp" className="w-full rounded-md border border-brand-border px-3 py-2 text-sm" />
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">Esta imagen aparece como hero principal de tu espacio comercial. Usa una imagen horizontal de buena calidad.</span>
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">Recomendado: 1600x900 o formato horizontal.</span>
+            {!store.coverUrl ? <span className="block text-xs font-black leading-5 text-amber-700">Sube una foto de portada para que el template Showcase luzca mejor.</span> : null}
           </label>
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Logo</span>
