@@ -28,7 +28,7 @@ export default async function StoreSettingsPage({
     <section className="space-y-5 md:space-y-6">
       <p className="text-sm font-bold text-brand-dark">Mi espacio</p>
       <h1 className="text-3xl font-black md:text-4xl">{store.name}</h1>
-      <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Mantén actualizada la información pública de tu negocio. La tienda pública sigue siendo el link que ve el cliente.</p>
+      <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Mantén actualizada la información pública de tu negocio. Tu espacio comercial sigue siendo el link que ve el cliente.</p>
       {params.ok ? <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Cambios guardados.</p> : null}
       {params.error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{params.error === "voice-plan" ? "Las notas de voz están disponibles en Pro/Premium." : params.error}</p> : null}
 
@@ -43,7 +43,7 @@ export default async function StoreSettingsPage({
         <div className="mt-3 grid grid-cols-2 gap-3 md:flex md:items-center">
           <a href={publicUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-4 font-bold text-white hover:bg-brand">
             <ExternalLink className="size-4" />
-            Ver tienda
+            Ver espacio
           </a>
           <CopyButton value={publicUrl} />
         </div>
@@ -106,7 +106,7 @@ export default async function StoreSettingsPage({
             <span className="text-lg leading-none group-open:rotate-45">+</span>
           </summary>
           <div className="px-4 pb-4">
-            <p className="text-sm font-semibold text-neutral-600">Esto define cómo se muestran los precios en tu tienda pública.</p>
+            <p className="text-sm font-semibold text-neutral-600">Esto define cómo se muestran los precios en tu espacio comercial.</p>
             <div className="mt-4">
               <CountryCurrencyFields initialCountryCode={store.countryCode} initialCurrency={store.currency} compact />
             </div>

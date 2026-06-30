@@ -34,15 +34,21 @@ export const COMMERCIAL_THEME_PRESETS = {
   },
   Natural: {
     name: "Natural",
-    primary: "#166534",
-    background: "#F0FDF4",
-    accent: "#84CC16",
+    primary: "#2F5D50",
+    background: "#F4F1E8",
+    accent: "#B7A77A",
   },
   Energia: {
     name: "Energía",
     primary: "#C2410C",
     background: "#FFF7ED",
     accent: "#FACC15",
+  },
+  Rosa: {
+    name: "Rosa",
+    primary: "#BE5A83",
+    background: "#FFF1F5",
+    accent: "#F9A8D4",
   },
 } as const;
 

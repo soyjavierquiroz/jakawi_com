@@ -33,6 +33,11 @@ const presetLabels: Record<CommercialThemePresetKey, string> = {
   Premium: "Premium",
   Natural: "Natural",
   Energia: "Energía",
+  Rosa: "Rosa",
+};
+const presetSublabels: Partial<Record<CommercialThemePresetKey, string>> = {
+  Rosa: "Moda, belleza y regalos",
+  Natural: "Orgánico y terroso",
 };
 
 function getInitialPreset(value?: string | null): CommercialThemePresetKey {
@@ -115,7 +120,7 @@ export function VisualIdentitySettings({ store }: VisualIdentitySettingsProps) {
 
       <section className="space-y-3">
         <p className="text-sm font-semibold text-neutral-700">Presets rápidos</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           {presetEntries.map(([key, presetTheme]) => {
             const isActive = preset === key && theme.primary === presetTheme.primary && theme.background === presetTheme.background && theme.accent === presetTheme.accent;
 
@@ -131,6 +136,7 @@ export function VisualIdentitySettings({ store }: VisualIdentitySettingsProps) {
                 )}
               >
                 <span className="block truncate text-xs font-black text-brand-dark">{presetLabels[key]}</span>
+                {presetSublabels[key] ? <span className="mt-0.5 block truncate text-[10px] font-bold text-neutral-500">{presetSublabels[key]}</span> : null}
                 <span className="mt-2 flex gap-1">
                   {[presetTheme.primary, presetTheme.background, presetTheme.accent].map((color) => (
                     <span key={color} className="size-5 rounded-full border border-black/10" style={{ backgroundColor: color }} />
