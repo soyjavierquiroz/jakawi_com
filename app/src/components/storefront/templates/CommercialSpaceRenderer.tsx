@@ -2,6 +2,7 @@ import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
 import { VisitorProvider } from "@/context/VisitorContext";
 import { normalizeCommercialTemplate } from "@/config/commercial-templates";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
+import { AppCommerceTemplate } from "@/components/storefront/templates/AppCommerceTemplate";
 import { BoutiqueTemplate } from "@/components/storefront/templates/BoutiqueTemplate";
 import { ShowcaseTemplate } from "@/components/storefront/templates/ShowcaseTemplate";
 import type { CommercialTemplateCategory, CommercialTemplateProduct, CommercialTemplateStore } from "@/components/storefront/templates/components";
@@ -20,7 +21,7 @@ export function CommercialSpaceRenderer({ store, categories, products }: Commerc
   return (
     <>
       <main className={flow.sellerAiEnabled ? "min-h-dvh bg-[var(--space-background)] pb-24 text-[var(--space-background-contrast)]" : "min-h-dvh bg-[var(--space-background)] pb-10 text-[var(--space-background-contrast)]"}>
-        {template === "BOUTIQUE" ? <BoutiqueTemplate {...templateProps} /> : <ShowcaseTemplate {...templateProps} />}
+        {template === "APP_COMMERCE" ? <AppCommerceTemplate {...templateProps} /> : template === "BOUTIQUE" ? <BoutiqueTemplate {...templateProps} /> : <ShowcaseTemplate {...templateProps} />}
       </main>
 
       {flow.sellerAiEnabled ? (
@@ -32,6 +33,7 @@ export function CommercialSpaceRenderer({ store, categories, products }: Commerc
             planCode={flow.planCode}
             mode={flow.sellerAiMode}
             requirePhoneBeforeWhatsapp={flow.requirePhoneBeforeWhatsapp}
+            initiallyHidden={template === "APP_COMMERCE"}
             triggerLabel={flow.productPagePrimaryCta}
           />
         </VisitorProvider>

@@ -1,4 +1,4 @@
-import { Check, Gem, LayoutGrid, Sparkles } from "lucide-react";
+import { Check, Gem, LayoutGrid, Smartphone, Sparkles } from "lucide-react";
 import { AVAILABLE_COMMERCIAL_SPACE_TEMPLATES, normalizeCommercialTemplate, type CommercialTemplateId } from "@/config/commercial-templates";
 import { updateStoreCommercialTemplateAction } from "@/lib/actions";
 import { cn } from "@/lib/ui";
@@ -12,11 +12,43 @@ type CommercialTemplateSettingsProps = {
 const templateIcons: Record<CommercialTemplateId, typeof Sparkles> = {
   SHOWCASE: Sparkles,
   BOUTIQUE: Gem,
+  APP_COMMERCE: Smartphone,
   COMPACT_CATALOG: LayoutGrid,
   SOCIAL_DROP: Sparkles,
 };
 
 function TemplatePreview({ templateId }: { templateId: CommercialTemplateId }) {
+  if (templateId === "APP_COMMERCE") {
+    return (
+      <div className="rounded-md border border-brand-border bg-white p-2">
+        <div className="overflow-hidden rounded-md bg-neutral-950 p-1.5">
+          <div className="rounded-[0.9rem] bg-rose-50 p-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <div className="size-5 rounded-full bg-rose-300" />
+                <div className="h-2 w-14 rounded-full bg-neutral-800/80" />
+              </div>
+              <div className="size-5 rounded-full bg-white shadow-sm" />
+            </div>
+            <div className="mt-2 h-14 rounded-xl bg-gradient-to-br from-rose-400 via-pink-200 to-amber-100 p-2 shadow-sm">
+              <div className="h-2 w-16 rounded-full bg-white/85" />
+              <div className="mt-2 h-3 w-20 rounded-full bg-white" />
+            </div>
+            <div className="mt-2 flex gap-1.5 overflow-hidden">
+              <div className="h-6 w-14 shrink-0 rounded-full bg-neutral-900" />
+              <div className="h-6 w-14 shrink-0 rounded-full bg-white shadow-sm" />
+              <div className="h-6 w-14 shrink-0 rounded-full bg-white shadow-sm" />
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              <div className="h-12 rounded-lg bg-white shadow-sm" />
+              <div className="h-12 rounded-lg bg-white shadow-sm" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (templateId === "BOUTIQUE") {
     return (
       <div className="rounded-md border border-brand-border bg-white p-2">

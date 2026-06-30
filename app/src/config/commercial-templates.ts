@@ -19,6 +19,15 @@ export const COMMERCIAL_SPACE_TEMPLATES = {
     previewType: "editorial-grid",
     isAvailable: true,
   },
+  APP_COMMERCE: {
+    id: "APP_COMMERCE",
+    label: "App moderna",
+    description: "Para una experiencia tipo app móvil con portada visual, categorías y productos destacados.",
+    bestFor: ["Comida y retail", "Productos visuales", "Look tipo app"],
+    recommendedThemePresets: ["Rosa", "Premium", "JAKAWI"],
+    previewType: "mobile-commerce",
+    isAvailable: true,
+  },
   COMPACT_CATALOG: {
     id: "COMPACT_CATALOG",
     label: "Compact Catalog",
