@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bot, ChevronRight, Home, MessageCircle, Search, ShoppingBag, Sparkles, Star, Tags } from "lucide-react";
+import { ArrowRight, Bot, Home, MessageCircle, Search, ShoppingBag, Sparkles, Star, Tags } from "lucide-react";
 import Link from "next/link";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { formatMoney } from "@/lib/money";
@@ -110,6 +110,14 @@ function CommerceImageFrame({
   );
 }
 
+function ProductMockupFrame({ imageUrl, alt, className }: { imageUrl: string | null; alt: string; className?: string }) {
+  return (
+    <div className={cn("relative rounded-[1.55rem] border border-white/55 bg-white/28 p-2 shadow-[0_24px_65px_rgb(0_0_0/0.24)] backdrop-blur-xl", className)}>
+      <CommerceImageFrame imageUrl={imageUrl} alt={alt} mode="contain" className="h-full rounded-[1.15rem] bg-[var(--space-surface)]" imageClassName="p-2.5" />
+    </div>
+  );
+}
+
 function AppTopBar({ store, flow, heroProduct }: Pick<CommercialTemplateProps, "store" | "flow"> & { heroProduct?: CommercialTemplateProduct }) {
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--space-border)] bg-[var(--space-surface)]/88 text-[var(--space-surface-contrast)] shadow-[0_10px_30px_rgb(0_0_0/0.05)] backdrop-blur-xl">
@@ -118,16 +126,16 @@ function AppTopBar({ store, flow, heroProduct }: Pick<CommercialTemplateProps, "
           <StoreAvatar store={store} className="size-9" />
           <div className="min-w-0">
             <p className="truncate text-sm font-black leading-5">{store.name}</p>
-            <p className="truncate text-[11px] font-bold leading-4 opacity-60">Tienda móvil</p>
+            <p className="truncate text-[11px] font-bold leading-4 opacity-60">Espacio comercial</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {flow.sellerAiEnabled ? (
-            <button type="button" onClick={() => openSellerAi(heroProduct)} className="grid size-9 place-items-center rounded-full bg-[var(--space-primary)] text-[var(--space-primary-contrast)] shadow-sm transition hover:brightness-95" aria-label="Abrir Seller AI">
+            <button type="button" onClick={() => openSellerAi(heroProduct)} className="grid size-11 place-items-center rounded-full bg-[var(--space-primary)] text-[var(--space-primary-contrast)] shadow-sm transition hover:brightness-95" aria-label="Abrir Seller AI">
               <Bot className="size-4" />
             </button>
           ) : null}
-          <WhatsappLink store={store} className="grid size-9 place-items-center rounded-full bg-[var(--space-accent)] text-[var(--space-accent-contrast)] shadow-sm transition hover:brightness-95">
+          <WhatsappLink store={store} className="grid size-11 place-items-center rounded-full bg-[var(--space-accent)] text-[var(--space-accent-contrast)] shadow-sm transition hover:brightness-95">
             <MessageCircle className="size-4" />
           </WhatsappLink>
         </div>
@@ -141,25 +149,33 @@ function AppHero({ store, products, featuredProduct, flow }: CommercialTemplateP
   const hasProducts = products.length > 0;
   const title = hero.product?.isFeatured ? hero.product.name : store.name;
   const description = hero.product?.description ?? store.description ?? "Una experiencia de compra visual, rápida y guiada.";
+  const hasMockup = hero.imageMode !== "cover";
 
   return (
     <section id="inicio" className="mx-auto max-w-5xl px-4 pt-4 sm:px-6 lg:px-8">
-      <div className="relative isolate h-[320px] overflow-hidden rounded-[2rem] bg-[var(--space-primary)] text-[var(--space-primary-contrast)] shadow-[0_24px_70px_rgb(0_0_0/0.18)] sm:h-[340px]">
+      <div className="relative isolate h-[312px] overflow-hidden rounded-[1.75rem] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--space-primary)_92%,#111827)_0%,color-mix(in_srgb,var(--space-primary)_78%,var(--space-background))_48%,color-mix(in_srgb,var(--space-accent)_42%,var(--space-background))_100%)] text-[var(--space-primary-contrast)] shadow-[0_22px_64px_rgb(0_0_0/0.16)] sm:h-[336px] sm:rounded-[2rem]">
+        <div className="absolute -right-10 -top-12 size-44 rounded-full bg-white/14 blur-2xl" />
+        <div className="absolute -bottom-16 left-10 size-52 rounded-full bg-[var(--space-accent)]/18 blur-3xl" />
         {hero.imageMode === "cover" ? (
-          <img src={hero.imageUrl ?? ""} alt="" className="absolute inset-0 h-full w-full object-cover opacity-88" />
-        ) : hero.imageMode === "contain" ? (
-          <CommerceImageFrame imageUrl={hero.imageUrl} alt="" mode="contain" className="absolute inset-0 rounded-none" imageClassName="p-7" />
-        ) : (
-          <CommerceImageFrame imageUrl={null} alt="" className="absolute inset-0 rounded-none" />
-        )}
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.08)_0%,rgba(0,0,0,.12)_38%,rgba(0,0,0,.68)_100%)]" />
-        <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-white/18 px-3 py-2 text-[11px] font-black backdrop-blur-md ring-1 ring-white/25">
-          <Sparkles className="size-3.5 text-[var(--space-accent)]" />
-          {flow.sellerAiEnabled ? "Compra guiada" : "Compra por WhatsApp"}
-        </div>
-        <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-          <h1 className="line-clamp-2 max-w-2xl text-3xl font-black leading-[1.04] sm:text-5xl">{title}</h1>
-          <p className="mt-3 line-clamp-2 max-w-xl text-sm font-semibold leading-6 opacity-88 sm:text-base">{description}</p>
+          <>
+            <img src={hero.imageUrl ?? ""} alt="" className="absolute inset-0 h-full w-full object-cover opacity-82" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,.54)_0%,rgba(0,0,0,.22)_52%,rgba(0,0,0,.08)_100%)]" />
+          </>
+        ) : null}
+        {hasMockup ? (
+          <ProductMockupFrame
+            imageUrl={hero.imageUrl}
+            alt={title}
+            className="absolute right-3 top-14 h-[178px] w-[124px] rotate-[3deg] sm:right-8 sm:top-10 sm:h-[232px] sm:w-[164px]"
+          />
+        ) : null}
+        <div className="relative z-10 flex h-full max-w-[72%] flex-col justify-end p-5 sm:max-w-[64%] sm:p-6">
+          <div className="mb-auto inline-flex w-fit items-center gap-2 rounded-full bg-white/18 px-3 py-2 text-[11px] font-black backdrop-blur-md ring-1 ring-white/25">
+            <Sparkles className="size-3.5 text-[var(--space-accent)]" />
+            {flow.sellerAiEnabled ? "Compra guiada" : "Compra por WhatsApp"}
+          </div>
+          <h1 className="line-clamp-2 text-3xl font-black leading-[1.04] drop-shadow-sm sm:text-5xl">{title}</h1>
+          <p className="mt-3 line-clamp-2 text-sm font-semibold leading-6 opacity-90 sm:text-base">{description}</p>
           <div className="mt-5 flex flex-wrap gap-2">
             <a href={hasProducts ? "#productos" : `https://wa.me/${store.whatsapp}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--space-accent)] px-4 text-sm font-black text-[var(--space-accent-contrast)] shadow-sm transition hover:brightness-95">
               {hasProducts ? "Ver productos" : "Consultar"}
@@ -187,14 +203,10 @@ function CategoryRail({ categories, flow, store }: Pick<CommercialTemplateProps,
 
   return (
     <section className="mx-auto mt-6 max-w-5xl px-4 sm:px-6 lg:px-8">
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3">
         <h2 className="text-base font-black leading-tight">{categories.length > 0 ? "Explora" : "Accesos rápidos"}</h2>
-        <a href="#productos" className="inline-flex items-center gap-1 text-xs font-black text-[var(--space-primary)]">
-          Ver todo
-          <ChevronRight className="size-3.5" />
-        </a>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 pr-10 [scrollbar-width:none] sm:-mx-6 sm:px-6 sm:pr-12 lg:mx-0 lg:px-0 lg:pr-0 [&::-webkit-scrollbar]:hidden">
         {categories.length > 0
           ? categories.map((category, index) => (
               <a
@@ -247,19 +259,22 @@ function FeaturedProductCard({ store, product, flow, isPrimary = false }: Pick<C
   return (
     <article
       className={cn(
-        "min-w-0 overflow-hidden rounded-[1.6rem] border border-[var(--space-border)] bg-[var(--space-surface)] text-[var(--space-surface-contrast)] shadow-[0_14px_46px_rgb(0_0_0/0.08)]",
-        isPrimary ? "grid gap-0 sm:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]" : "w-[235px] shrink-0",
+        "min-w-0 overflow-hidden rounded-[1.45rem] border border-[var(--space-border)] bg-[var(--space-surface)] text-[var(--space-surface-contrast)] shadow-[0_14px_46px_rgb(0_0_0/0.08)]",
+        isPrimary ? "w-full" : "w-[235px] shrink-0",
       )}
     >
       <Link href={href} className="block">
-        <CommerceImageFrame
-          imageUrl={product.imageUrl}
-          alt={product.name}
-          mode={isPrimary ? "contain" : "contain"}
-          className={cn("rounded-none", isPrimary ? "aspect-[1.08/1] min-h-[230px]" : "aspect-square")}
-        />
+        <div className={cn("relative bg-[linear-gradient(135deg,var(--space-muted)_0%,var(--space-surface)_60%,color-mix(in_srgb,var(--space-accent)_18%,var(--space-background))_100%)]", isPrimary ? "h-[238px] sm:h-[258px]" : "aspect-square")}>
+          {isPrimary ? (
+            <div className="absolute inset-4 grid place-items-center">
+              <ProductMockupFrame imageUrl={product.imageUrl} alt={product.name} className="h-full w-[min(62%,178px)] rotate-[-2deg] p-2.5" />
+            </div>
+          ) : (
+            <CommerceImageFrame imageUrl={product.imageUrl} alt={product.name} mode="contain" className="absolute inset-0 rounded-none" />
+          )}
+        </div>
       </Link>
-      <div className={cn("flex flex-col", isPrimary ? "justify-center p-4 sm:p-5" : "p-3")}>
+      <div className={cn("flex flex-col", isPrimary ? "p-4 sm:p-5" : "p-3")}>
         <div className="flex flex-wrap gap-1.5">
           <span className="inline-flex w-fit rounded-full bg-[var(--space-primary)] px-2.5 py-1 text-[11px] font-black text-[var(--space-primary-contrast)]">
             {product.isFeatured ? "Destacado" : "Recomendado"}
@@ -267,10 +282,10 @@ function FeaturedProductCard({ store, product, flow, isPrimary = false }: Pick<C
           {product.category ? <span className="inline-flex w-fit rounded-full bg-[var(--space-muted)] px-2.5 py-1 text-[11px] font-black opacity-75">{product.category.name}</span> : null}
         </div>
         <Link href={href}>
-          <h3 className={cn("mt-3 font-black leading-tight", isPrimary ? "text-2xl" : "line-clamp-2 min-h-12 text-base leading-6")}>{product.name}</h3>
+          <h3 className={cn("mt-3 font-black leading-tight", isPrimary ? "text-xl sm:text-2xl" : "line-clamp-2 min-h-12 text-base leading-6")}>{product.name}</h3>
         </Link>
-        <p className={cn("mt-2 font-black text-[var(--space-primary)]", isPrimary ? "text-2xl" : "text-lg")}>{getPrice(store, product)}</p>
-        <p className={cn("mt-2 text-sm font-semibold leading-5 opacity-68", isPrimary ? "line-clamp-3" : "line-clamp-2")}>
+        <p className={cn("mt-2 font-black text-[var(--space-primary)]", isPrimary ? "text-xl sm:text-2xl" : "text-lg")}>{getPrice(store, product)}</p>
+        <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 opacity-68">
           {product.description ?? (flow.sellerAiEnabled ? "Preguntale a Seller AI si es para ti." : "Consulta disponibilidad por WhatsApp.")}
         </p>
         <ProductConversionCta
@@ -374,7 +389,7 @@ function EmptyCommerceState({ store }: { store: CommercialTemplateStore }) {
 
 function BottomAppNavigation({ store, flow, heroProduct }: Pick<CommercialTemplateProps, "store" | "flow"> & { heroProduct?: CommercialTemplateProduct }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+10px)] md:hidden" aria-label="Navegacion de tienda">
+    <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] md:hidden" aria-label="Navegacion de tienda">
       <div className="mx-auto grid max-w-md grid-cols-4 gap-1 rounded-full border border-[var(--space-border)] bg-[var(--space-surface)]/94 p-1.5 text-[var(--space-surface-contrast)] shadow-[0_18px_55px_rgb(0_0_0/0.2)] backdrop-blur-xl">
         <a href="#inicio" className="flex h-12 flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-black transition hover:bg-[var(--space-muted)]">
           <Home className="size-4" />
@@ -412,7 +427,7 @@ export function AppCommerceTemplate({ store, categories, products, flow }: Comme
   const heroProduct = recommendedProducts[0] ?? products[0];
 
   return (
-    <div className="min-h-dvh bg-[var(--space-background)] pb-28 text-[var(--space-background-contrast)] md:pb-10">
+    <div className="min-h-dvh bg-[var(--space-background)] pb-[calc(8rem+env(safe-area-inset-bottom))] text-[var(--space-background-contrast)] md:pb-10">
       <AppTopBar store={store} flow={flow} heroProduct={heroProduct} />
       <AppHero store={store} categories={categories} products={products} flow={flow} featuredProduct={heroProduct} />
       <CategoryRail categories={categories} flow={flow} store={store} />
