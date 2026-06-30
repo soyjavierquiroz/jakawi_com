@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -5,6 +6,7 @@ import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { VisitorProvider } from "@/context/VisitorContext";
 import { trackEvent } from "@/lib/analytics";
+import { buildCommercialSpaceTheme, commercialThemeToCssVariables } from "@/lib/commercial-theme";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
@@ -26,6 +28,8 @@ export default async function PublicProductPage({
 
   await trackEvent("PRODUCT_VIEW", store.id, product.id);
   const flow = getStorefrontFlow(store.plan);
+  const theme = buildCommercialSpaceTheme(store);
+  const themeStyle = commercialThemeToCssVariables(theme) as CSSProperties;
   const productPriceLabel = formatMoney({
     amountCents: product.priceCents,
     currency: store.currency ?? product.currency,
@@ -34,20 +38,20 @@ export default async function PublicProductPage({
   });
 
   return (
-    <main className="min-h-dvh bg-background px-4 py-6">
-      <article className="mx-auto max-w-lg overflow-hidden rounded-lg border border-brand-border bg-brand-paper shadow-sm">
+    <main style={themeStyle} className="min-h-dvh bg-[var(--space-background)] px-4 py-6 text-[var(--space-background-contrast)]">
+      <article className="mx-auto max-w-lg overflow-hidden rounded-lg border border-[var(--space-border)] bg-[var(--space-surface)] text-[var(--space-surface-contrast)] shadow-sm">
         <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="aspect-square w-full object-cover" />
         <div className="p-5">
-          <Link href={`/${store.slug}`} className="inline-flex items-center gap-2 text-sm font-bold text-neutral-500 hover:text-neutral-950">
+          <Link href={`/${store.slug}`} className="inline-flex items-center gap-2 text-sm font-bold opacity-65 transition hover:opacity-100">
             <ArrowLeft className="size-4" />
             Volver a tienda
           </Link>
-          {product.isFeatured ? <span className="mt-4 inline-flex rounded-full bg-brand-lime px-2 py-1 text-[11px] font-black text-brand-dark">Destacado</span> : null}
+          {product.isFeatured ? <span className="mt-4 inline-flex rounded-full bg-[var(--space-accent)] px-2 py-1 text-[11px] font-black text-[var(--space-accent-contrast)]">Destacado</span> : null}
           <h1 className="mt-4 text-3xl font-black">{product.name}</h1>
-          <p className="mt-2 text-2xl font-black text-brand-dark">
+          <p className="mt-2 text-2xl font-black text-[var(--space-primary)]">
             {productPriceLabel}
           </p>
-          <p className="mt-4 leading-7 text-neutral-600">{product.description ?? "Consulta disponibilidad por WhatsApp."}</p>
+          <p className="mt-4 leading-7 opacity-75">{product.description ?? "Consulta disponibilidad por WhatsApp."}</p>
           <ProductConversionCta
             storeSlug={store.slug}
             storePlan={store.plan}

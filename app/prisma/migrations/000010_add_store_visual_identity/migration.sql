@@ -1,0 +1,4 @@
+ALTER TABLE "Store" ADD COLUMN "brandPrimaryColor" TEXT DEFAULT '#128C4A';
+ALTER TABLE "Store" ADD COLUMN "brandBackgroundColor" TEXT DEFAULT '#FAF7EF';
+ALTER TABLE "Store" ADD COLUMN "brandAccentColor" TEXT DEFAULT '#A3E635';
+ALTER TABLE "Store" ADD COLUMN "brandThemePreset" TEXT DEFAULT 'JAKAWI';

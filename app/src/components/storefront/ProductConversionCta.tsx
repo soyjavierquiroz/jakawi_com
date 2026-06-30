@@ -42,14 +42,14 @@ export function ProductConversionCta({
   if (isCard) {
     if (flow.showProductCardWhatsappButton && whatsappHref) {
       return (
-        <a href={whatsappHref} className={cn("flex h-10 items-center justify-center rounded-md bg-brand text-center text-xs font-bold text-white transition hover:bg-brand-dark sm:text-sm", className)}>
+        <a href={whatsappHref} className={cn("flex h-10 items-center justify-center rounded-md bg-[var(--space-primary)] text-center text-xs font-bold text-[var(--space-primary-contrast)] transition hover:brightness-95 sm:text-sm", className)}>
           {flow.productCardCta}
         </a>
       );
     }
 
     return (
-      <Link href={productHref ?? "#"} className={cn("flex h-10 items-center justify-center rounded-md border border-brand-border bg-white text-center text-xs font-black text-brand-dark transition hover:border-brand hover:bg-brand-soft sm:text-sm", className)}>
+      <Link href={productHref ?? "#"} className={cn("flex h-10 items-center justify-center rounded-md border border-[var(--space-border)] bg-[var(--space-surface)] text-center text-xs font-black text-[var(--space-surface-contrast)] transition hover:bg-[var(--space-muted)] sm:text-sm", className)}>
         {flow.productCardCta}
       </Link>
     );
@@ -57,7 +57,7 @@ export function ProductConversionCta({
 
   if (!flow.sellerAiEnabled && flow.showProductPageDirectWhatsappButton && whatsappHref) {
     return (
-      <a href={whatsappHref} className={cn("flex h-12 items-center justify-center gap-2 rounded-md bg-brand font-bold text-white transition hover:bg-brand-dark", className)}>
+      <a href={whatsappHref} className={cn("flex h-12 items-center justify-center gap-2 rounded-md bg-[var(--space-primary)] font-bold text-[var(--space-primary-contrast)] transition hover:brightness-95", className)}>
         <MessageCircle className="size-5" />
         {flow.productPagePrimaryCta}
       </a>
@@ -72,9 +72,9 @@ export function ProductConversionCta({
           onOpenSellerAi?.();
           openSellerAi(productId, productName, "chat");
         }}
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-brand-dark font-black text-white transition hover:bg-brand"
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[var(--space-primary)] font-black text-[var(--space-primary-contrast)] transition hover:brightness-95"
       >
-        <Sparkles className="size-5 text-brand-lime" />
+        <Sparkles className="size-5 text-[var(--space-accent)]" />
         {flow.productPagePrimaryCta}
       </button>
 
@@ -83,13 +83,13 @@ export function ProductConversionCta({
           <button
             type="button"
             onClick={() => openSellerAi(productId, productName, "whatsapp")}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-brand-border bg-white font-bold text-brand-dark transition hover:border-brand hover:bg-brand-soft"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--space-border)] bg-[var(--space-surface)] font-bold text-[var(--space-surface-contrast)] transition hover:bg-[var(--space-muted)]"
           >
             <MessageCircle className="size-4" />
             {flow.productPageSecondaryCta}
           </button>
         ) : whatsappHref ? (
-          <a href={whatsappHref} className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-brand-border bg-white font-bold text-brand-dark transition hover:border-brand hover:bg-brand-soft">
+          <a href={whatsappHref} className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--space-border)] bg-[var(--space-surface)] font-bold text-[var(--space-surface-contrast)] transition hover:bg-[var(--space-muted)]">
             <MessageCircle className="size-4" />
             {flow.productPageSecondaryCta}
           </a>

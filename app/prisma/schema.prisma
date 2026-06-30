@@ -140,6 +140,10 @@ model Store {
   city        String?
   region      String?
   themeColor  String   @default("#128C4A")
+  brandPrimaryColor String? @default("#128C4A")
+  brandBackgroundColor String? @default("#FAF7EF")
+  brandAccentColor String? @default("#A3E635")
+  brandThemePreset String? @default("JAKAWI")
   isPublished Boolean  @default(true)
   plan        String   @default("LAUNCH")
   planStatus  String   @default("ACTIVE")

@@ -686,46 +686,46 @@ export function SellerAiWidget({
       {step !== "closed" ? (
         <section
           className={cn(
-            "fixed inset-0 flex h-[100dvh] max-h-none flex-col overflow-hidden border-0 bg-[#FAF7EF] shadow-none sm:inset-auto sm:right-5 sm:bottom-5 sm:w-[400px] sm:rounded-lg sm:border sm:border-brand-border sm:bg-[#FAF7EF] sm:shadow-[0_18px_48px_rgba(0,0,0,0.16)]",
+            "fixed inset-0 flex h-[100dvh] max-h-none flex-col overflow-hidden border-0 bg-[var(--space-background)] text-[var(--space-background-contrast)] shadow-none sm:inset-auto sm:right-5 sm:bottom-5 sm:w-[400px] sm:rounded-lg sm:border sm:border-[var(--space-border)] sm:shadow-[0_18px_48px_rgba(0,0,0,0.16)]",
             step === "chat" ? "sm:h-[560px] sm:max-h-[560px]" : "sm:max-h-[560px]",
           )}
           aria-label={widgetTitle}
           data-seller-ai-mode={commercialMode ?? undefined}
           data-seller-ai-stage={commercialStage ?? undefined}
         >
-          <header className="shrink-0 border-b border-black/10 bg-brand-dark px-3 pb-2 pt-[calc(env(safe-area-inset-top)+8px)] text-white sm:px-4 sm:pt-3">
+          <header className="shrink-0 border-b border-black/10 bg-[var(--space-primary)] px-3 pb-2 pt-[calc(env(safe-area-inset-top)+8px)] text-[var(--space-primary-contrast)] sm:px-4 sm:pt-3">
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
-              <button type="button" onClick={closeWidget} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white/10 px-2 text-xs font-black text-white transition hover:bg-white/15 min-[380px]:px-2.5">
+              <button type="button" onClick={closeWidget} className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-white/10 px-2 text-xs font-black transition hover:bg-white/15 min-[380px]:px-2.5">
                 <ArrowLeft className="size-4" />
                 <span className="max-[340px]:hidden">Volver a la tienda</span>
                 <span className="hidden max-[340px]:inline">Volver</span>
               </button>
               <div className="flex min-w-0 items-center justify-center gap-1.5">
-                <Sparkles className="size-4 shrink-0 text-brand-lime" />
+                <Sparkles className="size-4 shrink-0 text-[var(--space-accent)]" />
                 <h3 className="truncate text-sm font-black leading-5">{widgetTitle}</h3>
               </div>
               <div className="flex items-center gap-1">
-                <button type="button" onClick={toggleSound} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label={soundEnabled ? "Silenciar chat" : "Activar sonido del chat"}>
+                <button type="button" onClick={toggleSound} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 transition hover:bg-white/15" aria-label={soundEnabled ? "Silenciar chat" : "Activar sonido del chat"}>
                   {soundEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
                 </button>
-                <button type="button" onClick={closeWidget} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/15" aria-label="Cerrar Seller AI">
+                <button type="button" onClick={closeWidget} className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 transition hover:bg-white/15" aria-label="Cerrar Seller AI">
                   <X className="size-4" />
                 </button>
               </div>
             </div>
             <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
-              <p className="truncate text-[11px] font-semibold leading-4 text-white/75">{contextSubtitle}</p>
-              {leadCode ? <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-bold leading-4 text-brand-lime">{leadCode}</span> : null}
+              <p className="truncate text-[11px] font-semibold leading-4 opacity-75">{contextSubtitle}</p>
+              {leadCode ? <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-bold leading-4 text-[var(--space-accent)]">{leadCode}</span> : null}
             </div>
           </header>
 
-          <div className="shrink-0 border-b border-brand-border bg-white px-4 py-2">
+          <div className="shrink-0 border-b border-[var(--space-border)] bg-[var(--space-surface)] px-4 py-2 text-[var(--space-surface-contrast)]">
             {productName ? (
               <div className="flex items-center gap-2.5">
                 {productImageUrl ? <img src={productImageUrl} alt="" className="size-10 shrink-0 rounded-md object-cover" /> : null}
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-normal text-neutral-500">Producto seleccionado</p>
-                  <p className="truncate text-[13px] font-black leading-4 text-brand-dark">{productName}</p>
+                  <p className="truncate text-[13px] font-black leading-4">{productName}</p>
                   <p className="truncate text-[12px] font-semibold leading-4 text-neutral-500">{[productPriceLabel, categoryName].filter(Boolean).join(" · ")}</p>
                 </div>
               </div>
@@ -744,7 +744,7 @@ export function SellerAiWidget({
                     <div
                       className={cn(
                         "max-w-[85%] rounded-2xl px-3 py-2.5 text-[15px] leading-6 shadow-sm",
-                        message.role === "user" ? "rounded-br-md bg-brand text-white" : "rounded-bl-md border border-brand-border bg-white text-neutral-800",
+                        message.role === "user" ? "rounded-br-md bg-[var(--space-primary)] text-[var(--space-primary-contrast)]" : "rounded-bl-md border border-[var(--space-border)] bg-white text-neutral-800",
                       )}
                     >
                       {message.text}
@@ -762,24 +762,24 @@ export function SellerAiWidget({
               {error ? <div className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2.5 text-[15px] font-semibold leading-6 text-red-700">{error}</div> : null}
 
               {step === "chat" && showRecommendedProductCards && recommendedProductContextKey === currentProductKey && recommendedProducts.length > 0 ? (
-                <div className="w-full rounded-2xl rounded-bl-md border border-brand-border bg-white p-2.5 shadow-sm">
+                <div className="w-full rounded-2xl rounded-bl-md border border-[var(--space-border)] bg-white p-2.5 shadow-sm">
                   <div className="space-y-2">
                     {recommendedProducts.map((product) => (
-                      <div key={product.id} className="grid grid-cols-[auto_1fr] gap-2 rounded-md bg-brand-muted p-2">
+                      <div key={product.id} className="grid grid-cols-[auto_1fr] gap-2 rounded-md bg-[var(--space-muted)] p-2">
                         {product.imageUrl ? <img src={product.imageUrl} alt="" className="size-12 rounded-md object-cover" /> : null}
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-black text-brand-dark">{product.name}</p>
+                          <p className="truncate text-sm font-black text-neutral-900">{product.name}</p>
                           <p className="text-xs font-bold text-neutral-700">{product.priceLabel}</p>
                           {product.shortReason ? <p className="line-clamp-2 text-xs font-semibold leading-4 text-neutral-500">{product.shortReason}</p> : null}
                           <div className="mt-2 flex gap-2">
-                            <a href={`/${storeSlug}/p/${product.slug}`} className="inline-flex h-8 items-center justify-center rounded-full border border-brand-border bg-white px-3 text-xs font-black text-brand-dark transition hover:border-brand">
+                            <a href={`/${storeSlug}/p/${product.slug}`} className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--space-border)] bg-white px-3 text-xs font-black text-neutral-800 transition hover:bg-[var(--space-muted)]">
                               Ver
                             </a>
                             <button
                               type="button"
                               onClick={() => void sendMessage(`Me interesa ${product.name}`)}
                               disabled={chatIsBusy || !leadId}
-                              className="inline-flex h-8 items-center justify-center rounded-full bg-brand px-3 text-xs font-black text-white transition hover:bg-brand-dark disabled:opacity-50"
+                              className="inline-flex h-8 items-center justify-center rounded-full bg-[var(--space-primary)] px-3 text-xs font-black text-[var(--space-primary-contrast)] transition hover:brightness-95 disabled:opacity-50"
                             >
                               Me interesa
                             </button>
@@ -792,19 +792,19 @@ export function SellerAiWidget({
               ) : null}
 
               {step === "phone_capture" ? (
-                <div className="rounded-2xl border border-brand-border bg-white p-3 shadow-sm">
-                  <p className="text-sm font-black leading-5 text-brand-dark">{phoneCaptureCopy.title}</p>
+                <div className="rounded-2xl border border-[var(--space-border)] bg-white p-3 shadow-sm">
+                  <p className="text-sm font-black leading-5 text-neutral-900">{phoneCaptureCopy.title}</p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-neutral-600">{phoneCaptureCopy.message}</p>
                 </div>
               ) : null}
 
               {step === "redirecting" ? (
-                <div className="rounded-2xl border border-brand-border bg-white p-3 text-center shadow-sm">
-                  <Loader2 className="mx-auto size-6 animate-spin text-brand-dark" />
-                  <p className="mt-3 text-[15px] font-black text-brand-dark">{widgetCopy.preparingWhatsapp}</p>
+                <div className="rounded-2xl border border-[var(--space-border)] bg-white p-3 text-center shadow-sm">
+                  <Loader2 className="mx-auto size-6 animate-spin text-[var(--space-primary)]" />
+                  <p className="mt-3 text-[15px] font-black text-neutral-900">{widgetCopy.preparingWhatsapp}</p>
                   {redirectError ? <p className="mt-2 text-sm font-semibold text-red-700">{redirectError}</p> : null}
                   {manualWhatsappUrl ? (
-                    <a href={manualWhatsappUrl} target="_blank" className="mt-3 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-brand px-4 text-sm font-black text-white">
+                    <a href={manualWhatsappUrl} target="_blank" className="mt-3 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--space-primary)] px-4 text-sm font-black text-[var(--space-primary-contrast)]">
                       <MessageCircle className="size-4" />
                       {widgetCopy.openWhatsappManually}
                     </a>
@@ -817,7 +817,7 @@ export function SellerAiWidget({
           </div>
 
           {step === "chat" ? (
-            <div className="shrink-0 border-t border-brand-border bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2.5">
+            <div className="shrink-0 border-t border-[var(--space-border)] bg-[var(--space-surface)] px-4 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2.5">
               {displayedQuickReplies.length > 0 ? (
                 <div className="relative -mx-4 mb-2.5 overflow-hidden">
                   <div className="flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -827,7 +827,7 @@ export function SellerAiWidget({
                         type="button"
                         onClick={() => void sendMessage(reply)}
                         disabled={chatIsBusy || !leadId}
-                        className="h-9 shrink-0 rounded-full border border-brand-border bg-brand-soft px-3 text-sm font-black text-brand-dark transition hover:border-brand hover:bg-brand-lime disabled:opacity-50"
+                        className="h-9 shrink-0 rounded-full border border-[var(--space-border)] bg-[var(--space-muted)] px-3 text-sm font-black text-[var(--space-surface-contrast)] transition hover:brightness-95 disabled:opacity-50"
                       >
                         {reply}
                       </button>
@@ -844,9 +844,9 @@ export function SellerAiWidget({
                   disabled={isAssistantBusy}
                   maxLength={1000}
                   placeholder={widgetCopy.inputPlaceholder}
-                  className="h-11 min-w-0 flex-1 rounded-full border border-brand-border bg-[#FAF7EF] px-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-brand focus:ring-4 focus:ring-brand/10 disabled:opacity-60"
+                  className="h-11 min-w-0 flex-1 rounded-full border border-[var(--space-border)] bg-[var(--space-background)] px-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-[var(--space-primary)] focus:ring-4 focus:ring-black/10 disabled:opacity-60"
                 />
-                <button type="submit" disabled={chatIsBusy || !input.trim() || !leadId} className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-dark text-white transition hover:bg-brand disabled:opacity-50" aria-label="Enviar mensaje">
+                <button type="submit" disabled={chatIsBusy || !input.trim() || !leadId} className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--space-primary)] text-[var(--space-primary-contrast)] transition hover:brightness-95 disabled:opacity-50" aria-label="Enviar mensaje">
                   {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 </button>
               </form>
@@ -858,7 +858,7 @@ export function SellerAiWidget({
                   disabled={chatIsBusy}
                   className={cn(
                     "mt-3 flex w-full items-center justify-center gap-2 rounded-full border font-black transition disabled:opacity-50",
-                    ctaIsStrong ? "h-11 border-brand bg-brand text-sm text-white shadow-sm hover:bg-brand-dark" : "h-10 border-brand-border bg-white text-sm text-brand-dark hover:border-brand hover:bg-brand-soft",
+                    ctaIsStrong ? "h-11 border-[var(--space-primary)] bg-[var(--space-primary)] text-sm text-[var(--space-primary-contrast)] shadow-sm hover:brightness-95" : "h-10 border-[var(--space-border)] bg-white text-sm text-neutral-800 hover:bg-[var(--space-muted)]",
                   )}
                 >
                   <MessageCircle className="size-4" />
@@ -869,7 +869,7 @@ export function SellerAiWidget({
           ) : null}
 
           {step === "phone_capture" ? (
-            <form onSubmit={submitPhone} className="shrink-0 space-y-2.5 border-t border-brand-border bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3">
+            <form onSubmit={submitPhone} className="shrink-0 space-y-2.5 border-t border-[var(--space-border)] bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3">
               <SmartPhoneInput
                 label="WhatsApp"
                 value={customerPhone}
@@ -887,22 +887,22 @@ export function SellerAiWidget({
                 onChange={(event) => setCustomerName(event.target.value)}
                 autoComplete="name"
                 placeholder={widgetCopy.namePlaceholder}
-                className="h-11 w-full rounded-full border border-brand-border bg-[#FAF7EF] px-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-brand focus:ring-4 focus:ring-brand/10"
+                className="h-11 w-full rounded-full border border-[var(--space-border)] bg-[var(--space-background)] px-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-[var(--space-primary)] focus:ring-4 focus:ring-black/10"
               />
               {phoneError ? <p className="px-1 text-sm font-bold text-red-700">{phoneError}</p> : null}
               {redirectError && !manualWhatsappUrl ? <p className="px-1 text-sm font-bold text-red-700">{redirectError}</p> : null}
               {redirectError && manualWhatsappUrl ? (
-                <a href={manualWhatsappUrl} target="_blank" className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-brand px-4 text-sm font-black text-white">
+                <a href={manualWhatsappUrl} target="_blank" className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--space-primary)] px-4 text-sm font-black text-[var(--space-primary-contrast)]">
                   <MessageCircle className="size-4" />
                   {widgetCopy.openWhatsappManually}
                 </a>
               ) : (
                 <div className="grid grid-cols-[0.85fr_1.15fr] gap-2 pt-0.5">
-                  <button type="button" onClick={() => setStep("chat")} className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand">
+                  <button type="button" onClick={() => setStep("chat")} className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-[var(--space-border)] bg-white px-3 text-sm font-black text-neutral-800 transition hover:bg-[var(--space-muted)]">
                     <ArrowLeft className="size-4" />
                     {widgetCopy.backToChat}
                   </button>
-                  <button type="submit" disabled={isLoading} className="flex h-11 items-center justify-center gap-2 rounded-full bg-brand px-3 text-sm font-black text-white transition hover:bg-brand-dark disabled:opacity-50">
+                  <button type="submit" disabled={isLoading} className="flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--space-primary)] px-3 text-sm font-black text-[var(--space-primary-contrast)] transition hover:brightness-95 disabled:opacity-50">
                     {isLoading ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
                     <span className="min-[380px]:hidden">{productName ? "Consultar" : widgetCopy.continueWhatsapp}</span>
                     <span className="hidden min-[380px]:inline">{productName ? widgetCopy.leaveWhatsappInquiry : widgetCopy.continueWhatsappLong}</span>
@@ -915,7 +915,7 @@ export function SellerAiWidget({
       ) : (
         <div className="flex flex-col items-end gap-2 sm:items-end">
           {showTeaser ? (
-            <div className="max-w-[min(310px,calc(100vw-2rem))] rounded-2xl rounded-br-md border border-brand-border bg-white px-4 py-3 text-[15px] font-bold leading-5 text-brand-dark shadow-lg shadow-black/10">
+            <div className="max-w-[min(310px,calc(100vw-2rem))] rounded-2xl rounded-br-md border border-[var(--space-border)] bg-[var(--space-surface)] px-4 py-3 text-[15px] font-bold leading-5 text-[var(--space-surface-contrast)] shadow-lg shadow-black/10">
               {teaserText}
             </div>
           ) : null}
@@ -923,11 +923,11 @@ export function SellerAiWidget({
             type="button"
             onClick={() => void openChat()}
             className={cn(
-              "flex min-h-12 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full bg-brand-dark px-4 py-3 text-[15px] font-black text-white shadow-xl shadow-black/20 transition hover:bg-brand active:scale-[0.98]",
+              "flex min-h-12 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full bg-[var(--space-primary)] px-4 py-3 text-[15px] font-black text-[var(--space-primary-contrast)] shadow-xl shadow-black/20 transition hover:brightness-95 active:scale-[0.98]",
               isNudging && "seller-ai-nudge",
             )}
           >
-            <Sparkles className="size-5 text-brand-lime" />
+            <Sparkles className="size-5 text-[var(--space-accent)]" />
             <span className="truncate">{closedLabel}</span>
           </button>
         </div>

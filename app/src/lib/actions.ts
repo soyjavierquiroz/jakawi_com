@@ -11,6 +11,7 @@ import { registrationConfig } from "@/config/registration";
 import { storePlans } from "@/config/plans";
 import { requireSuperAdmin } from "@/lib/admin";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
+import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
@@ -221,6 +222,36 @@ export async function updateStoreAction(formData: FormData) {
   revalidatePath("/app/tienda");
   revalidatePath(`/${slug}`);
   redirect("/app/tienda?ok=1");
+}
+
+function getCommercialThemePreset(value: string): CommercialThemePresetKey {
+  if (value in COMMERCIAL_THEME_PRESETS) return value as CommercialThemePresetKey;
+  return DEFAULT_COMMERCIAL_THEME.preset;
+}
+
+export async function updateStoreVisualIdentityAction(formData: FormData) {
+  const { store } = await requireStore();
+  const shouldReset = field(formData, "visualIdentityReset") === "1";
+  const presetKey = shouldReset ? DEFAULT_COMMERCIAL_THEME.preset : getCommercialThemePreset(field(formData, "brandThemePreset"));
+  const preset = COMMERCIAL_THEME_PRESETS[presetKey];
+
+  const primary = shouldReset ? preset.primary : normalizeHexColor(field(formData, "brandPrimaryColor"), preset.primary);
+  const background = shouldReset ? preset.background : normalizeHexColor(field(formData, "brandBackgroundColor"), preset.background);
+  const accent = shouldReset ? preset.accent : normalizeHexColor(field(formData, "brandAccentColor"), preset.accent);
+
+  await getPrisma().store.update({
+    where: { id: store.id },
+    data: {
+      brandThemePreset: presetKey,
+      brandPrimaryColor: primary,
+      brandBackgroundColor: background,
+      brandAccentColor: accent,
+    },
+  });
+
+  revalidatePath("/app/tienda");
+  revalidatePath(`/${store.slug}`);
+  redirect("/app/tienda?ok=visual");
 }
 
 export async function createCategoryAction(formData: FormData) {

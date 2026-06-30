@@ -1,6 +1,7 @@
 import { CountryCurrencyFields } from "@/components/commerce/CountryCurrencyFields";
 import { CopyButton } from "@/components/CopyButton";
 import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCard";
+import { VisualIdentitySettings } from "@/components/dashboard/VisualIdentitySettings";
 import { Bot, ExternalLink, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
@@ -63,6 +64,8 @@ export default async function StoreSettingsPage({
       </section>
 
       <PlanUsageCompactCard productUsageLabel={productUsageLabel} sellerAiUsageLabel={sellerAiUsageLabel} voiceNotesLabel={voiceNotesLabel} />
+
+      <VisualIdentitySettings store={store} />
 
       <form action={updateStoreAction} className="space-y-5 rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-6">
         <div>
