@@ -10,6 +10,7 @@ import {
 } from "@/lib/growth-conversion-metrics";
 import { getPartnerCommissionStats } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
+import { getPartnerRevenueAttributionSummary } from "@/lib/revenue-attribution-metrics";
 
 export async function getCurrentUserPartnerPortal(partnerId?: string | null) {
   const user = await requireUser();
@@ -26,7 +27,7 @@ export async function getCurrentUserPartnerPortal(partnerId?: string | null) {
 }
 
 export async function getPartnerPortalSummary(partnerId: string) {
-  const [attributions, commissionStats, conversionStats] = await Promise.all([
+  const [attributions, commissionStats, conversionStats, revenueMetrics] = await Promise.all([
     getPrisma().acquisitionAttribution.findMany({
       where: { partnerId },
       select: {
@@ -37,6 +38,7 @@ export async function getPartnerPortalSummary(partnerId: string) {
     }),
     getPartnerCommissionStats(partnerId),
     getPartnerConversionSummary(partnerId),
+    getPartnerRevenueAttributionSummary(partnerId),
   ]);
 
   const registeredStores = attributions.length;
@@ -53,6 +55,7 @@ export async function getPartnerPortalSummary(partnerId: string) {
     paidStores,
     commissionStats,
     conversionStats,
+    revenueMetrics,
   };
 }
 
@@ -93,7 +96,15 @@ export async function getPartnerPortalAttributions(partnerId: string) {
   return getPrisma().acquisitionAttribution.findMany({
     where: { partnerId },
     include: {
-      store: { include: { owner: { select: { email: true } } } },
+      store: {
+        include: {
+          owner: { select: { email: true } },
+          payments: {
+            where: { status: "CONFIRMED", amountCents: { gt: 0 } },
+            orderBy: [{ confirmedAt: "desc" }, { paidAt: "desc" }, { createdAt: "desc" }],
+          },
+        },
+      },
       partnerDestination: true,
     },
     orderBy: { createdAt: "desc" },

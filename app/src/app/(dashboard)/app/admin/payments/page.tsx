@@ -79,6 +79,13 @@ function typeClass(type: string) {
   return "bg-neutral-100 text-neutral-700";
 }
 
+function attributionContextLabel(attribution: NonNullable<Awaited<ReturnType<typeof getStorePaymentsForAdmin>>[number]["store"]["acquisitionAttribution"]> | null | undefined) {
+  if (attribution?.sourceType === "PARTNER") return `Partner: ${attribution.partner?.name ?? "Partner"}${attribution.partnerDestination ? ` / ${attribution.partnerDestination.label}` : ""}`;
+  if (attribution?.sourceType === "STORE_REFERRAL") return `Referido por ${attribution.referrerStore?.name ?? "tienda"}`;
+  if (attribution?.sourceType === "ORGANIC") return "Orgánico / sin atribución";
+  return "Orgánico / sin atribución";
+}
+
 function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
   return (
     <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm">
@@ -317,7 +324,7 @@ export default async function AdminPaymentsPage({
           <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay pagos para esta búsqueda. Registra pagos que ocurrieron fuera del sistema.</div>
         ) : (
           rows.map((payment) => {
-            const partnerAttribution = payment.store.acquisitionAttribution?.sourceType === "PARTNER" ? payment.store.acquisitionAttribution : null;
+            const attribution = payment.store.acquisitionAttribution;
 
             return (
               <article key={payment.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -333,10 +340,15 @@ export default async function AdminPaymentsPage({
                     <p className="mt-3 text-3xl font-black leading-9 text-brand-dark">{formatStorePaymentMoney(payment.amountCents, payment.currency)}</p>
                     <p className="mt-1 text-sm font-semibold text-neutral-500">{payment.planKey ?? "Sin plan"} / {storePaymentTypeLabel(payment.paymentType)}</p>
                     {payment.description ? <p className="mt-3 break-words text-sm font-bold text-neutral-700">{payment.description}</p> : null}
-                    {partnerAttribution ? (
+                    <div className="mt-4 rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold text-neutral-600">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Atribución</p>
+                      <p className="mt-1 text-brand-dark">{attributionContextLabel(attribution)}</p>
+                      <p className="text-xs text-neutral-500">Contexto informativo. No crea comisiones, recompensas ni cobros automáticos.</p>
+                    </div>
+                    {attribution?.sourceType === "PARTNER" ? (
                       <div className="mt-4 rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold text-neutral-600">
                         <p className="text-[11px] font-black uppercase text-neutral-500">Atribución partner</p>
-                        <p className="mt-1 text-brand-dark">Esta tienda fue atribuida a {partnerAttribution.partner?.name ?? "Partner"}.</p>
+                        <p className="mt-1 text-brand-dark">Esta tienda fue atribuida a {attribution.partner?.name ?? "Partner"}.</p>
                         <p className="text-xs text-neutral-500">Puedes crear comisión desde Referidos o Comisiones.</p>
                       </div>
                     ) : null}

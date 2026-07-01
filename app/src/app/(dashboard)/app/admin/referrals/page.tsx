@@ -5,6 +5,7 @@ import { getPublicStoreUrl } from "@/config/site";
 import { updateAttributionStatusAction } from "@/lib/actions";
 import { adminAttributionFilters, getAdminAttributionFilter, getAdminAttributionRows, getAdminGrowthConversionSummary, requireSuperAdmin } from "@/lib/admin";
 import { formatConversionContext, formatConversionRate } from "@/lib/growth-conversion-metrics";
+import { formatRevenueTotals, getAdminRevenueAttributionSummary, type RevenueCurrencyTotal } from "@/lib/revenue-attribution-metrics";
 import { cn } from "@/lib/ui";
 
 type AdminReferralsSearchParams = {
@@ -89,6 +90,15 @@ function MetricCard({ label, value, detail }: { label: string; value: string | n
   );
 }
 
+function paymentRevenueTotals(payments: { amountCents: number; currency: string }[]): RevenueCurrencyTotal[] {
+  const totals = new Map<string, number>();
+  for (const payment of payments) {
+    const currency = (payment.currency ?? "BOB").toUpperCase();
+    totals.set(currency, (totals.get(currency) ?? 0) + payment.amountCents);
+  }
+  return [...totals.entries()].map(([currency, amountCents]) => ({ currency, amountCents }));
+}
+
 export default async function AdminReferralsPage({
   searchParams,
 }: {
@@ -98,9 +108,10 @@ export default async function AdminReferralsPage({
   const params = await searchParams;
   const activeFilter = getAdminAttributionFilter(params.filter);
   const q = params.q?.trim() ?? "";
-  const [rows, conversionSummary] = await Promise.all([
+  const [rows, conversionSummary, revenueSummary] = await Promise.all([
     getAdminAttributionRows({ filter: activeFilter, q }),
     getAdminGrowthConversionSummary(),
+    getAdminRevenueAttributionSummary(),
   ]);
 
   return (
@@ -126,6 +137,13 @@ export default async function AdminReferralsPage({
         <MetricCard label="Registros atribuidos" value={conversionSummary.all.total.signups} detail="No incluye orgánico" />
         <MetricCard label="Conversión total" value={formatConversionRate(conversionSummary.all.total.conversionRate)} detail={formatConversionContext(conversionSummary.all.total)} />
         <MetricCard label="Conversión 30 días" value={formatConversionRate(conversionSummary.all.last30Days.conversionRate)} detail={formatConversionContext(conversionSummary.all.last30Days)} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Revenue atribuido total" value={formatRevenueTotals(revenueSummary.attributedFunnel.total.revenue)} detail="Partners y tiendas referidoras" />
+        <MetricCard label="Revenue partners" value={formatRevenueTotals(revenueSummary.partnerRevenue)} detail="Atribuido a partner" />
+        <MetricCard label="Revenue tiendas referidoras" value={formatRevenueTotals(revenueSummary.storeReferralRevenue)} detail="Atribuido a tienda referidora" />
+        <MetricCard label="Revenue orgánico" value={formatRevenueTotals(revenueSummary.organicRevenue)} detail="Orgánico / sin atribución" />
       </div>
 
       <form action="/app/admin/referrals" className="rounded-lg border border-brand-border bg-brand-paper p-3 shadow-sm">
@@ -164,6 +182,14 @@ export default async function AdminReferralsPage({
             const publicUrl = getPublicStoreUrl(row.store.slug);
             const sourceName = row.partner ? `${row.partner.name} (${row.partner.code})` : row.referrerStore ? `${row.referrerStore.name} (${row.referrerStore.slug})` : sourceDescription(row.sourceType);
             const destinationLabel = row.partnerDestination ? `${row.partnerDestination.label} (${row.partnerDestination.slug})` : row.partnerDestinationSlug ?? row.landingPath ?? "Sin destino";
+            const confirmedRevenue = paymentRevenueTotals(row.store.payments);
+            const hasConfirmedPayment = row.store.payments.length > 0;
+            const revenueLabel =
+              row.sourceType === "PARTNER"
+                ? "Pago confirmado atribuido a partner"
+                : row.sourceType === "STORE_REFERRAL"
+                  ? "Pago confirmado atribuido a tienda referidora"
+                  : "Pago confirmado orgánico / sin atribución";
 
             return (
               <article key={row.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -221,6 +247,11 @@ export default async function AdminReferralsPage({
                         <p className="mt-1 text-sm font-black text-neutral-500">{row.sourceType === "ORGANIC" ? "No aplica para orgánico" : "No aplica"}</p>
                       </div>
                     )}
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Revenue confirmado</p>
+                      <p className="mt-1 text-sm font-black text-brand-dark">{hasConfirmedPayment ? formatRevenueTotals(confirmedRevenue) : "Sin pagos confirmados"}</p>
+                      <p className="mt-1 text-xs font-semibold text-neutral-600">{hasConfirmedPayment ? revenueLabel : "Esta tienda todavía no tiene pago confirmado en el ledger."}</p>
+                    </div>
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">

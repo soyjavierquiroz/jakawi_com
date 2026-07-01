@@ -233,6 +233,7 @@ export async function getStorePaymentsForAdmin(params: { q?: string; filter?: st
             include: {
               partner: true,
               partnerDestination: true,
+              referrerStore: true,
             },
           },
         },

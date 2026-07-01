@@ -12,6 +12,7 @@ import {
   getPartnerPortalLinks,
   getPartnerPortalSummary,
 } from "@/lib/partner-portal";
+import { formatRate, formatRevenueTotals, type RevenueCurrencyTotal } from "@/lib/revenue-attribution-metrics";
 import { cn } from "@/lib/ui";
 
 type PartnerPortalSearchParams = {
@@ -77,6 +78,15 @@ function StatCard({ label, value, detail }: { label: string; value: string | num
   );
 }
 
+function paymentRevenueTotals(payments: { amountCents: number; currency: string }[]): RevenueCurrencyTotal[] {
+  const totals = new Map<string, number>();
+  for (const payment of payments) {
+    const currency = (payment.currency ?? "BOB").toUpperCase();
+    totals.set(currency, (totals.get(currency) ?? 0) + payment.amountCents);
+  }
+  return [...totals.entries()].map(([currency, amountCents]) => ({ currency, amountCents }));
+}
+
 export default async function PartnerPortalPage({
   searchParams,
 }: {
@@ -121,7 +131,7 @@ export default async function PartnerPortalPage({
             </div>
           </div>
           <div className="rounded-md bg-white px-4 py-3 text-sm font-semibold leading-6 text-neutral-600 lg:max-w-sm">
-            Los registros se atribuyen cuando el comercio crea su cuenta después de visitar tu link.
+            El revenue se basa en pagos registrados manualmente por JAKAWI.
           </div>
         </div>
       </div>
@@ -133,6 +143,10 @@ export default async function PartnerPortalPage({
         <StatCard label="Clicks últimos 30 días" value={summary.conversionStats.last30Days.clicks} />
         <StatCard label="Registros últimos 30 días" value={summary.conversionStats.last30Days.signups} />
         <StatCard label="Conversión 30 días" value={formatConversionRate(summary.conversionStats.last30Days.conversionRate)} detail={formatConversionContext(summary.conversionStats.last30Days)} />
+        <StatCard label="Revenue confirmado" value={formatRevenueTotals(summary.revenueMetrics.total.revenue)} detail="Pagos manuales atribuidos" />
+        <StatCard label="Revenue 30 días" value={formatRevenueTotals(summary.revenueMetrics.last30Days.revenue)} detail="Registrado manualmente" />
+        <StatCard label="Tiendas con pago confirmado" value={summary.revenueMetrics.total.paidStores} detail={`${summary.revenueMetrics.total.confirmedPayments} pagos confirmados`} />
+        <StatCard label="Conversión registro → pago" value={formatRate(summary.revenueMetrics.total.signupToPaymentRate, "Sin registros")} detail="Revenue atribuido no significa comisión aprobada" />
         <StatCard label="Comercios activos" value={summary.activeStores} />
         <StatCard label="Comercios pagados" value={summary.paidStores} />
         <StatCard label="Pendientes" value={summary.commissionStats.PENDING.count} detail={formatCommissionMoney(summary.commissionStats.PENDING.amountCents)} />
@@ -272,6 +286,10 @@ export default async function PartnerPortalPage({
                     <p className="text-[11px] font-black uppercase text-neutral-500">Estado</p>
                     <p className="mt-1 text-sm font-black text-brand-dark">{statusLabel(attribution.status)}</p>
                   </div>
+                  <div className="rounded-md bg-brand-muted px-3 py-2">
+                    <p className="text-[11px] font-black uppercase text-neutral-500">Revenue confirmado</p>
+                    <p className="mt-1 text-sm font-black text-brand-dark">{attribution.store.payments.length > 0 ? formatRevenueTotals(paymentRevenueTotals(attribution.store.payments)) : "Sin pagos confirmados"}</p>
+                  </div>
                 </div>
               </article>
             );
@@ -285,7 +303,7 @@ export default async function PartnerPortalPage({
           <WalletCards className="mt-0.5 size-5 shrink-0 text-brand" />
           <div>
             <h2 className="text-xl font-black text-brand-dark">Mis comisiones</h2>
-            <p className="mt-1 text-sm font-semibold text-neutral-600">Registro informativo de comisiones manuales.</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-600">Revenue atribuido no significa comisión aprobada. Las comisiones se aprueban manualmente.</p>
           </div>
         </div>
 

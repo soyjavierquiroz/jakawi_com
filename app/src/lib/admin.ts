@@ -11,6 +11,7 @@ import {
 import { getStorePlanState } from "@/lib/plan-limits";
 import { emptyPartnerCommissionStats, getPartnerCommissionStats, getPartnerCommissionStatsByPartner } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
+import { getAdminRevenueAttributionSummary, getRevenueMetricsByPartnerIds } from "@/lib/revenue-attribution-metrics";
 import { getStoreReferralRewardStats } from "@/lib/store-referral-rewards";
 import { getAdminPaymentStats } from "@/lib/store-payments";
 import { AnalyticsEventType, type Prisma } from "@prisma/client";
@@ -136,6 +137,7 @@ export async function getSuperAdminDashboardStats() {
     storePaymentStats,
     storeReferralRewardStats,
     growthConversionSummary,
+    revenueAttributionSummary,
   ] = await Promise.all([
     prisma.store.findMany({
       select: {
@@ -162,6 +164,7 @@ export async function getSuperAdminDashboardStats() {
     getAdminPaymentStats(),
     getStoreReferralRewardStats(),
     getAdminGrowthConversionSummaryInternal(),
+    getAdminRevenueAttributionSummary(),
   ]);
 
   const planCounts = emptyPlanCounts();
@@ -198,6 +201,7 @@ export async function getSuperAdminDashboardStats() {
     storePaymentStats,
     storeReferralRewardStats,
     growthConversionSummary,
+    revenueAttributionSummary,
   };
 }
 
@@ -222,15 +226,17 @@ export async function getAdminPartnerRows() {
       slug: destination.slug,
     })),
   );
-  const [conversionStatsByPartner, conversionStatsByDestination] = await Promise.all([
+  const [conversionStatsByPartner, conversionStatsByDestination, revenueMetricsByPartner] = await Promise.all([
     getGrowthConversionStatsByPartner(partnerIds),
     getGrowthConversionStatsByPartnerDestination(destinationRefs),
+    getRevenueMetricsByPartnerIds(partnerIds),
   ]);
 
   return partners.map((partner) => ({
     ...partner,
     commissionStats: commissionStatsByPartner.get(partner.id) ?? emptyPartnerCommissionStats(),
     conversionStats: conversionStatsByPartner.get(partner.id) ?? emptyGrowthConversionSummary(),
+    revenueMetrics: revenueMetricsByPartner.get(partner.id),
     destinations: partner.destinations.map((destination) => ({
       ...destination,
       conversionStats: conversionStatsByDestination.get(destination.id) ?? emptyGrowthConversionSummary(),
@@ -245,7 +251,18 @@ export async function getAdminAttributionRows(params: { q?: string; filter?: str
   const rows = await getPrisma().acquisitionAttribution.findMany({
     where: buildAttributionWhere({ q, filter: activeFilter }),
     include: {
-      store: { include: { owner: true } },
+      store: {
+        include: {
+          owner: true,
+          payments: {
+            where: {
+              status: "CONFIRMED",
+              amountCents: { gt: 0 },
+            },
+            orderBy: [{ confirmedAt: "desc" }, { paidAt: "desc" }, { createdAt: "desc" }],
+          },
+        },
+      },
       referrerStore: true,
       partner: true,
       partnerDestination: true,

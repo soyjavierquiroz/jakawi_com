@@ -1,10 +1,11 @@
-import { CreditCard, Gift, HandCoins, Network, Store, UsersRound } from "lucide-react";
+import { CreditCard, Gift, HandCoins, Network, Store, TrendingUp, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { getSuperAdminDashboardStats, requireSuperAdmin } from "@/lib/admin";
 import { storePlans, type StorePlanCode } from "@/config/plans";
 import { formatConversionContext, formatConversionRate, type GrowthConversionTopItem } from "@/lib/growth-conversion-metrics";
 import { formatCommissionMoney } from "@/lib/partner-commissions";
+import { formatRate, formatRevenueRate, formatRevenueTotals } from "@/lib/revenue-attribution-metrics";
 import { formatStorePaymentMoney } from "@/lib/store-payments";
 
 const growthModules = [
@@ -21,6 +22,13 @@ const growthModules = [
     text: "Canales comerciales que activan comercios.",
     detail: "Partners con links, destinos y portal read-only.",
     href: "/app/admin/partners",
+  },
+  {
+    title: "Revenue",
+    icon: TrendingUp,
+    text: "Revenue confirmado por fuente atribuida.",
+    detail: "Métricas operativas desde pagos manuales confirmados.",
+    href: "/app/admin/revenue",
   },
   {
     title: "Pagos",
@@ -52,6 +60,7 @@ const quickActions = [
   { label: "Ver comisiones", href: "/app/admin/commissions", icon: HandCoins },
   { label: "Ver recompensas", href: "/app/admin/rewards", icon: Gift },
   { label: "Ver pagos", href: "/app/admin/payments", icon: CreditCard },
+  { label: "Ver revenue", href: "/app/admin/revenue", icon: TrendingUp },
 ];
 
 function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
@@ -138,10 +147,29 @@ export default async function AdminPage() {
           <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">No implica cobro automático</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Total confirmado" value={formatStorePaymentMoney(stats.storePaymentStats.CONFIRMED.amountCents)} detail={`${stats.storePaymentStats.CONFIRMED.count} pagos confirmados`} />
-          <StatCard label="Confirmado 30 días" value={formatStorePaymentMoney(stats.storePaymentStats.confirmedLast30DaysCents)} detail="Revenue manual reciente" />
+          <StatCard label="Revenue confirmado" value={formatRevenueTotals(stats.revenueAttributionSummary.totalRevenue)} detail={`${stats.revenueAttributionSummary.confirmedPayments} pagos confirmados`} />
+          <StatCard label="Revenue 30 días" value={formatRevenueTotals(stats.revenueAttributionSummary.last30DaysRevenue)} detail="Revenue manual reciente" />
+          <StatCard label="Atribuido a partners" value={formatRevenueTotals(stats.revenueAttributionSummary.partnerRevenue)} detail="Desde stores atribuidas a partners" />
+          <StatCard label="Atribuido a referidoras" value={formatRevenueTotals(stats.revenueAttributionSummary.storeReferralRevenue)} detail="Desde stores referidas por tiendas" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Orgánico / sin atribución" value={formatRevenueTotals(stats.revenueAttributionSummary.organicRevenue)} detail="Sin partner/store referral" />
+          <StatCard label="Tiendas con pago" value={stats.revenueAttributionSummary.confirmedStores} detail="Al menos un pago confirmado" />
+          <StatCard label="Conversión registro → pago" value={formatRate(stats.revenueAttributionSummary.attributedFunnel.total.signupToPaymentRate, "Sin registros")} detail={`${stats.revenueAttributionSummary.attributedFunnel.total.paidStores} tiendas con pago confirmado`} />
+          <StatCard label="Revenue por registro" value={formatRevenueRate(stats.revenueAttributionSummary.attributedFunnel.total.revenuePerSignup, "Sin registros")} detail="Funnel atribuido" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Pagos pendientes" value={stats.storePaymentStats.PENDING.count} detail={formatStorePaymentMoney(stats.storePaymentStats.PENDING.amountCents)} />
+          <StatCard label="Pagos confirmados" value={stats.storePaymentStats.CONFIRMED.count} detail="Ledger manual" />
           <StatCard label="Tiendas con pago" value={stats.storePaymentStats.confirmedStoreCount} detail="Al menos un pago confirmado" />
+          <Link href="/app/admin/revenue" className="rounded-lg border border-brand-border bg-brand-paper p-4 font-black text-brand-dark shadow-sm hover:border-brand">
+            <span className="flex items-center gap-2 text-xs uppercase text-neutral-500">
+              <TrendingUp className="size-4 text-brand" />
+              Ver revenue
+            </span>
+            <span className="mt-2 block text-2xl leading-8">Abrir métricas</span>
+            <span className="mt-1 block text-sm font-semibold text-neutral-500">Revenue confirmado y funnel.</span>
+          </Link>
         </div>
         <p className="text-sm font-semibold text-neutral-600">Pagos registrados manualmente. No implica cobro automático.</p>
       </section>
@@ -190,7 +218,7 @@ export default async function AdminPage() {
           <StatCard label="Recompensas aplicadas" value={stats.storeReferralRewardStats.APPLIED.count} detail="Registradas como aplicadas" />
           <StatCard label="Beneficios manuales" value="Sin auto-aplicar" detail="No toca billing ni planes" />
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-5">
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           {growthModules.map((module) => {
             const Icon = module.icon;
             const content = (
@@ -225,7 +253,7 @@ export default async function AdminPage() {
           <p className="text-sm font-black text-brand-dark">Acciones rápidas</p>
           <h2 className="mt-1 text-2xl font-black text-brand-dark">Operación diaria</h2>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
           {quickActions.map((action) => {
             const Icon = action.icon;
             return (

@@ -240,6 +240,10 @@ export async function getOwnerStoreReferralData(storeId: string) {
             plan: true,
             planStatus: true,
             createdAt: true,
+            payments: {
+              where: { status: "CONFIRMED", amountCents: { gt: 0 } },
+              orderBy: [{ confirmedAt: "desc" }, { paidAt: "desc" }, { createdAt: "desc" }],
+            },
           },
         },
       },

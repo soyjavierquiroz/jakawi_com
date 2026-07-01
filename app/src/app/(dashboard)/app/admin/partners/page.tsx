@@ -17,6 +17,7 @@ import { getPartnerDestinationReferralLink, getPartnerReferralLink } from "@/lib
 import { formatConversionContext, formatConversionRate, type GrowthConversionPeriod } from "@/lib/growth-conversion-metrics";
 import { buildGrowthQrFileName, buildPartnerDestinationShareText, buildPartnerShareText } from "@/lib/growth-share-copy";
 import { formatCommissionMoney } from "@/lib/partner-commissions";
+import { formatRate, formatRevenueRate, formatRevenueTotals } from "@/lib/revenue-attribution-metrics";
 import { cn } from "@/lib/ui";
 
 type AdminPartnersSearchParams = {
@@ -241,6 +242,21 @@ export default async function AdminPartnersPage({
                       <p className="mt-1 text-xs font-semibold text-neutral-600">
                         {bestDestination ? `${formatConversionRate(bestDestination.conversionStats.total.conversionRate)} · ${bestDestination.conversionStats.total.clicks} clicks · ${bestDestination.conversionStats.total.signups} registros` : "Requiere al menos 3 clicks y registros atribuidos."}
                       </p>
+                    </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Revenue atribuido</p>
+                      <p className="mt-1 text-sm font-black text-brand-dark">{formatRevenueTotals(partner.revenueMetrics?.total.revenue)}</p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-semibold text-neutral-600">
+                        <p>
+                          <span className="block text-[10px] uppercase">30 días</span>
+                          <span className="font-black text-brand-dark">{formatRevenueTotals(partner.revenueMetrics?.last30Days.revenue)}</span>
+                        </p>
+                        <p>
+                          <span className="block text-[10px] uppercase">Tiendas pagadas</span>
+                          <span className="font-black text-brand-dark">{partner.revenueMetrics?.total.paidStores ?? 0}</span>
+                        </p>
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-neutral-600">Registro → pago: {formatRate(partner.revenueMetrics?.total.signupToPaymentRate, "Sin registros")} · Revenue por registro: {formatRevenueRate(partner.revenueMetrics?.total.revenuePerSignup, "Sin registros")}</p>
                     </div>
                     <div className="rounded-md bg-brand-muted px-3 py-2">
                       <p className="text-[11px] font-black uppercase text-neutral-500">Contacto</p>
