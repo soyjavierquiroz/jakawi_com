@@ -14,6 +14,8 @@ type ProductConversionCtaProps = {
   variant?: "card" | "product-page";
   fallbackWhatsappHref?: string;
   productHref?: string;
+  primaryLabel?: string;
+  hideSecondaryCta?: boolean;
   onOpenSellerAi?: () => void;
 };
 
@@ -33,6 +35,8 @@ export function ProductConversionCta({
   variant = "product-page",
   fallbackWhatsappHref,
   productHref,
+  primaryLabel,
+  hideSecondaryCta = false,
   onOpenSellerAi,
 }: ProductConversionCtaProps) {
   const flow = getStorefrontFlow(storePlan);
@@ -75,10 +79,10 @@ export function ProductConversionCta({
         className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[var(--space-primary)] font-black text-[var(--space-primary-contrast)] transition hover:brightness-95"
       >
         <Sparkles className="size-5 text-[var(--space-accent)]" />
-        {flow.productPagePrimaryCta}
+        {primaryLabel ?? flow.productPagePrimaryCta}
       </button>
 
-      {flow.showProductPageDirectWhatsappButton && flow.productPageSecondaryCta ? (
+      {!hideSecondaryCta && flow.showProductPageDirectWhatsappButton && flow.productPageSecondaryCta ? (
         flow.requirePhoneBeforeWhatsapp ? (
           <button
             type="button"

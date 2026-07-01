@@ -2,6 +2,7 @@ import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
 import { VisitorProvider } from "@/context/VisitorContext";
 import { normalizeCommercialTemplate } from "@/config/commercial-templates";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
+import { formatMoney } from "@/lib/money";
 import { AppCommerceTemplate } from "@/components/storefront/templates/AppCommerceTemplate";
 import { BoutiqueTemplate } from "@/components/storefront/templates/BoutiqueTemplate";
 import { ShowcaseTemplate } from "@/components/storefront/templates/ShowcaseTemplate";
@@ -18,6 +19,15 @@ export function CommercialSpaceRenderer({ store, categories, products }: Commerc
   const template = normalizeCommercialTemplate(store.commercialTemplate);
   const templateProps = { store, categories, products, flow };
   const hideInitialSellerAiTrigger = template === "APP_COMMERCE" || (template === "SHOWCASE" && products.length > 0);
+  const showcaseContextProduct = template === "SHOWCASE" ? (products.find((product) => product.isFeatured) ?? products[0]) : undefined;
+  const showcaseContextPriceLabel = showcaseContextProduct
+    ? formatMoney({
+        amountCents: showcaseContextProduct.priceCents,
+        currency: store.currency ?? showcaseContextProduct.currency,
+        countryCode: store.countryCode ?? "BO",
+        locale: store.locale,
+      })
+    : undefined;
 
   return (
     <>
@@ -36,6 +46,11 @@ export function CommercialSpaceRenderer({ store, categories, products }: Commerc
             requirePhoneBeforeWhatsapp={flow.requirePhoneBeforeWhatsapp}
             initiallyHidden={hideInitialSellerAiTrigger}
             triggerLabel={flow.productPagePrimaryCta}
+            productId={showcaseContextProduct?.id}
+            productName={showcaseContextProduct?.name}
+            productImageUrl={showcaseContextProduct?.imageUrl}
+            productPriceLabel={showcaseContextPriceLabel}
+            categoryName={showcaseContextProduct?.category?.name}
           />
         </VisitorProvider>
       ) : null}

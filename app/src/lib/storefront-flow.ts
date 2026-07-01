@@ -75,7 +75,7 @@ export function getStorefrontFlow(planCode: string | null | undefined): Storefro
       requirePhoneBeforeWhatsapp: plan.requirePhoneBeforeWhatsapp,
       productCardCta: "Ver producto",
       productPagePrimaryCta: "Te ayudo a elegir",
-      productPageSecondaryCta: "Consultar directo",
+      productPageSecondaryCta: "Hablemos por WhatsApp",
       showProductCardWhatsappButton: false,
       showProductPageDirectWhatsappButton: true,
       productLimit: plan.productLimit,

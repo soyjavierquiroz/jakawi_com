@@ -1,9 +1,8 @@
-import { ArrowRight, MessageCircle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { CommercialCategoryChips, CommercialEmptyProducts, CommercialFooter, type CommercialTemplateProduct, type CommercialTemplateProps, type CommercialTemplateStore } from "@/components/storefront/templates/components";
 import { formatMoney } from "@/lib/money";
-import type { StorefrontFlow } from "@/lib/storefront-flow";
 import { cn } from "@/lib/ui";
 
 const SHOWCASE_TAGLINE_FALLBACK = "Compra guiada con contexto.";
@@ -52,25 +51,6 @@ function ShowcaseHero({
   );
 }
 
-function ShowcaseHeroActions({ store }: { store: CommercialTemplateStore }) {
-  const whatsappHref = `https://wa.me/${store.whatsapp}`;
-
-  return (
-    <section className="relative z-10 mx-auto -mt-4 max-w-6xl px-4 sm:px-6 lg:px-8">
-      <div className="flex w-fit max-w-full gap-2 rounded-full border border-[var(--space-border)] bg-[var(--space-background)]/92 p-1.5 text-[var(--space-background-contrast)] shadow-[0_14px_34px_rgb(0_0_0/0.10)] backdrop-blur">
-        <a href="#productos" className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full bg-[var(--space-primary)] px-4 text-xs font-black text-[var(--space-primary-contrast)] transition hover:brightness-95 sm:text-sm">
-          Ver productos
-          <ArrowRight className="size-3.5 shrink-0" />
-        </a>
-        <a href={whatsappHref} className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full px-4 text-xs font-black text-[var(--space-primary)] ring-1 ring-[var(--space-border)] transition hover:bg-[var(--space-surface)] sm:text-sm">
-          <MessageCircle className="size-3.5 shrink-0" />
-          Consultar
-        </a>
-      </div>
-    </section>
-  );
-}
-
 function ShowcaseProductImage({ product, featured = false }: { product: CommercialTemplateProduct; featured?: boolean }) {
   const imageUrl = product.imageUrl ?? "/placeholder-product.svg";
 
@@ -81,7 +61,7 @@ function ShowcaseProductImage({ product, featured = false }: { product: Commerci
   );
 }
 
-function ShowcaseFeaturedProduct({ store, product, flow }: { store: CommercialTemplateStore; product: CommercialTemplateProduct; flow: StorefrontFlow }) {
+function ShowcaseFeaturedProduct({ store, product }: { store: CommercialTemplateStore; product: CommercialTemplateProduct }) {
   const productHref = `/${store.slug}/p/${product.slug}`;
   const price = getShowcasePrice(store, product);
 
@@ -100,19 +80,9 @@ function ShowcaseFeaturedProduct({ store, product, flow }: { store: CommercialTe
           </Link>
           <p className="mt-2 text-2xl font-black text-[var(--space-primary)]">{price}</p>
           {product.description ? <p className="mt-2 line-clamp-2 text-sm font-semibold leading-6 opacity-70">{product.description}</p> : null}
-          <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1.25fr)_minmax(0,0.85fr)]">
-            <ProductConversionCta
-              storeSlug={store.slug}
-              storePlan={store.plan}
-              productId={product.id}
-              productName={product.name}
-              productHref={productHref}
-              fallbackWhatsappHref={`/api/whatsapp/click?productId=${product.id}`}
-              variant="product-page"
-              className={cn("showcase-assisted-cta", flow.sellerAiEnabled && "showcase-assisted-cta-pulse")}
-            />
-            <Link href={productHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[var(--space-border)] bg-[var(--space-surface)] px-5 text-sm font-black text-[var(--space-surface-contrast)] transition hover:bg-[var(--space-muted)]">
-              Ver producto
+          <div className="mt-4">
+            <Link href={productHref} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--space-border)] bg-[var(--space-surface)] px-5 text-sm font-black text-[var(--space-surface-contrast)] transition hover:bg-[var(--space-muted)] sm:w-auto">
+              Ver detalle
               <ArrowRight className="size-4" />
             </Link>
           </div>
@@ -159,19 +129,37 @@ export function ShowcaseTemplate({ store, categories, products, flow }: Commerci
   const featuredProducts = products.filter((product) => product.isFeatured);
   const featuredProduct = featuredProducts[0] ?? products[0];
   const remainingProducts = featuredProduct ? products.filter((product) => product.id !== featuredProduct.id) : [];
+  const showStickyAssistedCta = flow.sellerAiEnabled && Boolean(featuredProduct);
 
   return (
     <>
       <ShowcaseHero store={store} />
-      <ShowcaseHeroActions store={store} />
 
-      <section id="productos" className="mx-auto mt-6 max-w-6xl px-4 sm:px-6 lg:px-8">
+      <section id="productos" className={cn("mx-auto mt-6 max-w-6xl px-4 sm:px-6 lg:px-8", showStickyAssistedCta && "pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-0")}>
         <CommercialCategoryChips categories={categories} variant="showcase" />
         {products.length === 0 ? <CommercialEmptyProducts /> : null}
-        {featuredProduct ? <ShowcaseFeaturedProduct store={store} product={featuredProduct} flow={flow} /> : null}
+        {featuredProduct ? <ShowcaseFeaturedProduct store={store} product={featuredProduct} /> : null}
         {remainingProducts.length > 0 ? <ShowcaseProductGrid store={store} products={remainingProducts} title="También disponible" /> : null}
         <CommercialFooter />
       </section>
+
+      {showStickyAssistedCta && featuredProduct ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-[var(--space-background)] via-[var(--space-background)]/96 to-transparent px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-8 md:hidden">
+          <div className="mx-auto max-w-md">
+            <ProductConversionCta
+              storeSlug={store.slug}
+              storePlan={store.plan}
+              productId={featuredProduct.id}
+              productName={featuredProduct.name}
+              fallbackWhatsappHref={`/api/whatsapp/click?productId=${featuredProduct.id}`}
+              variant="product-page"
+              primaryLabel="Hablemos, te ayudo a elegir"
+              hideSecondaryCta
+              className="showcase-assisted-sticky-cta showcase-assisted-sticky-cta-pulse"
+            />
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

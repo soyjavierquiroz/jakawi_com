@@ -68,7 +68,7 @@ export default async function PublicProductPage({
           ) : (
             <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--space-muted)] px-3 py-2 text-sm font-black">
               <MessageCircle className="size-4 text-[var(--space-primary)]" />
-              Consulta directo por WhatsApp
+              Hablemos por WhatsApp
             </p>
           )}
           <ProductConversionCta
