@@ -3,7 +3,8 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { getPublicStoreUrl } from "@/config/site";
 import { updateAttributionStatusAction } from "@/lib/actions";
-import { adminAttributionFilters, getAdminAttributionFilter, getAdminAttributionRows, getAdminGrowthClickOverview, requireSuperAdmin } from "@/lib/admin";
+import { adminAttributionFilters, getAdminAttributionFilter, getAdminAttributionRows, getAdminGrowthConversionSummary, requireSuperAdmin } from "@/lib/admin";
+import { formatConversionContext, formatConversionRate } from "@/lib/growth-conversion-metrics";
 import { cn } from "@/lib/ui";
 
 type AdminReferralsSearchParams = {
@@ -97,9 +98,9 @@ export default async function AdminReferralsPage({
   const params = await searchParams;
   const activeFilter = getAdminAttributionFilter(params.filter);
   const q = params.q?.trim() ?? "";
-  const [rows, clickOverview] = await Promise.all([
+  const [rows, conversionSummary] = await Promise.all([
     getAdminAttributionRows({ filter: activeFilter, q }),
-    getAdminGrowthClickOverview(),
+    getAdminGrowthConversionSummary(),
   ]);
 
   return (
@@ -121,10 +122,10 @@ export default async function AdminReferralsPage({
       {params.error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{params.error}</p> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Clicks totales referidos" value={clickOverview.storeReferral.total} detail="STORE_REFERRAL" />
-        <MetricCard label="Clicks totales partners" value={clickOverview.partner.total} detail="PARTNER" />
-        <MetricCard label="Clicks últimos 7 días" value={clickOverview.all.last7Days} detail="Todos los links" />
-        <MetricCard label="Clicks últimos 30 días" value={clickOverview.all.last30Days} detail="Todos los links" />
+        <MetricCard label="Clicks totales" value={conversionSummary.all.total.clicks} detail="Links de partners y tiendas" />
+        <MetricCard label="Registros atribuidos" value={conversionSummary.all.total.signups} detail="No incluye orgánico" />
+        <MetricCard label="Conversión total" value={formatConversionRate(conversionSummary.all.total.conversionRate)} detail={formatConversionContext(conversionSummary.all.total)} />
+        <MetricCard label="Conversión 30 días" value={formatConversionRate(conversionSummary.all.last30Days.conversionRate)} detail={formatConversionContext(conversionSummary.all.last30Days)} />
       </div>
 
       <form action="/app/admin/referrals" className="rounded-lg border border-brand-border bg-brand-paper p-3 shadow-sm">
@@ -209,11 +210,17 @@ export default async function AdminReferralsPage({
                     </div>
                     {row.sourceType === "PARTNER" || row.sourceType === "STORE_REFERRAL" ? (
                       <div className="rounded-md bg-brand-muted px-3 py-2">
-                        <p className="text-[11px] font-black uppercase text-neutral-500">Clicks</p>
-                        <p className="mt-1 text-sm font-black text-brand-dark">{row.growthClickStats.total}</p>
-                        <p className="mt-1 text-xs font-semibold text-neutral-600">Últimos 30 días: {row.growthClickStats.last30Days}</p>
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Conversión click → registro</p>
+                        <p className="mt-1 text-sm font-black text-brand-dark">{formatConversionRate(row.growthConversionStats.total.conversionRate)}</p>
+                        <p className="mt-1 text-xs font-semibold text-neutral-600">{row.growthConversionStats.total.clicks} clicks · {row.growthConversionStats.total.signups} registros atribuidos</p>
+                        <p className="mt-1 text-xs font-semibold text-neutral-600">30 días: {formatConversionRate(row.growthConversionStats.last30Days.conversionRate)} · {formatConversionContext(row.growthConversionStats.last30Days)}</p>
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Conversión click → registro</p>
+                        <p className="mt-1 text-sm font-black text-neutral-500">{row.sourceType === "ORGANIC" ? "No aplica para orgánico" : "No aplica"}</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">

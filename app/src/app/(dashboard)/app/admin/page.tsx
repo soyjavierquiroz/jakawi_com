@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { getSuperAdminDashboardStats, requireSuperAdmin } from "@/lib/admin";
 import { storePlans, type StorePlanCode } from "@/config/plans";
+import { formatConversionContext, formatConversionRate, type GrowthConversionTopItem } from "@/lib/growth-conversion-metrics";
 import { formatCommissionMoney } from "@/lib/partner-commissions";
 
 const growthModules = [
@@ -52,6 +53,11 @@ function StatCard({ label, value, detail }: { label: string; value: string | num
       {detail ? <p className="mt-1 text-sm font-semibold text-neutral-500">{detail}</p> : null}
     </div>
   );
+}
+
+function topConverterDetail(item: GrowthConversionTopItem | null) {
+  if (!item) return "Datos iniciales";
+  return `${item.signups} registros atribuidos · ${formatConversionContext(item)}`;
 }
 
 export default async function AdminPage() {
@@ -123,10 +129,22 @@ export default async function AdminPage() {
           <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">Manual</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Clicks últimos 7 días" value={stats.growthClickOverview.all.last7Days} detail="Referidos y partners" />
-          <StatCard label="Clicks últimos 30 días" value={stats.growthClickOverview.all.last30Days} detail="Tráfico generado" />
-          <StatCard label="Top partner por clicks" value={stats.growthClickOverview.topPartner?.code ?? "Sin clicks"} detail={stats.growthClickOverview.topPartner ? `${stats.growthClickOverview.topPartner.clicks} clicks` : "Aún sin tráfico"} />
-          <StatCard label="Top tienda referidora" value={stats.growthClickOverview.topStore?.slug ?? "Sin clicks"} detail={stats.growthClickOverview.topStore ? `${stats.growthClickOverview.topStore.clicks} clicks` : "Aún sin tráfico"} />
+          <StatCard label="Clicks últimos 7 días" value={stats.growthConversionSummary.all.last7Days.clicks} detail="Referidos y partners" />
+          <StatCard label="Registros atribuidos 7 días" value={stats.growthConversionSummary.all.last7Days.signups} detail="Click → registro" />
+          <StatCard label="Conversión 7 días" value={formatConversionRate(stats.growthConversionSummary.all.last7Days.conversionRate)} detail={formatConversionContext(stats.growthConversionSummary.all.last7Days)} />
+          <StatCard label="Clicks últimos 30 días" value={stats.growthConversionSummary.all.last30Days.clicks} detail="Tráfico generado" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Registros atribuidos 30 días" value={stats.growthConversionSummary.all.last30Days.signups} detail="Partners y tiendas referidoras" />
+          <StatCard label="Conversión 30 días" value={formatConversionRate(stats.growthConversionSummary.all.last30Days.conversionRate)} detail={formatConversionContext(stats.growthConversionSummary.all.last30Days)} />
+          <StatCard label="Top partner por registros" value={stats.growthConversionSummary.topConverters.topPartnerBySignups?.secondary ?? "Datos iniciales"} detail={topConverterDetail(stats.growthConversionSummary.topConverters.topPartnerBySignups)} />
+          <StatCard label="Top partner por conversión" value={stats.growthConversionSummary.topConverters.topPartnerByConversion?.secondary ?? "Datos iniciales"} detail={topConverterDetail(stats.growthConversionSummary.topConverters.topPartnerByConversion)} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Top tienda referidora" value={stats.growthConversionSummary.topConverters.topStoreBySignups?.secondary ?? "Datos iniciales"} detail={topConverterDetail(stats.growthConversionSummary.topConverters.topStoreBySignups)} />
+          <StatCard label="Top destino partner" value={stats.growthConversionSummary.topConverters.topDestinationBySignups?.secondary ?? "Datos iniciales"} detail={topConverterDetail(stats.growthConversionSummary.topConverters.topDestinationBySignups)} />
+          <StatCard label="Conversión partner 30 días" value={formatConversionRate(stats.growthConversionSummary.partner.last30Days.conversionRate)} detail={formatConversionContext(stats.growthConversionSummary.partner.last30Days)} />
+          <StatCard label="Conversión referidos 30 días" value={formatConversionRate(stats.growthConversionSummary.storeReferral.last30Days.conversionRate)} detail={formatConversionContext(stats.growthConversionSummary.storeReferral.last30Days)} />
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Partners activos" value={stats.activePartners} detail="Canales comerciales habilitados" />

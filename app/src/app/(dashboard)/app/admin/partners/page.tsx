@@ -13,6 +13,7 @@ import {
 } from "@/lib/actions";
 import { getAdminPartnerRows, requireSuperAdmin } from "@/lib/admin";
 import { getPartnerDestinationReferralLink, getPartnerReferralLink } from "@/lib/acquisition/partners";
+import { formatConversionContext, formatConversionRate, type GrowthConversionPeriod } from "@/lib/growth-conversion-metrics";
 import { formatCommissionMoney } from "@/lib/partner-commissions";
 import { cn } from "@/lib/ui";
 
@@ -41,6 +42,12 @@ function statusLabel(status: string) {
 
 function targetKindLabel(targetUrl: string) {
   return targetUrl.startsWith("/") ? "Destino interno" : "Destino externo";
+}
+
+function performanceEmptyText(period: GrowthConversionPeriod) {
+  if (period.clicks === 0) return "Aún sin tráfico registrado.";
+  if (period.signups === 0) return "Tráfico inicial, sin registros atribuidos todavía.";
+  return formatConversionContext(period);
 }
 
 function PartnerStatusForm({ partnerId, status }: { partnerId: string; status: string }) {
@@ -162,6 +169,9 @@ export default async function AdminPartnersPage({
         ) : (
           partners.map((partner) => {
             const partnerLink = getPartnerReferralLink(partner.code);
+            const bestDestination = [...partner.destinations]
+              .filter((destination) => destination.conversionStats.total.clicks >= 3 && destination.conversionStats.total.signups > 0)
+              .sort((a, b) => (b.conversionStats.total.conversionRate ?? 0) - (a.conversionStats.total.conversionRate ?? 0) || b.conversionStats.total.signups - a.conversionStats.total.signups)[0];
             return (
               <article key={partner.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.8fr)_minmax(220px,0.55fr)]">
@@ -188,21 +198,47 @@ export default async function AdminPartnersPage({
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
                     <div className="rounded-md bg-brand-muted px-3 py-2">
-                      <p className="text-[11px] font-black uppercase text-neutral-500">Tráfico generado</p>
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Performance</p>
                       <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-semibold text-neutral-600">
                         <p>
-                          <span className="block text-[10px] uppercase">Total</span>
-                          <span className="font-black text-brand-dark">{partner.clickStats.total}</span>
+                          <span className="block text-[10px] uppercase">Clicks</span>
+                          <span className="font-black text-brand-dark">{partner.conversionStats.total.clicks}</span>
                         </p>
                         <p>
-                          <span className="block text-[10px] uppercase">7 días</span>
-                          <span className="font-black text-brand-dark">{partner.clickStats.last7Days}</span>
+                          <span className="block text-[10px] uppercase">Registros</span>
+                          <span className="font-black text-brand-dark">{partner.conversionStats.total.signups}</span>
                         </p>
                         <p>
-                          <span className="block text-[10px] uppercase">30 días</span>
-                          <span className="font-black text-brand-dark">{partner.clickStats.last30Days}</span>
+                          <span className="block text-[10px] uppercase">Conversión</span>
+                          <span className="font-black text-brand-dark">{formatConversionRate(partner.conversionStats.total.conversionRate)}</span>
                         </p>
                       </div>
+                      <p className="mt-2 text-xs font-semibold text-neutral-600">Clicks → registros · {performanceEmptyText(partner.conversionStats.total)}</p>
+                    </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Performance 30 días</p>
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-semibold text-neutral-600">
+                        <p>
+                          <span className="block text-[10px] uppercase">Clicks</span>
+                          <span className="font-black text-brand-dark">{partner.conversionStats.last30Days.clicks}</span>
+                        </p>
+                        <p>
+                          <span className="block text-[10px] uppercase">Registros</span>
+                          <span className="font-black text-brand-dark">{partner.conversionStats.last30Days.signups}</span>
+                        </p>
+                        <p>
+                          <span className="block text-[10px] uppercase">Conversión</span>
+                          <span className="font-black text-brand-dark">{formatConversionRate(partner.conversionStats.last30Days.conversionRate)}</span>
+                        </p>
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-neutral-600">{performanceEmptyText(partner.conversionStats.last30Days)}</p>
+                    </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Destino con mejor rendimiento</p>
+                      <p className="mt-1 text-sm font-black text-brand-dark">{bestDestination?.label ?? "Datos iniciales"}</p>
+                      <p className="mt-1 text-xs font-semibold text-neutral-600">
+                        {bestDestination ? `${formatConversionRate(bestDestination.conversionStats.total.conversionRate)} · ${bestDestination.conversionStats.total.clicks} clicks · ${bestDestination.conversionStats.total.signups} registros` : "Requiere al menos 3 clicks y registros atribuidos."}
+                      </p>
                     </div>
                     <div className="rounded-md bg-brand-muted px-3 py-2">
                       <p className="text-[11px] font-black uppercase text-neutral-500">Contacto</p>
@@ -320,9 +356,11 @@ export default async function AdminPartnersPage({
                               {destination.notes ? <p className="mt-2 break-words text-xs font-semibold text-neutral-500">{destination.notes}</p> : null}
                             </div>
                             <div className="rounded-md bg-brand-muted px-3 py-2">
-                              <p className="text-[11px] font-black uppercase text-neutral-500">Destinos más usados</p>
-                              <p className="mt-1 text-sm font-black text-brand-dark">{destination.clickStats.total} clicks</p>
-                              <p className="mt-1 text-xs font-semibold text-neutral-600">7 días: {destination.clickStats.last7Days} · 30 días: {destination.clickStats.last30Days}</p>
+                              <p className="text-[11px] font-black uppercase text-neutral-500">Performance</p>
+                              <p className="mt-1 text-sm font-black text-brand-dark">{formatConversionRate(destination.conversionStats.total.conversionRate)}</p>
+                              <p className="mt-1 text-xs font-semibold text-neutral-600">{destination.conversionStats.total.clicks} clicks · {destination.conversionStats.total.signups} registros</p>
+                              <p className="mt-1 text-xs font-semibold text-neutral-600">30 días: {destination.conversionStats.last30Days.clicks} clicks · {destination.conversionStats.last30Days.signups} registros · {formatConversionRate(destination.conversionStats.last30Days.conversionRate)}</p>
+                              <p className="mt-1 text-xs font-semibold text-neutral-600">{performanceEmptyText(destination.conversionStats.total)}</p>
                             </div>
                             <div className="flex flex-wrap gap-2 lg:justify-end">
                               <CopyButton value={destinationLink} />

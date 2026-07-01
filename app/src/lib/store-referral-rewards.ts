@@ -1,5 +1,5 @@
 import { type Prisma } from "@prisma/client";
-import { getStoreReferralClickStats } from "@/lib/growth-link-clicks";
+import { getStoreReferralConversionSummary } from "@/lib/growth-conversion-metrics";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 
@@ -260,6 +260,6 @@ export async function getOwnerStoreReferralData(storeId: string) {
       orderBy: { createdAt: "desc" },
       take: 100,
     }),
-    getStoreReferralClickStats(storeId),
+    getStoreReferralConversionSummary(storeId),
   ]);
 }

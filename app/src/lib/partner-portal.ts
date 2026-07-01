@@ -2,7 +2,12 @@ import { notFound } from "next/navigation";
 import { getPartnerDestinationReferralLink, getPartnerReferralLink } from "@/lib/acquisition/partners";
 import { isSuperAdmin } from "@/lib/admin";
 import { requireUser } from "@/lib/auth";
-import { emptyGrowthClickStats, getGrowthClickStats, getGrowthClickStatsByPartnerDestination, getPartnerClickStats } from "@/lib/growth-link-clicks";
+import {
+  emptyGrowthConversionSummary,
+  getGrowthConversionStatsByPartnerDestination,
+  getPartnerConversionSummary,
+  getPartnerMainLinkConversionSummary,
+} from "@/lib/growth-conversion-metrics";
 import { getPartnerCommissionStats } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
 
@@ -21,7 +26,7 @@ export async function getCurrentUserPartnerPortal(partnerId?: string | null) {
 }
 
 export async function getPartnerPortalSummary(partnerId: string) {
-  const [attributions, commissionStats, clickStats] = await Promise.all([
+  const [attributions, commissionStats, conversionStats] = await Promise.all([
     getPrisma().acquisitionAttribution.findMany({
       where: { partnerId },
       select: {
@@ -31,7 +36,7 @@ export async function getPartnerPortalSummary(partnerId: string) {
       take: 500,
     }),
     getPartnerCommissionStats(partnerId),
-    getPartnerClickStats(partnerId),
+    getPartnerConversionSummary(partnerId),
   ]);
 
   const registeredStores = attributions.length;
@@ -47,7 +52,7 @@ export async function getPartnerPortalSummary(partnerId: string) {
     activeStores,
     paidStores,
     commissionStats,
-    clickStats,
+    conversionStats,
   };
 }
 
@@ -63,19 +68,23 @@ export async function getPartnerPortalLinks(partnerId: string) {
   });
 
   if (!partner) notFound();
-  const destinationIds = partner.destinations.map((destination) => destination.id);
-  const [mainClickStats, clickStatsByDestination] = await Promise.all([
-    getGrowthClickStats({ partnerId, landingPath: `/partner/${partner.code}` }),
-    getGrowthClickStatsByPartnerDestination(destinationIds),
+  const destinationRefs = partner.destinations.map((destination) => ({
+    id: destination.id,
+    partnerId: partner.id,
+    slug: destination.slug,
+  }));
+  const [mainConversionStats, conversionStatsByDestination] = await Promise.all([
+    getPartnerMainLinkConversionSummary(partnerId, partner.code),
+    getGrowthConversionStatsByPartnerDestination(destinationRefs),
   ]);
 
   return {
     mainLink: getPartnerReferralLink(partner.code),
-    mainClickStats,
+    mainConversionStats,
     destinations: partner.destinations.map((destination) => ({
       ...destination,
       trackedLink: getPartnerDestinationReferralLink(partner.code, destination.slug),
-      clickStats: clickStatsByDestination.get(destination.id) ?? emptyGrowthClickStats(),
+      conversionStats: conversionStatsByDestination.get(destination.id) ?? emptyGrowthConversionSummary(),
     })),
   };
 }

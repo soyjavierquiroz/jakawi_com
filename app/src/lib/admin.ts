@@ -2,12 +2,12 @@ import { notFound } from "next/navigation";
 import { type StorePlanCode } from "@/config/plans";
 import { requireUser } from "@/lib/auth";
 import {
-  emptyGrowthClickStats,
-  getAdminGrowthClickOverview as getAdminGrowthClickOverviewInternal,
-  getGrowthClickStatsByPartner,
-  getGrowthClickStatsByPartnerDestination,
-  getGrowthClickStatsByReferrerStore,
-} from "@/lib/growth-link-clicks";
+  emptyGrowthConversionSummary,
+  getAdminGrowthConversionSummary as getAdminGrowthConversionSummaryInternal,
+  getGrowthConversionStatsByPartner,
+  getGrowthConversionStatsByPartnerDestination,
+  getGrowthConversionStatsByReferrerStore,
+} from "@/lib/growth-conversion-metrics";
 import { getStorePlanState } from "@/lib/plan-limits";
 import { emptyPartnerCommissionStats, getPartnerCommissionStats, getPartnerCommissionStatsByPartner } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
@@ -15,6 +15,7 @@ import { getStoreReferralRewardStats } from "@/lib/store-referral-rewards";
 import { AnalyticsEventType, type Prisma } from "@prisma/client";
 
 export { getAdminGrowthClickOverview } from "@/lib/growth-link-clicks";
+export { getAdminGrowthConversionSummary } from "@/lib/growth-conversion-metrics";
 
 type UserWithRole = {
   role?: string | null;
@@ -132,7 +133,7 @@ export async function getSuperAdminDashboardStats() {
     organicAttributions,
     partnerCommissionStats,
     storeReferralRewardStats,
-    growthClickOverview,
+    growthConversionSummary,
   ] = await Promise.all([
     prisma.store.findMany({
       select: {
@@ -157,7 +158,7 @@ export async function getSuperAdminDashboardStats() {
     prisma.acquisitionAttribution.count({ where: { sourceType: "ORGANIC" } }),
     getPartnerCommissionStats(),
     getStoreReferralRewardStats(),
-    getAdminGrowthClickOverviewInternal(),
+    getAdminGrowthConversionSummaryInternal(),
   ]);
 
   const planCounts = emptyPlanCounts();
@@ -192,7 +193,7 @@ export async function getSuperAdminDashboardStats() {
     organicAttributions,
     partnerCommissionStats,
     storeReferralRewardStats,
-    growthClickOverview,
+    growthConversionSummary,
   };
 }
 
@@ -210,19 +211,25 @@ export async function getAdminPartnerRows() {
     getPartnerCommissionStatsByPartner(),
   ]);
   const partnerIds = partners.map((partner) => partner.id);
-  const destinationIds = partners.flatMap((partner) => partner.destinations.map((destination) => destination.id));
-  const [clickStatsByPartner, clickStatsByDestination] = await Promise.all([
-    getGrowthClickStatsByPartner(partnerIds),
-    getGrowthClickStatsByPartnerDestination(destinationIds),
+  const destinationRefs = partners.flatMap((partner) =>
+    partner.destinations.map((destination) => ({
+      id: destination.id,
+      partnerId: partner.id,
+      slug: destination.slug,
+    })),
+  );
+  const [conversionStatsByPartner, conversionStatsByDestination] = await Promise.all([
+    getGrowthConversionStatsByPartner(partnerIds),
+    getGrowthConversionStatsByPartnerDestination(destinationRefs),
   ]);
 
   return partners.map((partner) => ({
     ...partner,
     commissionStats: commissionStatsByPartner.get(partner.id) ?? emptyPartnerCommissionStats(),
-    clickStats: clickStatsByPartner.get(partner.id) ?? emptyGrowthClickStats(),
+    conversionStats: conversionStatsByPartner.get(partner.id) ?? emptyGrowthConversionSummary(),
     destinations: partner.destinations.map((destination) => ({
       ...destination,
-      clickStats: clickStatsByDestination.get(destination.id) ?? emptyGrowthClickStats(),
+      conversionStats: conversionStatsByDestination.get(destination.id) ?? emptyGrowthConversionSummary(),
     })),
   }));
 }
@@ -243,24 +250,34 @@ export async function getAdminAttributionRows(params: { q?: string; filter?: str
     take: 250,
   });
   const partnerIds = rows.flatMap((row) => (row.sourceType === "PARTNER" && row.partnerId ? [row.partnerId] : []));
-  const destinationIds = rows.flatMap((row) => (row.sourceType === "PARTNER" && row.partnerDestinationId ? [row.partnerDestinationId] : []));
   const referrerStoreIds = rows.flatMap((row) => (row.sourceType === "STORE_REFERRAL" && row.referrerStoreId ? [row.referrerStoreId] : []));
-  const [clickStatsByPartner, clickStatsByDestination, clickStatsByReferrerStore] = await Promise.all([
-    getGrowthClickStatsByPartner(partnerIds),
-    getGrowthClickStatsByPartnerDestination(destinationIds),
-    getGrowthClickStatsByReferrerStore(referrerStoreIds),
+  const destinationRefs = rows.flatMap((row) =>
+    row.sourceType === "PARTNER" && row.partnerDestinationId
+      ? [
+          {
+            id: row.partnerDestinationId,
+            partnerId: row.partnerId ?? "",
+            slug: row.partnerDestinationSlug ?? row.partnerDestination?.slug ?? "",
+          },
+        ]
+      : [],
+  );
+  const [conversionStatsByPartner, conversionStatsByDestination, conversionStatsByReferrerStore] = await Promise.all([
+    getGrowthConversionStatsByPartner(partnerIds),
+    getGrowthConversionStatsByPartnerDestination(destinationRefs),
+    getGrowthConversionStatsByReferrerStore(referrerStoreIds),
   ]);
 
   return rows.map((row) => ({
     ...row,
-    growthClickStats:
+    growthConversionStats:
       row.sourceType === "PARTNER" && row.partnerDestinationId
-        ? clickStatsByDestination.get(row.partnerDestinationId) ?? emptyGrowthClickStats()
+        ? conversionStatsByDestination.get(row.partnerDestinationId) ?? emptyGrowthConversionSummary()
         : row.sourceType === "PARTNER" && row.partnerId
-          ? clickStatsByPartner.get(row.partnerId) ?? emptyGrowthClickStats()
+          ? conversionStatsByPartner.get(row.partnerId) ?? emptyGrowthConversionSummary()
           : row.sourceType === "STORE_REFERRAL" && row.referrerStoreId
-            ? clickStatsByReferrerStore.get(row.referrerStoreId) ?? emptyGrowthClickStats()
-            : emptyGrowthClickStats(),
+            ? conversionStatsByReferrerStore.get(row.referrerStoreId) ?? emptyGrowthConversionSummary()
+            : emptyGrowthConversionSummary(),
   }));
 }
 

@@ -2,6 +2,7 @@ import { CircleDollarSign, ExternalLink, Handshake, Link2, Store, WalletCards } 
 import Link from "next/link";
 import { CopyButton } from "@/components/CopyButton";
 import { getPublicStoreUrl } from "@/config/site";
+import { formatConversionContext, formatConversionRate } from "@/lib/growth-conversion-metrics";
 import { formatCommissionMoney, partnerCommissionStatusLabel } from "@/lib/partner-commissions";
 import {
   getCurrentUserPartnerPortal,
@@ -119,16 +120,18 @@ export default async function PartnerPortalPage({
             </div>
           </div>
           <div className="rounded-md bg-white px-4 py-3 text-sm font-semibold leading-6 text-neutral-600 lg:max-w-sm">
-            Clicks registrados antes del registro. Las atribuciones se confirman cuando el comercio crea su cuenta.
+            Los registros se atribuyen cuando el comercio crea su cuenta después de visitar tu link.
           </div>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Clicks totales" value={summary.clickStats.total} detail="Tráfico generado" />
-        <StatCard label="Clicks últimos 7 días" value={summary.clickStats.last7Days} />
-        <StatCard label="Clicks últimos 30 días" value={summary.clickStats.last30Days} />
-        <StatCard label="Comercios registrados" value={summary.registeredStores} />
+        <StatCard label="Clicks" value={summary.conversionStats.total.clicks} detail="Tráfico generado" />
+        <StatCard label="Comercios registrados" value={summary.conversionStats.total.signups} detail="Registros atribuidos" />
+        <StatCard label="Conversión" value={formatConversionRate(summary.conversionStats.total.conversionRate)} detail={formatConversionContext(summary.conversionStats.total)} />
+        <StatCard label="Clicks últimos 30 días" value={summary.conversionStats.last30Days.clicks} />
+        <StatCard label="Registros últimos 30 días" value={summary.conversionStats.last30Days.signups} />
+        <StatCard label="Conversión 30 días" value={formatConversionRate(summary.conversionStats.last30Days.conversionRate)} detail={formatConversionContext(summary.conversionStats.last30Days)} />
         <StatCard label="Comercios activos" value={summary.activeStores} />
         <StatCard label="Comercios pagados" value={summary.paidStores} />
         <StatCard label="Pendientes" value={summary.commissionStats.PENDING.count} detail={formatCommissionMoney(summary.commissionStats.PENDING.amountCents)} />
@@ -144,7 +147,7 @@ export default async function PartnerPortalPage({
           <Link2 className="mt-0.5 size-5 shrink-0 text-brand" />
           <div>
             <h2 className="text-xl font-black text-brand-dark">Mis links</h2>
-            <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">Comparte estos enlaces. JAKAWI guarda la atribucion antes de enviar al destino.</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">Comparte estos enlaces. Los registros se atribuyen cuando el comercio crea su cuenta después de visitar tu link.</p>
           </div>
         </div>
 
@@ -156,17 +159,18 @@ export default async function PartnerPortalPage({
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <div className="rounded-md bg-brand-muted px-3 py-2">
               <p className="text-[11px] font-black uppercase text-neutral-500">Clicks</p>
-              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainClickStats.total}</p>
+              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainConversionStats.total.clicks}</p>
             </div>
             <div className="rounded-md bg-brand-muted px-3 py-2">
-              <p className="text-[11px] font-black uppercase text-neutral-500">Últimos 7 días</p>
-              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainClickStats.last7Days}</p>
+              <p className="text-[11px] font-black uppercase text-neutral-500">Registros atribuidos</p>
+              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainConversionStats.total.signups}</p>
             </div>
             <div className="rounded-md bg-brand-muted px-3 py-2">
-              <p className="text-[11px] font-black uppercase text-neutral-500">Últimos 30 días</p>
-              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainClickStats.last30Days}</p>
+              <p className="text-[11px] font-black uppercase text-neutral-500">Conversión</p>
+              <p className="mt-1 text-sm font-black text-brand-dark">{formatConversionRate(links.mainConversionStats.total.conversionRate)}</p>
             </div>
           </div>
+          <p className="mt-2 text-xs font-semibold text-neutral-600">30 días: {links.mainConversionStats.last30Days.clicks} clicks · {links.mainConversionStats.last30Days.signups} registros · {formatConversionRate(links.mainConversionStats.last30Days.conversionRate)}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <CopyButton value={links.mainLink} />
             <a href={links.mainLink} target="_blank" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand">
@@ -191,9 +195,10 @@ export default async function PartnerPortalPage({
                 {destination.trackedLink}
               </a>
               <div className="mt-3 rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold text-neutral-600">
-                <p className="font-black uppercase text-neutral-500">Clicks</p>
-                <p className="mt-1 text-sm font-black text-brand-dark">{destination.clickStats.total}</p>
-                <p className="mt-1">Últimos 30 días: {destination.clickStats.last30Days}</p>
+                <p className="font-black uppercase text-neutral-500">Clicks → registros</p>
+                <p className="mt-1 text-sm font-black text-brand-dark">{formatConversionRate(destination.conversionStats.total.conversionRate)}</p>
+                <p className="mt-1">{destination.conversionStats.total.clicks} clicks · {destination.conversionStats.total.signups} registros atribuidos</p>
+                <p className="mt-1">Últimos 30 días: {destination.conversionStats.last30Days.clicks} clicks · {destination.conversionStats.last30Days.signups} registros · {formatConversionRate(destination.conversionStats.last30Days.conversionRate)}</p>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <CopyButton value={destination.trackedLink} />
