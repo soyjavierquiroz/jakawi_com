@@ -872,3 +872,10 @@ Prioridad recomendada:
 3. Verificar backups y restore.
 4. Preparar legal/support.
 5. Lanzar private beta Bolivia con pocos negocios y medicion semanal.
+
+## 23. Pre-launch ops docs
+
+- `PRE-LAUNCH-AUDIT.md`
+- `docs/PRE-LAUNCH-OPS-RUNBOOK.md`
+- `docs/BACKUP-RESTORE-RUNBOOK.md`
+- `docs/PRIVATE-BETA-CHECKLIST.md`
