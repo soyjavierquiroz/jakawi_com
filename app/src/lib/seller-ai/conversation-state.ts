@@ -132,11 +132,11 @@ export function buildNextQuickReplies({
   if (mode === "CLOSING_PREP") {
     replies = ["Enviar consulta por WhatsApp", "Quiero comprarlo", recommended ?? productReply];
   } else if (focus.hasAvailabilityQuestion) {
-    replies = ["Consultar por WhatsApp", "También quiero saber envío", "Quiero comprarlo", "Volver al producto"];
+    replies = ["Hablemos por WhatsApp", "También quiero saber envío", "Quiero comprarlo", "Volver al producto"];
   } else if (focus.hasShippingQuestion) {
-    replies = ["Consultar por WhatsApp", "También quiero saber disponibilidad", "Quiero comprarlo", "Volver al producto"];
+    replies = ["Hablemos por WhatsApp", "También quiero saber disponibilidad", "Quiero comprarlo", "Volver al producto"];
   } else if (focus.hasPriceQuestion) {
-    replies = ["¿Está disponible?", "¿Hacen envío?", "Me interesa comprar", "Consultar por WhatsApp"];
+    replies = ["¿Está disponible?", "¿Hacen envío?", "Me interesa comprar", "Hablemos por WhatsApp"];
   } else if (focus.hasGiftNeed) {
     replies = ["Es para estudiante", "Es para trabajo", "Algo práctico", "Algo económico"];
   } else if (detectedNeed && mode === "PRODUCT_ADVISOR") {
@@ -149,7 +149,7 @@ export function buildNextQuickReplies({
     const commercialKey = (commercialType ?? "PRODUCT_STORE") as keyof typeof sellerAiConfig.commercialTypes;
     replies = sellerAiConfig.commercialTypes[commercialKey]?.quickReplies ?? sellerAiConfig.commercialTypes.PRODUCT_STORE.quickReplies;
   } else {
-    replies = [recommended ?? productReply, "Consultar por WhatsApp"];
+    replies = [recommended ?? productReply, "Hablemos por WhatsApp"];
   }
 
   return filterRepeatedQuickReplies(replies, {

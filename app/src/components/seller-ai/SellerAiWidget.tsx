@@ -116,7 +116,7 @@ function getSellerAiLimitMessage(error: unknown) {
 }
 
 function hasStrongIntent(input: string) {
-  return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|consultar por whatsapp|enviar consulta|dejar consulta|pasar a whatsapp|quiero que me escriban/i.test(input);
+  return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|consultar por whatsapp|hablemos por whatsapp|enviar consulta|dejar consulta|pasar a whatsapp|quiero que me escriban/i.test(input);
 }
 
 function normalizeReply(input?: string | null) {
@@ -846,7 +846,12 @@ export function SellerAiWidget({
                   placeholder={widgetCopy.inputPlaceholder}
                   className="h-11 min-w-0 flex-1 rounded-full border border-[var(--space-border)] bg-[var(--space-background)] px-4 text-[15px] outline-none transition placeholder:text-neutral-400 focus:border-[var(--space-primary)] focus:ring-4 focus:ring-black/10 disabled:opacity-60"
                 />
-                <button type="submit" disabled={chatIsBusy || !input.trim() || !leadId} className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--space-primary)] text-[var(--space-primary-contrast)] transition hover:brightness-95 disabled:opacity-50" aria-label="Enviar mensaje">
+                <button
+                  type="submit"
+                  disabled={chatIsBusy || !input.trim() || !leadId}
+                  className="grid size-11 shrink-0 place-items-center rounded-full bg-[color:var(--space-primary,#128C4A)] text-[color:var(--space-primary-contrast,#fff)] shadow-md shadow-black/15 transition hover:brightness-95 active:scale-[0.97] disabled:bg-neutral-200 disabled:text-neutral-400 disabled:opacity-100 disabled:shadow-none disabled:hover:brightness-100 disabled:active:scale-100"
+                  aria-label="Enviar mensaje"
+                >
                   {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 </button>
               </form>
@@ -861,8 +866,8 @@ export function SellerAiWidget({
                     ctaIsStrong ? "h-11 border-[var(--space-primary)] bg-[var(--space-primary)] text-sm text-[var(--space-primary-contrast)] shadow-sm hover:brightness-95" : "h-10 border-[var(--space-border)] bg-white text-sm text-neutral-800 hover:bg-[var(--space-muted)]",
                   )}
                 >
-                  <MessageCircle className="size-4" />
-                  {whatsappCtaText}
+                  <MessageCircle className="size-4 shrink-0" />
+                  <span className="min-w-0 text-center leading-none">{whatsappCtaText}</span>
                 </button>
               ) : null}
             </div>
@@ -898,14 +903,13 @@ export function SellerAiWidget({
                 </a>
               ) : (
                 <div className="grid grid-cols-[0.85fr_1.15fr] gap-2 pt-0.5">
-                  <button type="button" onClick={() => setStep("chat")} className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-[var(--space-border)] bg-white px-3 text-sm font-black text-neutral-800 transition hover:bg-[var(--space-muted)]">
+                  <button type="button" onClick={() => setStep("chat")} className="flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-full border border-[var(--space-border)] bg-white px-3 text-sm font-black text-neutral-800 transition hover:bg-[var(--space-muted)]">
                     <ArrowLeft className="size-4" />
                     {widgetCopy.backToChat}
                   </button>
-                  <button type="submit" disabled={isLoading} className="flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--space-primary)] px-3 text-sm font-black text-[var(--space-primary-contrast)] transition hover:brightness-95 disabled:opacity-50">
+                  <button type="submit" disabled={isLoading} className="flex h-11 min-w-0 items-center justify-center gap-2 rounded-full bg-[var(--space-primary)] px-3 text-sm font-black text-[var(--space-primary-contrast)] transition hover:brightness-95 disabled:opacity-50">
                     {isLoading ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
-                    <span className="min-[380px]:hidden">{productName ? "Consultar" : widgetCopy.continueWhatsapp}</span>
-                    <span className="hidden min-[380px]:inline">{productName ? widgetCopy.leaveWhatsappInquiry : widgetCopy.continueWhatsappLong}</span>
+                    <span className="min-w-0 whitespace-nowrap leading-none">{isLoading ? "Abriendo WhatsApp..." : "Ir a WhatsApp"}</span>
                   </button>
                 </div>
               )}
