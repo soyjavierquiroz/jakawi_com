@@ -8,6 +8,7 @@ import {
   getAdminStoreReferralRewardFormOptions,
   getAdminStoreReferralRewards,
   getStoreReferralRewardStats,
+  isStoreReferralRewardType,
   storeReferralRewardStatusLabel,
   storeReferralRewardStatuses,
   storeReferralRewardTypeLabel,
@@ -23,6 +24,10 @@ type AdminRewardsSearchParams = {
   referrerStoreId?: string;
   referredStoreId?: string;
   attributionId?: string;
+  rewardType?: string;
+  valueLabel?: string;
+  description?: string;
+  notes?: string;
 };
 
 const filterLabels: Record<string, string> = {
@@ -151,6 +156,7 @@ export default async function AdminRewardsPage({
   const selectedReferrerStore = formOptions.selectedReferrerStore;
   const selectedReferredStore = formOptions.selectedReferredStore;
   const filterItems = ["all", ...storeReferralRewardStatuses, "FREE_MONTH", "SELLER_AI_CREDITS", "DISCOUNT", "CUSTOM"];
+  const prefillRewardType = params.rewardType && isStoreReferralRewardType(params.rewardType) ? params.rewardType : "FREE_MONTH";
 
   return (
     <section className="space-y-4 md:space-y-6">
@@ -183,7 +189,7 @@ export default async function AdminRewardsPage({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-black text-brand-dark">Recompensa manual</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">Se crea como pendiente. JAKAWI revisa y aplica beneficios manualmente.</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Este beneficio será creado manualmente. No se aplica automáticamente.</p>
           </div>
           <Gift className="size-5 shrink-0 text-brand" />
         </div>
@@ -213,6 +219,7 @@ export default async function AdminRewardsPage({
           </div>
         ) : null}
 
+        <input type="hidden" name="returnTo" value={returnTo} />
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className="space-y-1.5 xl:col-span-2">
             <span className="text-xs font-black uppercase text-neutral-500">Tienda referidora</span>
@@ -240,7 +247,7 @@ export default async function AdminRewardsPage({
 
           <label className="space-y-1.5">
             <span className="text-xs font-black uppercase text-neutral-500">Tipo</span>
-            <select name="rewardType" required defaultValue="FREE_MONTH" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand">
+            <select name="rewardType" required defaultValue={prefillRewardType} className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand">
               {storeReferralRewardTypes.map((type) => (
                 <option key={type} value={type}>
                   {storeReferralRewardTypeLabel(type)}
@@ -251,7 +258,7 @@ export default async function AdminRewardsPage({
 
           <label className="space-y-1.5">
             <span className="text-xs font-black uppercase text-neutral-500">Etiqueta</span>
-            <input name="valueLabel" placeholder="1 mes gratis" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
+            <input name="valueLabel" defaultValue={params.valueLabel ?? ""} placeholder="1 mes gratis" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
           <label className="space-y-1.5">
@@ -293,12 +300,12 @@ export default async function AdminRewardsPage({
 
           <label className="space-y-1.5 md:col-span-2">
             <span className="text-xs font-black uppercase text-neutral-500">Descripción</span>
-            <input name="description" placeholder="Beneficio por referido, renovación, ajuste manual..." className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
+            <input name="description" defaultValue={params.description ?? ""} placeholder="Beneficio por referido, renovación, ajuste manual..." className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
           <label className="space-y-1.5 md:col-span-2">
             <span className="text-xs font-black uppercase text-neutral-500">Notas internas</span>
-            <textarea name="notes" rows={3} className="w-full rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-brand" />
+            <textarea name="notes" rows={3} defaultValue={params.notes ?? ""} className="w-full rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-brand" />
           </label>
         </div>
 

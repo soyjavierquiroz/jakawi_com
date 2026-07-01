@@ -12,6 +12,7 @@ import {
   getTopRevenueStoreReferrers,
   type RevenueMetricPeriod,
 } from "@/lib/revenue-attribution-metrics";
+import { getAdminSuggestedGrowthActionsSummary } from "@/lib/suggested-growth-actions";
 
 function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
   return (
@@ -77,11 +78,12 @@ function MetricGrid({ period }: { period: RevenueMetricPeriod }) {
 
 export default async function AdminRevenuePage() {
   await requireSuperAdmin();
-  const [summary, partners, destinations, storeReferrers] = await Promise.all([
+  const [summary, partners, destinations, storeReferrers, suggestedActions] = await Promise.all([
     getAdminRevenueAttributionSummary(),
     getTopRevenuePartners({ rangeDays: 30, limit: 50 }),
     getTopRevenuePartnerDestinations({ rangeDays: 30, limit: 50 }),
     getTopRevenueStoreReferrers({ rangeDays: 30, limit: 50 }),
+    getAdminSuggestedGrowthActionsSummary(),
   ]);
 
   const organic = summary.sourceBreakdown.find((source) => source.key === "ORGANIC");
@@ -112,6 +114,43 @@ export default async function AdminRevenuePage() {
         <StatCard label="Revenue orgánico / sin atribución" value={formatRevenueTotals(summary.organicRevenue)} detail="Sin partner/store referral" />
         <StatCard label="Revenue 7 días" value={formatRevenueTotals(summary.last7DaysRevenue)} detail="Actividad reciente" />
       </div>
+
+      <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Acciones sugeridas</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-600">Sugerencias operativas sobre pagos confirmados. No crean comisiones ni recompensas automáticamente.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/app/admin/commissions" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand">
+              <HandCoins className="size-4" />
+              Ver comisiones
+            </Link>
+            <Link href="/app/admin/rewards" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand">
+              <Gift className="size-4" />
+              Ver recompensas
+            </Link>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-md bg-brand-muted px-3 py-2">
+            <p className="text-[11px] font-black uppercase text-neutral-500">Comisiones sugeridas</p>
+            <p className="mt-1 text-xl font-black text-brand-dark">{suggestedActions.commissionSuggested}</p>
+          </div>
+          <div className="rounded-md bg-brand-muted px-3 py-2">
+            <p className="text-[11px] font-black uppercase text-neutral-500">Recompensas sugeridas</p>
+            <p className="mt-1 text-xl font-black text-brand-dark">{suggestedActions.rewardSuggested}</p>
+          </div>
+          <div className="rounded-md bg-brand-muted px-3 py-2">
+            <p className="text-[11px] font-black uppercase text-neutral-500">Pagos cubiertos</p>
+            <p className="mt-1 text-xl font-black text-brand-dark">{suggestedActions.covered}</p>
+          </div>
+          <div className="rounded-md bg-brand-muted px-3 py-2">
+            <p className="text-[11px] font-black uppercase text-neutral-500">Sin acción comercial</p>
+            <p className="mt-1 text-xl font-black text-brand-dark">{suggestedActions.noAction}</p>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -161,6 +200,17 @@ export default async function AdminRevenuePage() {
                   </Link>
                 </div>
               </div>
+              {suggestedActions.partnerPending.get(partner.id) ? (
+                <div className="mt-4 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p>Hay pagos confirmados sin comisión relacionada para este partner.</p>
+                    <Link href={suggestedActions.partnerPending.get(partner.id)?.ctaHref ?? `/app/admin/commissions?partnerId=${partner.id}`} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">
+                      <HandCoins className="size-4" />
+                      Crear comisión sugerida
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
               <div className="mt-4">
                 <MetricGrid period={partner.total} />
               </div>
@@ -224,6 +274,17 @@ export default async function AdminRevenuePage() {
                   Ver recompensas
                 </Link>
               </div>
+              {suggestedActions.referrerStorePending.get(store.id) ? (
+                <div className="mt-4 rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold text-brand-dark">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p>Hay pagos confirmados sin recompensa relacionada para esta tienda referidora.</p>
+                    <Link href={suggestedActions.referrerStorePending.get(store.id)?.ctaHref ?? `/app/admin/rewards?referrerStoreId=${store.id}`} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">
+                      <Gift className="size-4" />
+                      Crear recompensa sugerida
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
               <div className="mt-4">
                 <MetricGrid period={store.total} />
               </div>

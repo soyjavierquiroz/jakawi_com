@@ -22,6 +22,10 @@ type AdminCommissionsSearchParams = {
   partnerId?: string;
   attributionId?: string;
   storeId?: string;
+  basisAmount?: string;
+  commissionAmount?: string;
+  description?: string;
+  notes?: string;
 };
 
 function buildQuery(params: { status?: string; q?: string; partnerId?: string; attributionId?: string; storeId?: string }) {
@@ -170,7 +174,7 @@ export default async function AdminCommissionsPage({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-black text-brand-dark">Comisión manual</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">Se crea como pendiente y no ejecuta pagos automáticos.</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Esta comisión será creada manualmente. No se paga automáticamente.</p>
           </div>
           <HandCoins className="size-5 shrink-0 text-brand" />
         </div>
@@ -214,7 +218,7 @@ export default async function AdminCommissionsPage({
 
           <label className="space-y-1.5">
             <span className="text-xs font-black uppercase text-neutral-500">Monto comisión</span>
-            <input name="commissionAmount" required inputMode="decimal" placeholder="100.00" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
+            <input name="commissionAmount" required inputMode="decimal" defaultValue={params.commissionAmount ?? ""} placeholder="100.00" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
           <label className="space-y-1.5">
@@ -224,7 +228,7 @@ export default async function AdminCommissionsPage({
 
           <label className="space-y-1.5">
             <span className="text-xs font-black uppercase text-neutral-500">Base</span>
-            <input name="basisAmount" inputMode="decimal" placeholder="Opcional" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
+            <input name="basisAmount" inputMode="decimal" defaultValue={params.basisAmount ?? ""} placeholder="Opcional" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
           <label className="space-y-1.5">
@@ -248,12 +252,12 @@ export default async function AdminCommissionsPage({
 
           <label className="space-y-1.5 md:col-span-2">
             <span className="text-xs font-black uppercase text-neutral-500">Descripción</span>
-            <input name="description" placeholder="Comisión demo, ajuste manual..." className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
+            <input name="description" defaultValue={params.description ?? ""} placeholder="Comisión demo, ajuste manual..." className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
           <label className="space-y-1.5 md:col-span-2">
             <span className="text-xs font-black uppercase text-neutral-500">Notas</span>
-            <textarea name="notes" rows={3} className="w-full rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-brand" />
+            <textarea name="notes" rows={3} defaultValue={params.notes ?? ""} className="w-full rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-brand" />
           </label>
         </div>
 

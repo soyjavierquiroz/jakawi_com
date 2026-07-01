@@ -7,6 +7,7 @@ import { formatConversionContext, formatConversionRate, type GrowthConversionTop
 import { formatCommissionMoney } from "@/lib/partner-commissions";
 import { formatRate, formatRevenueRate, formatRevenueTotals } from "@/lib/revenue-attribution-metrics";
 import { formatStorePaymentMoney } from "@/lib/store-payments";
+import { getAdminSuggestedGrowthActionsSummary } from "@/lib/suggested-growth-actions";
 
 const growthModules = [
   {
@@ -80,7 +81,7 @@ function topConverterDetail(item: GrowthConversionTopItem | null) {
 
 export default async function AdminPage() {
   await requireSuperAdmin();
-  const stats = await getSuperAdminDashboardStats();
+  const [stats, suggestedActions] = await Promise.all([getSuperAdminDashboardStats(), getAdminSuggestedGrowthActionsSummary()]);
 
   return (
     <section className="space-y-5 md:space-y-6">
@@ -169,6 +170,25 @@ export default async function AdminPage() {
             </span>
             <span className="mt-2 block text-2xl leading-8">Abrir métricas</span>
             <span className="mt-1 block text-sm font-semibold text-neutral-500">Revenue confirmado y funnel.</span>
+          </Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <StatCard label="Comisiones sugeridas" value={suggestedActions.commissionSuggested} detail="Pagos partner sin comisión relacionada" />
+          <StatCard label="Recompensas sugeridas" value={suggestedActions.rewardSuggested} detail="Pagos referidos sin beneficio relacionado" />
+          <StatCard label="Acciones comerciales pendientes" value={suggestedActions.pendingActions} detail="Sugerencias manuales" />
+          <Link href="/app/admin/revenue" className="rounded-lg border border-brand-border bg-brand-paper p-4 font-black text-brand-dark shadow-sm hover:border-brand">
+            <span className="flex items-center gap-2 text-xs uppercase text-neutral-500">
+              <TrendingUp className="size-4 text-brand" />
+              Ver revenue
+            </span>
+            <span className="mt-2 block text-xl leading-7">Acciones sugeridas</span>
+          </Link>
+          <Link href="/app/admin/payments?filter=CONFIRMED" className="rounded-lg border border-brand-border bg-brand-paper p-4 font-black text-brand-dark shadow-sm hover:border-brand">
+            <span className="flex items-center gap-2 text-xs uppercase text-neutral-500">
+              <CreditCard className="size-4 text-brand" />
+              Ver pagos
+            </span>
+            <span className="mt-2 block text-xl leading-7">Pagos confirmados</span>
           </Link>
         </div>
         <p className="text-sm font-semibold text-neutral-600">Pagos registrados manualmente. No implica cobro automático.</p>

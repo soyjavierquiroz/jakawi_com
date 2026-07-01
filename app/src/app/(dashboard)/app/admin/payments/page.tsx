@@ -17,6 +17,7 @@ import {
   storePaymentTypeLabel,
   storePaymentTypes,
 } from "@/lib/store-payments";
+import { getSuggestedActionsForPayments, type SuggestedGrowthAction } from "@/lib/suggested-growth-actions";
 import { cn } from "@/lib/ui";
 
 type AdminPaymentsSearchParams = {
@@ -77,6 +78,34 @@ function typeClass(type: string) {
   if (type === "UPGRADE") return "bg-emerald-50 text-emerald-800";
   if (type === "REFUND") return "bg-red-50 text-red-700";
   return "bg-neutral-100 text-neutral-700";
+}
+
+function suggestedActionClass(action: SuggestedGrowthAction) {
+  if (action.status === "SUGGESTED" && action.kind === "PARTNER_COMMISSION") return "bg-amber-50 text-amber-800";
+  if (action.status === "SUGGESTED" && action.kind === "STORE_REWARD") return "bg-brand-soft text-brand-dark";
+  if (action.status === "COVERED") return "bg-green-50 text-green-700";
+  if (action.status === "NEEDS_REVIEW") return "bg-red-50 text-red-700";
+  return "bg-neutral-100 text-neutral-600";
+}
+
+function SuggestedActionPanel({ action }: { action: SuggestedGrowthAction | null | undefined }) {
+  if (!action) return null;
+
+  return (
+    <div className="mt-4 rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold text-neutral-600">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] font-black uppercase text-neutral-500">Acción comercial sugerida</p>
+        <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-black", suggestedActionClass(action))}>{action.label}</span>
+      </div>
+      <p className="mt-2 text-brand-dark">{action.description}</p>
+      <p className="mt-1 text-xs text-neutral-500">Monto confirmado: {action.paymentAmount}</p>
+      {action.ctaHref ? (
+        <Link href={action.ctaHref} className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">
+          {action.ctaLabel ?? "Abrir acción"}
+        </Link>
+      ) : null}
+    </div>
+  );
 }
 
 function attributionContextLabel(attribution: NonNullable<Awaited<ReturnType<typeof getStorePaymentsForAdmin>>[number]["store"]["acquisitionAttribution"]> | null | undefined) {
@@ -145,6 +174,7 @@ export default async function AdminPaymentsPage({
     getAdminPaymentStats(),
     getAdminStorePaymentFormOptions({ storeId: params.storeId }),
   ]);
+  const suggestedActions = await getSuggestedActionsForPayments(rows.map((payment) => payment.id));
 
   const filterItems = ["all", ...storePaymentStatuses, "BASIC", "PRO", "PREMIUM", "NEW_SUBSCRIPTION", "RENEWAL", "UPGRADE"];
   const selectedStore = formOptions.selectedStore;
@@ -325,6 +355,7 @@ export default async function AdminPaymentsPage({
         ) : (
           rows.map((payment) => {
             const attribution = payment.store.acquisitionAttribution;
+            const suggestedAction = suggestedActions.get(payment.id);
 
             return (
               <article key={payment.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -345,13 +376,7 @@ export default async function AdminPaymentsPage({
                       <p className="mt-1 text-brand-dark">{attributionContextLabel(attribution)}</p>
                       <p className="text-xs text-neutral-500">Contexto informativo. No crea comisiones, recompensas ni cobros automáticos.</p>
                     </div>
-                    {attribution?.sourceType === "PARTNER" ? (
-                      <div className="mt-4 rounded-md border border-brand-border bg-white px-3 py-2 text-sm font-semibold text-neutral-600">
-                        <p className="text-[11px] font-black uppercase text-neutral-500">Atribución partner</p>
-                        <p className="mt-1 text-brand-dark">Esta tienda fue atribuida a {attribution.partner?.name ?? "Partner"}.</p>
-                        <p className="text-xs text-neutral-500">Puedes crear comisión desde Referidos o Comisiones.</p>
-                      </div>
-                    ) : null}
+                    <SuggestedActionPanel action={suggestedAction} />
                   </div>
 
                   <div className="grid gap-2">
