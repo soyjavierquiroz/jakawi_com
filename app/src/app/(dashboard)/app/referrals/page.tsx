@@ -1,8 +1,9 @@
 import { ExternalLink, Gift, Network, UsersRound } from "lucide-react";
-import { CopyButton } from "@/components/CopyButton";
+import { ShareKitCard } from "@/components/growth/ShareKitCard";
 import { getStoreReferralLink } from "@/lib/acquisition/partners";
 import { requireStore } from "@/lib/auth";
 import { formatConversionContext, formatConversionRate } from "@/lib/growth-conversion-metrics";
+import { buildGrowthQrFileName, buildStoreReferralShareText } from "@/lib/growth-share-copy";
 import { getOwnerStoreReferralData, storeReferralRewardStatusLabel, storeReferralRewardTypeLabel } from "@/lib/store-referral-rewards";
 import { cn } from "@/lib/ui";
 
@@ -59,18 +60,21 @@ export default async function ReferralsPage() {
           </div>
           <Network className="size-5 shrink-0 text-brand" />
         </div>
-        <code className="mt-3 block break-all rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{referralUrl}</code>
-        <div className="mt-3 rounded-md bg-white px-3 py-2">
-          <p className="text-xs font-black uppercase text-neutral-500">Clicks registrados</p>
-          <p className="mt-1 text-xl font-black text-brand-dark">{conversionStats.total.clicks}</p>
-          <p className="mt-1 text-sm font-semibold text-neutral-600">Conversión click → registro: {formatConversionRate(conversionStats.total.conversionRate)}. {formatConversionContext(conversionStats.total)}.</p>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 md:flex md:items-center">
-          <a href={referralUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-4 font-bold text-white hover:bg-brand">
-            <ExternalLink className="size-4" />
-            Abrir enlace
-          </a>
-          <CopyButton value={referralUrl} />
+        <div className="mt-4">
+          <ShareKitCard
+            title="Tu link de referido"
+            description="Comparte tu enlace con otros negocios que quieren crear su espacio comercial y atender mejor por WhatsApp."
+            url={referralUrl}
+            shareText={buildStoreReferralShareText(store.name, referralUrl)}
+            qrLabel={`Referido ${store.slug}`}
+            downloadFileName={buildGrowthQrFileName("jakawi-referido", store.slug)}
+          >
+            <div className="rounded-md bg-brand-muted px-3 py-2">
+              <p className="text-xs font-black uppercase text-neutral-500">Clicks registrados</p>
+              <p className="mt-1 text-xl font-black text-brand-dark">{conversionStats.total.clicks}</p>
+              <p className="mt-1 text-sm font-semibold text-neutral-600">Conversion click → registro: {formatConversionRate(conversionStats.total.conversionRate)}. {formatConversionContext(conversionStats.total)}.</p>
+            </div>
+          </ShareKitCard>
         </div>
       </div>
 

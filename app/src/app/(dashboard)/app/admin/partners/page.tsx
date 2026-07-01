@@ -2,6 +2,7 @@ import { CheckCircle2, ExternalLink, HandCoins, Plus, UsersRound } from "lucide-
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CopyButton } from "@/components/CopyButton";
+import { ShareKitCard } from "@/components/growth/ShareKitCard";
 import {
   createPartnerAction,
   createPartnerDestinationAction,
@@ -14,6 +15,7 @@ import {
 import { getAdminPartnerRows, requireSuperAdmin } from "@/lib/admin";
 import { getPartnerDestinationReferralLink, getPartnerReferralLink } from "@/lib/acquisition/partners";
 import { formatConversionContext, formatConversionRate, type GrowthConversionPeriod } from "@/lib/growth-conversion-metrics";
+import { buildGrowthQrFileName, buildPartnerDestinationShareText, buildPartnerShareText } from "@/lib/growth-share-copy";
 import { formatCommissionMoney } from "@/lib/partner-commissions";
 import { cn } from "@/lib/ui";
 
@@ -317,6 +319,58 @@ export default async function AdminPartnersPage({
                     <PartnerStatusForm partnerId={partner.id} status={partner.status} />
                   </div>
                 </div>
+
+                <details className="mt-5 rounded-md border border-brand-border bg-white p-3">
+                  <summary className="cursor-pointer text-sm font-black text-brand-dark">Ver QR y texto para compartir</summary>
+                  <div className="mt-3 grid gap-3">
+                    <ShareKitCard
+                      title="Link principal"
+                      description="Kit operativo para copiar o compartir el link principal del partner."
+                      url={partnerLink}
+                      shareText={buildPartnerShareText(partner.name, partnerLink)}
+                      qrLabel={`Partner ${partner.code}`}
+                      compact
+                      downloadFileName={buildGrowthQrFileName("jakawi-partner", partner.code)}
+                    >
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Partner</p>
+                        <p className="mt-1 break-words text-sm font-black text-brand-dark">{partner.name}</p>
+                        <p className="mt-1 font-mono text-xs font-semibold text-neutral-600">{partner.code}</p>
+                      </div>
+                    </ShareKitCard>
+
+                    {partner.destinations.length > 0 ? (
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        {partner.destinations.map((destination) => {
+                          const destinationLink = getPartnerDestinationReferralLink(partner.code, destination.slug);
+                          return (
+                            <ShareKitCard
+                              key={destination.id}
+                              title={destination.label}
+                              description="Kit compacto para compartir este destino del partner."
+                              url={destinationLink}
+                              shareText={buildPartnerDestinationShareText(partner.name, destination.label, destinationLink)}
+                              qrLabel={destination.label}
+                              compact
+                              downloadFileName={buildGrowthQrFileName("jakawi-partner", partner.code, destination.slug)}
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                {destination.isDefault ? <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-black text-brand-dark">Default</span> : null}
+                                <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-black", statusClass(destination.status))}>{statusLabel(destination.status)}</span>
+                              </div>
+                              <div className="mt-3 rounded-md bg-brand-muted px-3 py-2">
+                                <p className="text-[11px] font-black uppercase text-neutral-500">Target URL</p>
+                                <p className="mt-1 break-all text-xs font-semibold text-neutral-700">{destination.targetUrl}</p>
+                              </div>
+                            </ShareKitCard>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-md border border-dashed border-brand-border bg-brand-muted px-3 py-4 text-sm font-semibold text-neutral-600">Sin destinos configurados para compartir.</div>
+                    )}
+                  </div>
+                </details>
 
                 <div className="mt-5 border-t border-brand-border pt-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

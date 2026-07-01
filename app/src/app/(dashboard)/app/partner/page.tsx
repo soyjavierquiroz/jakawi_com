@@ -1,8 +1,9 @@
 import { CircleDollarSign, ExternalLink, Handshake, Link2, Store, WalletCards } from "lucide-react";
 import Link from "next/link";
-import { CopyButton } from "@/components/CopyButton";
+import { ShareKitCard } from "@/components/growth/ShareKitCard";
 import { getPublicStoreUrl } from "@/config/site";
 import { formatConversionContext, formatConversionRate } from "@/lib/growth-conversion-metrics";
+import { buildGrowthQrFileName, buildPartnerDestinationShareText, buildPartnerShareText } from "@/lib/growth-share-copy";
 import { formatCommissionMoney, partnerCommissionStatusLabel } from "@/lib/partner-commissions";
 import {
   getCurrentUserPartnerPortal,
@@ -151,62 +152,60 @@ export default async function PartnerPortalPage({
           </div>
         </div>
 
-        <div className="mt-4 rounded-md border border-brand-border bg-white p-3">
-          <p className="text-xs font-black uppercase text-neutral-500">Link principal</p>
-          <a href={links.mainLink} target="_blank" className="mt-2 block break-all text-sm font-bold text-brand-dark hover:text-brand">
-            {links.mainLink}
-          </a>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-md bg-brand-muted px-3 py-2">
-              <p className="text-[11px] font-black uppercase text-neutral-500">Clicks</p>
-              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainConversionStats.total.clicks}</p>
+        <div className="mt-4">
+          <ShareKitCard
+            title="Link principal"
+            description="Comparte tu enlace principal para recomendar JAKAWI a negocios que quieren mejorar su decision, atencion y ventas por WhatsApp."
+            url={links.mainLink}
+            shareText={buildPartnerShareText(partner.name, links.mainLink)}
+            qrLabel={`Partner ${partner.code}`}
+            downloadFileName={buildGrowthQrFileName("jakawi-partner", partner.code)}
+          >
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-md bg-brand-muted px-3 py-2">
+                <p className="text-[11px] font-black uppercase text-neutral-500">Clicks</p>
+                <p className="mt-1 text-sm font-black text-brand-dark">{links.mainConversionStats.total.clicks}</p>
+              </div>
+              <div className="rounded-md bg-brand-muted px-3 py-2">
+                <p className="text-[11px] font-black uppercase text-neutral-500">Registros atribuidos</p>
+                <p className="mt-1 text-sm font-black text-brand-dark">{links.mainConversionStats.total.signups}</p>
+              </div>
+              <div className="rounded-md bg-brand-muted px-3 py-2">
+                <p className="text-[11px] font-black uppercase text-neutral-500">Conversion</p>
+                <p className="mt-1 text-sm font-black text-brand-dark">{formatConversionRate(links.mainConversionStats.total.conversionRate)}</p>
+              </div>
             </div>
-            <div className="rounded-md bg-brand-muted px-3 py-2">
-              <p className="text-[11px] font-black uppercase text-neutral-500">Registros atribuidos</p>
-              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainConversionStats.total.signups}</p>
-            </div>
-            <div className="rounded-md bg-brand-muted px-3 py-2">
-              <p className="text-[11px] font-black uppercase text-neutral-500">Conversión</p>
-              <p className="mt-1 text-sm font-black text-brand-dark">{formatConversionRate(links.mainConversionStats.total.conversionRate)}</p>
-            </div>
-          </div>
-          <p className="mt-2 text-xs font-semibold text-neutral-600">30 días: {links.mainConversionStats.last30Days.clicks} clicks · {links.mainConversionStats.last30Days.signups} registros · {formatConversionRate(links.mainConversionStats.last30Days.conversionRate)}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <CopyButton value={links.mainLink} />
-            <a href={links.mainLink} target="_blank" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand">
-              <ExternalLink className="size-4" />
-              Abrir link
-            </a>
-          </div>
+            <p className="mt-2 text-xs font-semibold text-neutral-600">30 dias: {links.mainConversionStats.last30Days.clicks} clicks · {links.mainConversionStats.last30Days.signups} registros · {formatConversionRate(links.mainConversionStats.last30Days.conversionRate)}</p>
+          </ShareKitCard>
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {links.destinations.map((destination) => (
-            <article key={destination.id} className="rounded-md border border-brand-border bg-white p-3">
+            <ShareKitCard
+              key={destination.id}
+              title={destination.label}
+              description="Comparte este destino activo con texto listo para enviar y QR trackeado."
+              url={destination.trackedLink}
+              shareText={buildPartnerDestinationShareText(partner.name, destination.label, destination.trackedLink)}
+              qrLabel={destination.label}
+              compact
+              downloadFileName={buildGrowthQrFileName("jakawi-partner", partner.code, destination.slug)}
+            >
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="break-words text-sm font-black text-brand-dark">{destination.label}</h3>
+                <span className="rounded-full bg-brand-muted px-2 py-0.5 font-mono text-[11px] font-black text-neutral-600">{destination.slug}</span>
                 {destination.isDefault ? <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-black text-brand-dark">Default</span> : null}
               </div>
-              <p className="mt-1 font-mono text-xs text-neutral-500">{destination.slug}</p>
-              <p className="mt-3 text-xs font-black uppercase text-neutral-500">Destino</p>
-              <p className="mt-1 break-all text-xs font-semibold text-neutral-600">{destination.targetUrl}</p>
-              <p className="mt-3 text-xs font-black uppercase text-neutral-500">Link trackeado</p>
-              <a href={destination.trackedLink} target="_blank" className="mt-1 block break-all text-xs font-bold text-brand-dark hover:text-brand">
-                {destination.trackedLink}
-              </a>
+              <div className="mt-3 rounded-md bg-brand-muted px-3 py-2">
+                <p className="text-[11px] font-black uppercase text-neutral-500">Destino</p>
+                <p className="mt-1 break-all text-xs font-semibold text-neutral-600">{destination.targetUrl}</p>
+              </div>
               <div className="mt-3 rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold text-neutral-600">
                 <p className="font-black uppercase text-neutral-500">Clicks → registros</p>
                 <p className="mt-1 text-sm font-black text-brand-dark">{formatConversionRate(destination.conversionStats.total.conversionRate)}</p>
                 <p className="mt-1">{destination.conversionStats.total.clicks} clicks · {destination.conversionStats.total.signups} registros atribuidos</p>
-                <p className="mt-1">Últimos 30 días: {destination.conversionStats.last30Days.clicks} clicks · {destination.conversionStats.last30Days.signups} registros · {formatConversionRate(destination.conversionStats.last30Days.conversionRate)}</p>
+                <p className="mt-1">Ultimos 30 dias: {destination.conversionStats.last30Days.clicks} clicks · {destination.conversionStats.last30Days.signups} registros · {formatConversionRate(destination.conversionStats.last30Days.conversionRate)}</p>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <CopyButton value={destination.trackedLink} />
-                <a href={destination.trackedLink} target="_blank" className="inline-flex h-10 items-center justify-center rounded-md border border-brand-border bg-white px-3 text-brand-dark hover:border-brand" aria-label="Abrir destino">
-                  <ExternalLink className="size-4" />
-                </a>
-              </div>
-            </article>
+            </ShareKitCard>
           ))}
           {links.destinations.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-5 text-sm font-semibold text-neutral-600">Aún no tienes destinos activos.</div> : null}
         </div>
