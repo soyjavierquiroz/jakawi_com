@@ -27,15 +27,15 @@ type AdminRewardsSearchParams = {
 
 const filterLabels: Record<string, string> = {
   all: "Todos",
-  PENDING: "Pending",
-  APPROVED: "Approved",
-  APPLIED: "Applied",
-  CANCELLED: "Cancelled",
-  EXPIRED: "Expired",
-  FREE_MONTH: "Free month",
-  SELLER_AI_CREDITS: "Seller AI credits",
-  DISCOUNT: "Discount",
-  CUSTOM: "Custom",
+  PENDING: "Pendientes",
+  APPROVED: "Aprobadas",
+  APPLIED: "Aplicadas",
+  CANCELLED: "Canceladas",
+  EXPIRED: "Expiradas",
+  FREE_MONTH: "Mes gratis",
+  SELLER_AI_CREDITS: "Seller AI",
+  DISCOUNT: "Descuento",
+  CUSTOM: "Personalizado",
 };
 
 function buildQuery(params: { filter?: string; q?: string; referrerStoreId?: string; referredStoreId?: string; attributionId?: string }) {
@@ -64,6 +64,14 @@ function statusClass(status: string) {
   if (status === "CANCELLED") return "bg-neutral-100 text-neutral-600";
   if (status === "EXPIRED") return "bg-red-50 text-red-700";
   return "bg-neutral-100 text-neutral-600";
+}
+
+function rewardTypeClass(type: string) {
+  if (type === "FREE_MONTH") return "bg-brand-soft text-brand-dark";
+  if (type === "SELLER_AI_CREDITS") return "bg-blue-50 text-blue-800";
+  if (type === "DISCOUNT") return "bg-emerald-50 text-emerald-800";
+  if (type === "CUSTOM") return "bg-purple-50 text-purple-800";
+  return "bg-neutral-100 text-neutral-700";
 }
 
 function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
@@ -100,7 +108,7 @@ function StatusActionForm({
       {needsReference ? (
         <input
           name="applicationReference"
-          placeholder="Referencia de aplicacion"
+          placeholder="Referencia de aplicación"
           className="mb-2 h-9 w-full rounded-md border border-brand-border bg-white px-2 text-xs font-semibold text-brand-dark outline-none focus:border-brand"
         />
       ) : null}
@@ -150,7 +158,7 @@ export default async function AdminRewardsPage({
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Recompensas</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Beneficios manuales para tiendas que recomiendan JAKAWI. No aplica beneficios automaticamente.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Beneficios manuales para tiendas que recomiendan JAKAWI. No se aplican automáticamente.</p>
         </div>
         <Link href="/app/admin" className="inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-brand-paper px-5 font-bold text-brand-dark hover:border-brand">
           Volver al panel
@@ -198,7 +206,7 @@ export default async function AdminRewardsPage({
             ) : null}
             {selectedAttribution ? (
               <div className="md:col-span-2">
-                <p className="text-[11px] font-black uppercase text-neutral-500">Atribucion STORE_REFERRAL</p>
+                <p className="text-[11px] font-black uppercase text-neutral-500">Atribución de tienda referidora</p>
                 <p className="mt-1 font-mono text-xs text-brand-dark">{selectedAttribution.id}</p>
               </div>
             ) : null}
@@ -247,7 +255,7 @@ export default async function AdminRewardsPage({
           </label>
 
           <label className="space-y-1.5">
-            <span className="text-xs font-black uppercase text-neutral-500">Monto interno</span>
+            <span className="text-xs font-black uppercase text-neutral-500">Valor interno</span>
             <input name="valueAmount" inputMode="decimal" placeholder="Opcional" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
@@ -272,9 +280,9 @@ export default async function AdminRewardsPage({
           </label>
 
           <label className="space-y-1.5 md:col-span-2 xl:col-span-3">
-            <span className="text-xs font-black uppercase text-neutral-500">Atribucion STORE_REFERRAL</span>
+            <span className="text-xs font-black uppercase text-neutral-500">Atribución de tienda referidora</span>
             <select name="attributionId" defaultValue={params.attributionId ?? ""} className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand">
-              <option value="">Sin atribucion</option>
+              <option value="">Sin atribución</option>
               {formOptions.recentStoreReferralAttributions.map((attribution) => (
                 <option key={attribution.id} value={attribution.id}>
                   {attribution.referrerStore?.name ?? "Sin referidor"} / {attribution.store.name} / {formatDate(attribution.createdAt)}
@@ -284,8 +292,8 @@ export default async function AdminRewardsPage({
           </label>
 
           <label className="space-y-1.5 md:col-span-2">
-            <span className="text-xs font-black uppercase text-neutral-500">Descripcion</span>
-            <input name="description" placeholder="QA reward, renovacion, ajuste manual..." className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
+            <span className="text-xs font-black uppercase text-neutral-500">Descripción</span>
+            <input name="description" placeholder="Beneficio por referido, renovación, ajuste manual..." className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
           <label className="space-y-1.5 md:col-span-2">
@@ -330,7 +338,7 @@ export default async function AdminRewardsPage({
 
       <div className="space-y-3">
         {rows.length === 0 ? (
-          <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay recompensas para esta busqueda.</div>
+          <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay recompensas para esta búsqueda. Crea un beneficio manual desde una atribución de tienda referidora.</div>
         ) : (
           rows.map((reward) => (
             <article key={reward.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -339,6 +347,7 @@ export default async function AdminRewardsPage({
                   <div className="flex flex-wrap items-start gap-2">
                     <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{reward.referrerStore.name}</h2>
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", statusClass(reward.status))}>{storeReferralRewardStatusLabel(reward.status)}</span>
+                    <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", rewardTypeClass(reward.rewardType))}>{storeReferralRewardTypeLabel(reward.rewardType)}</span>
                   </div>
                   <p className="mt-1 font-mono text-xs text-neutral-500">{reward.referrerStore.slug}</p>
                   <p className="mt-2 break-all text-sm font-semibold text-neutral-700">{reward.referrerStore.owner.email}</p>
@@ -361,14 +370,14 @@ export default async function AdminRewardsPage({
                     )}
                   </div>
                   <div className="rounded-md bg-brand-muted px-3 py-2">
-                    <p className="text-[11px] font-black uppercase text-neutral-500">Atribucion</p>
+                    <p className="text-[11px] font-black uppercase text-neutral-500">Atribución</p>
                     {reward.attribution ? (
                       <>
                         <p className="mt-1 font-mono text-xs text-brand-dark">{reward.attribution.id}</p>
                         <p className="text-xs font-semibold text-neutral-600">{reward.attribution.status}</p>
                       </>
                     ) : (
-                      <p className="mt-1 text-sm font-semibold text-neutral-600">Sin atribucion</p>
+                      <p className="mt-1 text-sm font-semibold text-neutral-600">Sin atribución</p>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -392,13 +401,13 @@ export default async function AdminRewardsPage({
 
                 <div className="space-y-2">
                   <div className="rounded-md bg-brand-muted px-3 py-2">
-                    <p className="text-[11px] font-black uppercase text-neutral-500">Referencia de aplicacion</p>
+                    <p className="text-[11px] font-black uppercase text-neutral-500">Referencia de aplicación</p>
                     <p className="mt-1 break-words text-sm font-black text-brand-dark">{reward.applicationReference ?? "Sin referencia"}</p>
                   </div>
                   {reward.notes ? <p className="rounded-md bg-white px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">{reward.notes}</p> : null}
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                    <StatusActionForm rewardId={reward.id} status="APPROVED" label="Aprobar" returnTo={returnTo} icon="approve" />
+                    <StatusActionForm rewardId={reward.id} status="APPROVED" label="Marcar aprobada" returnTo={returnTo} icon="approve" />
                     <StatusActionForm rewardId={reward.id} status="APPLIED" label="Marcar aplicada" returnTo={returnTo} icon="apply" />
                     <StatusActionForm rewardId={reward.id} status="CANCELLED" label="Cancelar" returnTo={returnTo} icon="cancel" />
                     <StatusActionForm rewardId={reward.id} status="EXPIRED" label="Expirar" returnTo={returnTo} icon="expire" />
@@ -408,7 +417,7 @@ export default async function AdminRewardsPage({
                     <input type="hidden" name="rewardId" value={reward.id} />
                     <input type="hidden" name="returnTo" value={returnTo} />
                     <textarea name="notes" defaultValue={reward.notes ?? ""} rows={2} placeholder="Notas" className="w-full rounded-md border border-brand-border bg-white px-2 py-2 text-xs font-semibold text-brand-dark outline-none focus:border-brand" />
-                    <input name="applicationReference" defaultValue={reward.applicationReference ?? ""} placeholder="Referencia de aplicacion" className="mt-2 h-9 w-full rounded-md border border-brand-border bg-white px-2 text-xs font-semibold text-brand-dark outline-none focus:border-brand" />
+                    <input name="applicationReference" defaultValue={reward.applicationReference ?? ""} placeholder="Referencia de aplicación" className="mt-2 h-9 w-full rounded-md border border-brand-border bg-white px-2 text-xs font-semibold text-brand-dark outline-none focus:border-brand" />
                     <button className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-brand-border bg-brand-paper px-3 text-xs font-black text-brand-dark hover:border-brand">
                       <Pencil className="size-3.5" />
                       Editar notas

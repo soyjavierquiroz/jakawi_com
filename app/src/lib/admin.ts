@@ -39,12 +39,12 @@ export function getAdminStoreFilter(value: string | null | undefined): AdminStor
 
 export const adminAttributionFilters = [
   { key: "all", label: "Todos" },
-  { key: "store-referral", label: "Store referrals" },
+  { key: "store-referral", label: "Tiendas referidoras" },
   { key: "partner", label: "Partners" },
-  { key: "organic", label: "Organico" },
-  { key: "signed-up", label: "Signed up" },
-  { key: "active", label: "Active" },
-  { key: "paid", label: "Paid" },
+  { key: "organic", label: "Orgánico" },
+  { key: "signed-up", label: "Registradas" },
+  { key: "active", label: "Activas" },
+  { key: "paid", label: "Pagadas" },
 ] as const;
 
 export type AdminAttributionFilter = (typeof adminAttributionFilters)[number]["key"];

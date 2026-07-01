@@ -52,7 +52,7 @@ export default async function ReferralsPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-black text-brand-dark">Invita negocios a JAKAWI</p>
-            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-neutral-500">Los beneficios son revisados y aplicados manualmente por JAKAWI.</p>
+            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-neutral-500">JAKAWI revisa y aplica beneficios manualmente.</p>
           </div>
           <Network className="size-5 shrink-0 text-brand" />
         </div>
@@ -98,7 +98,7 @@ export default async function ReferralsPage() {
         </div>
         <div className="mt-4 space-y-3">
           {attributions.length === 0 ? (
-            <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">Aun no hay negocios registrados desde tu enlace.</div>
+            <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">Todavía no tienes negocios referidos.</div>
           ) : (
             attributions.map((attribution) => (
               <article key={attribution.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -132,7 +132,7 @@ export default async function ReferralsPage() {
         </div>
         <div className="mt-4 space-y-3">
           {rewards.length === 0 ? (
-            <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">Cuando JAKAWI apruebe beneficios por tus referidos, apareceran aqui.</div>
+            <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">Cuando JAKAWI apruebe beneficios, aparecerán aquí.</div>
           ) : (
             rewards.map((reward) => (
               <article key={reward.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -144,7 +144,12 @@ export default async function ReferralsPage() {
                     </div>
                     <p className="mt-1 text-sm font-semibold text-neutral-500">{storeReferralRewardTypeLabel(reward.rewardType)}</p>
                     {reward.referredStore ? <p className="mt-3 text-sm font-semibold text-neutral-600">Referido asociado: {reward.referredStore.name}</p> : null}
-                    {reward.applicationReference ? <p className="mt-3 break-words rounded-md bg-brand-muted px-3 py-2 text-xs font-bold text-brand-dark">{reward.applicationReference}</p> : null}
+                    {reward.applicationReference ? (
+                      <div className="mt-3 rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Referencia</p>
+                        <p className="mt-1 break-words text-xs font-bold text-brand-dark">{reward.applicationReference}</p>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">
                     <p>Creado: {formatDate(reward.createdAt)}</p>

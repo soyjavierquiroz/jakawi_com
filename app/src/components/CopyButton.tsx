@@ -9,15 +9,16 @@ export function CopyButton({ value }: { value: string }) {
   return (
     <button
       type="button"
+      aria-label="Copiar link"
       onClick={async () => {
         await navigator.clipboard.writeText(value);
         setCopied(true);
         window.setTimeout(() => setCopied(false), 1400);
       }}
-      className="inline-flex h-10 items-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-semibold text-white transition hover:bg-brand"
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-semibold text-white transition hover:bg-brand"
     >
       <Copy className="size-4" />
-      {copied ? "Copiado" : "Copiar"}
+      {copied ? "Copiado" : "Copiar link"}
     </button>
   );
 }

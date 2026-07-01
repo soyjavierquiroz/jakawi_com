@@ -33,6 +33,16 @@ function statusClass(status: string) {
   return status === "ACTIVE" ? "bg-brand-soft text-brand-dark" : "bg-neutral-100 text-neutral-600";
 }
 
+function statusLabel(status: string) {
+  if (status === "ACTIVE") return "Activo";
+  if (status === "INACTIVE") return "Inactivo";
+  return status;
+}
+
+function targetKindLabel(targetUrl: string) {
+  return targetUrl.startsWith("/") ? "Destino interno" : "Destino externo";
+}
+
 function PartnerStatusForm({ partnerId, status }: { partnerId: string; status: string }) {
   const nextStatus = status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
   return (
@@ -85,7 +95,7 @@ export default async function AdminPartnersPage({
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Partners</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Canales comerciales con links configurables y comisiones manuales. No ejecuta pagos automaticos.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Canales comerciales con links configurables, portal read-only y comisiones manuales. No ejecuta pagos automáticos.</p>
         </div>
         <Link href="/app/admin" className="inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-brand-paper px-5 font-bold text-brand-dark hover:border-brand">
           Volver al panel
@@ -101,7 +111,7 @@ export default async function AdminPartnersPage({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-black text-brand-dark">Crear partner</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">El codigo se normaliza a letras, numeros y guiones.</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">El código se normaliza a letras, números y guiones.</p>
           </div>
           <UsersRound className="size-5 shrink-0 text-brand" />
         </div>
@@ -111,7 +121,7 @@ export default async function AdminPartnersPage({
             <input name="name" required className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
           <label className="space-y-1.5">
-            <span className="text-xs font-black uppercase text-neutral-500">Codigo</span>
+            <span className="text-xs font-black uppercase text-neutral-500">Código</span>
             <input name="code" placeholder="partner-demo" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
           <label className="space-y-1.5">
@@ -123,11 +133,11 @@ export default async function AdminPartnersPage({
             <input name="contactEmail" type="email" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
           <label className="space-y-1.5">
-            <span className="text-xs font-black uppercase text-neutral-500">Telefono</span>
+            <span className="text-xs font-black uppercase text-neutral-500">Teléfono</span>
             <input name="contactPhone" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
           <label className="space-y-1.5">
-            <span className="text-xs font-black uppercase text-neutral-500">Comision referencia bps</span>
+            <span className="text-xs font-black uppercase text-neutral-500">Comisión referencial bps</span>
             <input name="commissionRateBps" type="number" min="0" max="10000" defaultValue="2000" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
           <label className="space-y-1.5 md:col-span-2">
@@ -148,7 +158,7 @@ export default async function AdminPartnersPage({
 
       <div className="space-y-3">
         {partners.length === 0 ? (
-          <div className="rounded-lg border border-brand-border bg-brand-paper p-8 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay partners creados.</div>
+          <div className="rounded-lg border border-brand-border bg-brand-paper p-8 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay partners creados. Crea el primer canal comercial para generar links y comisiones manuales.</div>
         ) : (
           partners.map((partner) => {
             const partnerLink = getPartnerReferralLink(partner.code);
@@ -158,7 +168,7 @@ export default async function AdminPartnersPage({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-start gap-2">
                       <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{partner.name}</h2>
-                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", statusClass(partner.status))}>{partner.status}</span>
+                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", statusClass(partner.status))}>{statusLabel(partner.status)}</span>
                     </div>
                     <p className="mt-1 font-mono text-xs text-neutral-500">{partner.code}</p>
                     <div className="mt-3 rounded-md bg-brand-muted px-3 py-2">
@@ -171,7 +181,7 @@ export default async function AdminPartnersPage({
                       <CopyButton value={partnerLink} />
                       <a href={partnerLink} target="_blank" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand">
                         <ExternalLink className="size-4" />
-                        Abrir
+                        Abrir link
                       </a>
                     </div>
                   </div>
@@ -181,11 +191,11 @@ export default async function AdminPartnersPage({
                       <p className="text-[11px] font-black uppercase text-neutral-500">Contacto</p>
                       <p className="mt-1 truncate text-sm font-black text-brand-dark">{partner.contactName ?? "Sin contacto"}</p>
                       <p className="truncate text-xs font-semibold text-neutral-600">{partner.contactEmail ?? "Sin email"}</p>
-                      <p className="truncate text-xs font-semibold text-neutral-600">{partner.contactPhone ?? "Sin telefono"}</p>
+                      <p className="truncate text-xs font-semibold text-neutral-600">{partner.contactPhone ?? "Sin teléfono"}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="rounded-md bg-brand-muted px-3 py-2">
-                        <p className="text-[11px] font-black uppercase text-neutral-500">Comision</p>
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Comisión referencial</p>
                         <p className="mt-1 font-black text-brand-dark">{formatCommission(partner.commissionRateBps)}</p>
                       </div>
                       <div className="rounded-md bg-brand-muted px-3 py-2">
@@ -194,7 +204,7 @@ export default async function AdminPartnersPage({
                       </div>
                     </div>
                     <div className="rounded-md bg-brand-muted px-3 py-2">
-                      <p className="text-[11px] font-black uppercase text-neutral-500">Comisiones manuales</p>
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Comisiones</p>
                       <div className="mt-2 grid gap-2 text-xs font-semibold text-neutral-600">
                         <p className="flex justify-between gap-2">
                           <span>Pendientes</span>
@@ -211,14 +221,14 @@ export default async function AdminPartnersPage({
                       </div>
                     </div>
                     <div className="rounded-md bg-brand-muted px-3 py-2">
-                      <p className="text-[11px] font-black uppercase text-neutral-500">Portal access</p>
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Portal</p>
                       {partner.portalUser ? (
                         <div className="mt-1">
                           <p className="truncate text-sm font-black text-brand-dark">{partner.portalUser.email}</p>
                           <p className="text-xs font-semibold text-neutral-600">{partner.portalUser.role}</p>
                         </div>
                       ) : (
-                        <p className="mt-1 text-sm font-black text-neutral-500">Sin usuario de portal</p>
+                        <p className="mt-1 text-sm font-black text-neutral-500">Sin usuario vinculado. Vincula un email para que vea su portal read-only.</p>
                       )}
                       <form action={linkPartnerPortalUserAction} className="mt-3 grid gap-2">
                         <input type="hidden" name="partnerId" value={partner.id} />
@@ -245,7 +255,7 @@ export default async function AdminPartnersPage({
                     </Link>
                     <Link href={`/app/admin/commissions?partnerId=${partner.id}`} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">
                       <Plus className="size-4" />
-                      Nueva comision
+                      Nueva comisión
                     </Link>
                     <Link href={`/app/partner?partnerId=${partner.id}`} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand">
                       <ExternalLink className="size-4" />
@@ -259,7 +269,7 @@ export default async function AdminPartnersPage({
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-black text-brand-dark">Destinos</p>
-                      <p className="mt-1 text-xs font-semibold text-neutral-500">El link primero setea cookies y luego redirige al target configurado.</p>
+                      <p className="mt-1 text-xs font-semibold text-neutral-500">Cada destino genera un link trackeado y luego redirige al target configurado.</p>
                     </div>
                     <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-black text-neutral-500">{partner.destinations.length} destinos</span>
                   </div>
@@ -279,7 +289,7 @@ export default async function AdminPartnersPage({
                                     Default
                                   </span>
                                 ) : null}
-                                <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-black", statusClass(destination.status))}>{destination.status}</span>
+                                <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-black", statusClass(destination.status))}>{statusLabel(destination.status)}</span>
                               </div>
                               <p className="mt-1 font-mono text-xs text-neutral-500">{destination.slug}</p>
                               <a href={destinationLink} target="_blank" className="mt-2 block break-all text-xs font-bold text-brand-dark hover:text-brand">
@@ -288,6 +298,7 @@ export default async function AdminPartnersPage({
                             </div>
                             <div className="min-w-0 rounded-md bg-brand-muted px-3 py-2">
                               <p className="text-[11px] font-black uppercase text-neutral-500">Target URL</p>
+                              <span className="mt-1 inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-black text-neutral-500">{targetKindLabel(destination.targetUrl)}</span>
                               <p className="mt-1 break-all text-xs font-semibold text-neutral-700">{destination.targetUrl}</p>
                               {destination.notes ? <p className="mt-2 break-words text-xs font-semibold text-neutral-500">{destination.notes}</p> : null}
                             </div>
@@ -303,14 +314,14 @@ export default async function AdminPartnersPage({
                         </div>
                       );
                     })}
-                    {partner.destinations.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-4 text-sm font-semibold text-neutral-600">Sin destinos configurados. El link principal sigue llevando a registro.</div> : null}
+                    {partner.destinations.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-4 text-sm font-semibold text-neutral-600">Sin destinos configurados. Crea un destino para campañas, webinars o rutas específicas; el link principal sigue llevando a registro.</div> : null}
                   </div>
 
                   <form action={createPartnerDestinationAction} className="mt-4 rounded-md border border-brand-border bg-white p-3">
                     <input type="hidden" name="partnerId" value={partner.id} />
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <label className="space-y-1.5">
-                        <span className="text-xs font-black uppercase text-neutral-500">Label</span>
+                        <span className="text-xs font-black uppercase text-neutral-500">Nombre visible</span>
                         <input name="label" required placeholder="Webinar" className="h-10 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
                       </label>
                       <label className="space-y-1.5">

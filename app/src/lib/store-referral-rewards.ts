@@ -60,7 +60,7 @@ export function storeReferralRewardTypeLabel(type: string) {
   if (type === "DISCOUNT") return "Descuento";
   if (type === "SELLER_AI_CREDITS") return "Conversaciones Seller AI";
   if (type === "PLAN_UPGRADE") return "Upgrade temporal";
-  if (type === "INTERNAL_CREDIT") return "Credito interno";
+  if (type === "INTERNAL_CREDIT") return "Crédito interno";
   if (type === "CUSTOM") return "Personalizado";
   return type;
 }

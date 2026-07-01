@@ -36,10 +36,13 @@ function statusLabel(status: string) {
   if (status === "SIGNED_UP") return "Registrado";
   if (status === "ACTIVE") return "Activo";
   if (status === "PAID") return "Pagado";
-  if (status === "REWARD_PENDING") return "Reward pendiente";
-  if (status === "REWARD_APPROVED") return "Reward aprobado";
-  if (status === "REWARD_APPLIED") return "Reward aplicado";
+  if (status === "REWARD_PENDING") return "Beneficio pendiente";
+  if (status === "REWARD_APPROVED") return "Beneficio aprobado";
+  if (status === "REWARD_APPLIED") return "Beneficio aplicado";
   if (status === "CANCELLED") return "Cancelado";
+  if (status === "PENDING") return "Pendiente";
+  if (status === "APPROVED") return "Aprobada";
+  if (status === "INACTIVE") return "Inactivo";
   return status;
 }
 
@@ -110,7 +113,7 @@ export default async function PartnerPortalPage({
             <h1 className="mt-1 break-words text-3xl font-black leading-tight text-brand-dark md:text-4xl">{partner.name}</h1>
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-neutral-600">{partner.code}</span>
-              <span className={cn("rounded-full px-3 py-1 text-xs font-black", statusClass(partner.status))}>{partner.status}</span>
+              <span className={cn("rounded-full px-3 py-1 text-xs font-black", statusClass(partner.status))}>{statusLabel(partner.status)}</span>
               <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-black text-brand-dark">{formatCommissionRate(partner.commissionRateBps)} referencial</span>
               {portal.isSuperAdminView ? <span className="rounded-full bg-neutral-900 px-3 py-1 text-xs font-black text-white">Vista superadmin</span> : null}
             </div>
@@ -125,9 +128,9 @@ export default async function PartnerPortalPage({
         <StatCard label="Comercios registrados" value={summary.registeredStores} />
         <StatCard label="Comercios activos" value={summary.activeStores} />
         <StatCard label="Comercios pagados" value={summary.paidStores} />
-        <StatCard label="Comisiones pendientes" value={summary.commissionStats.PENDING.count} detail={formatCommissionMoney(summary.commissionStats.PENDING.amountCents)} />
-        <StatCard label="Comisiones aprobadas" value={summary.commissionStats.APPROVED.count} detail={formatCommissionMoney(summary.commissionStats.APPROVED.amountCents)} />
-        <StatCard label="Comisiones pagadas" value={summary.commissionStats.PAID.count} detail={formatCommissionMoney(summary.commissionStats.PAID.amountCents)} />
+        <StatCard label="Pendientes" value={summary.commissionStats.PENDING.count} detail={formatCommissionMoney(summary.commissionStats.PENDING.amountCents)} />
+        <StatCard label="Aprobadas" value={summary.commissionStats.APPROVED.count} detail={formatCommissionMoney(summary.commissionStats.APPROVED.amountCents)} />
+        <StatCard label="Pagadas" value={summary.commissionStats.PAID.count} detail={formatCommissionMoney(summary.commissionStats.PAID.amountCents)} />
         <StatCard label="Total pendiente" value={formatCommissionMoney(summary.commissionStats.PENDING.amountCents)} />
         <StatCard label="Total aprobado" value={formatCommissionMoney(summary.commissionStats.APPROVED.amountCents)} />
         <StatCard label="Total pagado" value={formatCommissionMoney(summary.commissionStats.PAID.amountCents)} />
@@ -151,7 +154,7 @@ export default async function PartnerPortalPage({
             <CopyButton value={links.mainLink} />
             <a href={links.mainLink} target="_blank" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand">
               <ExternalLink className="size-4" />
-              Abrir
+              Abrir link
             </a>
           </div>
         </div>
@@ -178,7 +181,7 @@ export default async function PartnerPortalPage({
               </div>
             </article>
           ))}
-          {links.destinations.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-5 text-sm font-semibold text-neutral-600">No hay destinos activos configurados.</div> : null}
+          {links.destinations.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-5 text-sm font-semibold text-neutral-600">Aún no tienes destinos activos.</div> : null}
         </div>
       </section>
 
@@ -223,7 +226,7 @@ export default async function PartnerPortalPage({
                   </div>
                   <a href={storeUrl} target="_blank" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand">
                     <ExternalLink className="size-4" />
-                    Ver espacio
+                    Abrir espacio
                   </a>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -247,7 +250,7 @@ export default async function PartnerPortalPage({
               </article>
             );
           })}
-          {visibleAttributions.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-6 text-center text-sm font-semibold text-neutral-600">Todavia no tienes comercios atribuidos.</div> : null}
+          {visibleAttributions.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-6 text-center text-sm font-semibold text-neutral-600">Todavía no tienes comercios atribuidos.</div> : null}
         </div>
       </section>
 
@@ -274,7 +277,7 @@ export default async function PartnerPortalPage({
                         {formatCommissionMoney(commission.commissionAmountCents, commission.currency)}
                       </span>
                     </div>
-                    <h3 className="mt-2 break-words text-base font-black text-brand-dark">{commission.description ?? "Comision partner"}</h3>
+                    <h3 className="mt-2 break-words text-base font-black text-brand-dark">{commission.description ?? "Comisión partner"}</h3>
                     {store ? <p className="mt-1 break-words text-sm font-semibold text-neutral-600">{store.name} / {store.slug}</p> : null}
                     {commission.paymentReference ? <p className="mt-2 break-all text-xs font-semibold text-neutral-500">Referencia: {commission.paymentReference}</p> : null}
                   </div>
@@ -300,7 +303,7 @@ export default async function PartnerPortalPage({
               </article>
             );
           })}
-          {commissions.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-6 text-center text-sm font-semibold text-neutral-600">Cuando JAKAWI apruebe comisiones, apareceran aqui.</div> : null}
+          {commissions.length === 0 ? <div className="rounded-md border border-dashed border-brand-border bg-white px-3 py-6 text-center text-sm font-semibold text-neutral-600">Cuando JAKAWI apruebe comisiones, aparecerán aquí.</div> : null}
         </div>
       </section>
     </section>

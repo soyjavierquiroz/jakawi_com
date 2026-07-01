@@ -28,10 +28,19 @@ function formatDate(date: Date | null | undefined) {
 }
 
 function sourceLabel(sourceType: string) {
-  if (sourceType === "STORE_REFERRAL") return "Store referral";
+  if (sourceType === "STORE_REFERRAL") return "Tienda referidora";
   if (sourceType === "PARTNER") return "Partner";
-  if (sourceType === "ORGANIC") return "Organico";
+  if (sourceType === "ORGANIC") return "Orgánico";
+  if (sourceType === "MANUAL") return "Manual";
   return sourceType;
+}
+
+function sourceDescription(sourceType: string) {
+  if (sourceType === "STORE_REFERRAL") return "Referido por tienda";
+  if (sourceType === "PARTNER") return "Canal partner";
+  if (sourceType === "ORGANIC") return "Sin atribución comercial";
+  if (sourceType === "MANUAL") return "Atribución manual";
+  return "Atribución comercial";
 }
 
 function sourceClass(sourceType: string) {
@@ -41,6 +50,17 @@ function sourceClass(sourceType: string) {
   return "bg-amber-50 text-amber-800";
 }
 
+function attributionStatusLabel(status: string) {
+  if (status === "SIGNED_UP") return "Registrada";
+  if (status === "ACTIVE") return "Activa";
+  if (status === "PAID") return "Pagada";
+  if (status === "REWARD_PENDING") return "Beneficio pendiente";
+  if (status === "REWARD_APPROVED") return "Beneficio aprobado";
+  if (status === "REWARD_APPLIED") return "Beneficio aplicado";
+  if (status === "CANCELLED") return "Cancelada";
+  return status;
+}
+
 function AttributionStatusForm({ attributionId, status, notes }: { attributionId: string; status: string; notes: string | null }) {
   return (
     <form action={updateAttributionStatusAction} className="space-y-2">
@@ -48,12 +68,12 @@ function AttributionStatusForm({ attributionId, status, notes }: { attributionId
       <select name="status" defaultValue={status} className="h-10 w-full rounded-md border border-brand-border bg-white px-2 text-xs font-bold text-brand-dark">
         {attributionStatuses.map((value) => (
           <option key={value} value={value}>
-            {value}
+            {attributionStatusLabel(value)}
           </option>
         ))}
       </select>
       <input name="notes" defaultValue={notes ?? ""} placeholder="Notas manuales" className="h-10 w-full rounded-md border border-brand-border bg-white px-2 text-xs font-semibold text-brand-dark" />
-      <button className="h-10 w-full rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">Guardar</button>
+      <button className="h-10 w-full rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">Cambiar estado</button>
     </form>
   );
 }
@@ -75,7 +95,7 @@ export default async function AdminReferralsPage({
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Referidos y atribuciones</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Tiendas que recomiendan JAKAWI y partners que activan comercios. Sin pagos automaticos.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Tiendas que recomiendan JAKAWI, canales partner y registros orgánicos. Sin pagos automáticos.</p>
         </div>
         <Link href="/app/admin" className="inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-brand-paper px-5 font-bold text-brand-dark hover:border-brand">
           Volver al panel
@@ -117,11 +137,11 @@ export default async function AdminReferralsPage({
 
       <div className="space-y-3">
         {rows.length === 0 ? (
-          <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay atribuciones para esta busqueda.</div>
+            <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay atribuciones para esta búsqueda. Prueba otro filtro o revisa nuevos registros desde tiendas, partners u orgánico.</div>
         ) : (
           rows.map((row) => {
             const publicUrl = getPublicStoreUrl(row.store.slug);
-            const sourceName = row.partner ? `${row.partner.name} (${row.partner.code})` : row.referrerStore ? `${row.referrerStore.name} (${row.referrerStore.slug})` : "Sin referidor";
+            const sourceName = row.partner ? `${row.partner.name} (${row.partner.code})` : row.referrerStore ? `${row.referrerStore.name} (${row.referrerStore.slug})` : sourceDescription(row.sourceType);
             const destinationLabel = row.partnerDestination ? `${row.partnerDestination.label} (${row.partnerDestination.slug})` : row.partnerDestinationSlug ?? row.landingPath ?? "Sin destino";
 
             return (
@@ -132,18 +152,19 @@ export default async function AdminReferralsPage({
                       <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{row.store.name}</h2>
                       <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", sourceClass(row.sourceType))}>{sourceLabel(row.sourceType)}</span>
                     </div>
+                    <p className="mt-2 text-sm font-black text-neutral-600">{sourceDescription(row.sourceType)}</p>
                     <p className="mt-1 font-mono text-xs text-neutral-500">{row.store.slug}</p>
                     <p className="mt-2 break-all text-sm font-semibold text-neutral-700">{row.store.owner.email}</p>
                     <p className="text-xs font-semibold text-neutral-500">{row.store.owner.name ?? "Sin nombre"}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <a href={publicUrl} target="_blank" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-bold text-white hover:bg-brand">
                         <ExternalLink className="size-4" />
-                        Abrir tienda
+                        Abrir espacio
                       </a>
                       {row.sourceType === "PARTNER" && row.partnerId ? (
                         <Link href={`/app/admin/commissions?partnerId=${row.partnerId}&attributionId=${row.id}&storeId=${row.storeId}`} className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand">
                           <HandCoins className="size-4" />
-                          Crear comision
+                          Crear comisión
                         </Link>
                       ) : null}
                       {row.sourceType === "STORE_REFERRAL" && row.referrerStoreId ? (
@@ -159,7 +180,7 @@ export default async function AdminReferralsPage({
                     <div className="rounded-md bg-brand-muted px-3 py-2">
                       <p className="text-[11px] font-black uppercase text-neutral-500">Referidor / partner</p>
                       <p className="mt-1 break-words text-sm font-black text-brand-dark">{sourceName}</p>
-                      <p className="mt-1 font-mono text-xs text-neutral-600">{row.code ?? "Sin codigo"}</p>
+                      <p className="mt-1 font-mono text-xs text-neutral-600">{row.code ?? "Sin código usado"}</p>
                     </div>
                     <div className="rounded-md bg-brand-muted px-3 py-2">
                       <p className="text-[11px] font-black uppercase text-neutral-500">Destino</p>
@@ -172,7 +193,7 @@ export default async function AdminReferralsPage({
                     <div className="grid grid-cols-2 gap-2">
                       <div className="rounded-md bg-brand-muted px-3 py-2">
                         <p className="text-[11px] font-black uppercase text-neutral-500">Estado</p>
-                        <p className="mt-1 truncate font-black text-brand-dark">{row.status}</p>
+                        <p className="mt-1 truncate font-black text-brand-dark">{attributionStatusLabel(row.status)}</p>
                       </div>
                       <div className="rounded-md bg-brand-muted px-3 py-2">
                         <p className="text-[11px] font-black uppercase text-neutral-500">Plan</p>

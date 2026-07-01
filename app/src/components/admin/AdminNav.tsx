@@ -18,13 +18,13 @@ export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Navegación de superadmin" className="rounded-lg border border-brand-border bg-brand-paper p-2 shadow-sm">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+    <nav aria-label="Navegación de superadmin" className="overflow-hidden rounded-lg border border-brand-border bg-brand-paper p-2 shadow-sm">
+      <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-6">
         {adminNavItems.map((item) => {
           const Icon = item.icon;
           const active = item.href ? pathname === item.href : false;
           const className = cn(
-            "inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md px-3 text-sm font-black transition",
+            "inline-flex h-11 min-w-[132px] items-center justify-center gap-2 rounded-md px-3 text-sm font-black transition sm:min-w-0",
             active ? "bg-brand-dark text-white shadow-sm" : "bg-white text-brand-dark hover:bg-brand-muted",
           );
 

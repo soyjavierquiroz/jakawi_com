@@ -44,7 +44,7 @@ function formatDateTime(date: Date | null | undefined) {
 }
 
 function formatRate(rateBps: number | null | undefined) {
-  if (rateBps === null || rateBps === undefined) return "Sin rate";
+  if (rateBps === null || rateBps === undefined) return "Sin porcentaje";
   return `${(rateBps / 100).toFixed(rateBps % 100 === 0 ? 0 : 2)}%`;
 }
 
@@ -73,12 +73,14 @@ function StatusActionForm({
   label,
   returnTo,
   icon,
+  paymentReference,
 }: {
   commissionId: string;
   status: string;
   label: string;
   returnTo: string;
   icon: "approve" | "pay" | "cancel" | "reverse";
+  paymentReference?: string | null;
 }) {
   const Icon = icon === "approve" ? CheckCircle2 : icon === "pay" ? CreditCard : icon === "cancel" ? Ban : RotateCcw;
   const needsPaymentReference = status === "PAID";
@@ -91,6 +93,7 @@ function StatusActionForm({
       {needsPaymentReference ? (
         <input
           name="paymentReference"
+          defaultValue={paymentReference ?? ""}
           placeholder="Referencia de pago"
           className="mb-2 h-9 w-full rounded-md border border-brand-border bg-white px-2 text-xs font-semibold text-brand-dark outline-none focus:border-brand"
         />
@@ -141,7 +144,7 @@ export default async function AdminCommissionsPage({
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Comisiones</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Control manual de comisiones de partners. No ejecuta pagos automaticos.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Control manual de comisiones para partners. No ejecuta pagos automáticos.</p>
         </div>
         <Link href="/app/admin" className="inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-brand-paper px-5 font-bold text-brand-dark hover:border-brand">
           Volver al panel
@@ -153,18 +156,21 @@ export default async function AdminCommissionsPage({
       {params.ok ? <p className="rounded-md bg-green-50 px-3 py-2 text-sm font-bold text-green-700">Cambios guardados.</p> : null}
       {params.error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{params.error}</p> : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Pendientes" value={stats.PENDING.count} detail={formatCommissionMoney(stats.PENDING.amountCents)} />
-        <StatCard label="Aprobadas" value={stats.APPROVED.count} detail={formatCommissionMoney(stats.APPROVED.amountCents)} />
-        <StatCard label="Pagadas" value={stats.PAID.count} detail={formatCommissionMoney(stats.PAID.amountCents)} />
-        <StatCard label="Canceladas/Reversadas" value={stats.CANCELLED.count + stats.REVERSED.count} detail={formatCommissionMoney(stats.CANCELLED.amountCents + stats.REVERSED.amountCents)} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+        <StatCard label="Pendientes" value={stats.PENDING.count} />
+        <StatCard label="Aprobadas" value={stats.APPROVED.count} />
+        <StatCard label="Pagadas" value={stats.PAID.count} />
+        <StatCard label="Canceladas/Reversadas" value={stats.CANCELLED.count + stats.REVERSED.count} />
+        <StatCard label="Total pendiente" value={formatCommissionMoney(stats.PENDING.amountCents)} />
+        <StatCard label="Total aprobado" value={formatCommissionMoney(stats.APPROVED.amountCents)} />
+        <StatCard label="Total pagado" value={formatCommissionMoney(stats.PAID.amountCents)} />
       </div>
 
       <form action={createPartnerCommissionAction} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-black text-brand-dark">Comision manual</p>
-            <p className="mt-1 text-sm font-semibold text-neutral-500">Se crea como pendiente y no ejecuta pagos automaticos.</p>
+            <p className="text-sm font-black text-brand-dark">Comisión manual</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Se crea como pendiente y no ejecuta pagos automáticos.</p>
           </div>
           <HandCoins className="size-5 shrink-0 text-brand" />
         </div>
@@ -186,7 +192,7 @@ export default async function AdminCommissionsPage({
             ) : null}
             {selectedAttribution ? (
               <div className="md:col-span-2">
-                <p className="text-[11px] font-black uppercase text-neutral-500">Atribucion</p>
+                <p className="text-[11px] font-black uppercase text-neutral-500">Atribución</p>
                 <p className="mt-1 text-brand-dark">{selectedAttribution.id}</p>
               </div>
             ) : null}
@@ -207,7 +213,7 @@ export default async function AdminCommissionsPage({
           </label>
 
           <label className="space-y-1.5">
-            <span className="text-xs font-black uppercase text-neutral-500">Monto comision</span>
+            <span className="text-xs font-black uppercase text-neutral-500">Monto comisión</span>
             <input name="commissionAmount" required inputMode="decimal" placeholder="100.00" className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
@@ -227,9 +233,9 @@ export default async function AdminCommissionsPage({
           </label>
 
           <label className="space-y-1.5 md:col-span-2">
-            <span className="text-xs font-black uppercase text-neutral-500">Atribucion partner</span>
+            <span className="text-xs font-black uppercase text-neutral-500">Atribución partner</span>
             <select name="attributionId" defaultValue={params.attributionId ?? ""} className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand">
-              <option value="">Sin atribucion</option>
+              <option value="">Sin atribución</option>
               {formOptions.recentPartnerAttributions.map((attribution) => (
                 <option key={attribution.id} value={attribution.id}>
                   {attribution.store.name} / {attribution.partner?.name ?? "Partner"} / {formatDate(attribution.createdAt)}
@@ -241,8 +247,8 @@ export default async function AdminCommissionsPage({
           <input type="hidden" name="storeId" value={params.storeId ?? selectedAttribution?.storeId ?? ""} />
 
           <label className="space-y-1.5 md:col-span-2">
-            <span className="text-xs font-black uppercase text-neutral-500">Descripcion</span>
-            <input name="description" placeholder="Comision demo, ajuste manual..." className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
+            <span className="text-xs font-black uppercase text-neutral-500">Descripción</span>
+            <input name="description" placeholder="Comisión demo, ajuste manual..." className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-semibold outline-none focus:border-brand" />
           </label>
 
           <label className="space-y-1.5 md:col-span-2">
@@ -253,7 +259,7 @@ export default async function AdminCommissionsPage({
 
         <button className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
           <HandCoins className="size-4" />
-          Crear comision pendiente
+          Crear comisión pendiente
         </button>
       </form>
 
@@ -309,7 +315,7 @@ export default async function AdminCommissionsPage({
 
       <div className="space-y-3">
         {rows.length === 0 ? (
-          <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay comisiones para esta busqueda.</div>
+          <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay comisiones para esta búsqueda. Crea una comisión manual desde un partner o una atribución partner.</div>
         ) : (
           rows.map((commission) => (
             <article key={commission.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -341,20 +347,20 @@ export default async function AdminCommissionsPage({
                     )}
                   </div>
                   <div className="rounded-md bg-brand-muted px-3 py-2">
-                    <p className="text-[11px] font-black uppercase text-neutral-500">Atribucion</p>
+                    <p className="text-[11px] font-black uppercase text-neutral-500">Atribución</p>
                     {commission.attribution ? (
                       <>
                         <p className="mt-1 font-mono text-xs text-brand-dark">{commission.attribution.id}</p>
                         <p className="text-xs font-semibold text-neutral-600">{commission.attribution.partnerDestination?.label ?? commission.attribution.partnerDestinationSlug ?? "Sin destino"}</p>
                       </>
                     ) : (
-                      <p className="mt-1 text-sm font-semibold text-neutral-600">Sin atribucion</p>
+                      <p className="mt-1 text-sm font-semibold text-neutral-600">Sin atribución</p>
                     )}
                   </div>
                   <div className="rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">
                     <p>Creada: {formatDateTime(commission.createdAt)}</p>
                     <p>Aprobada: {formatDate(commission.approvedAt)}</p>
-                    <p>Pagada: {formatDate(commission.paidAt)}</p>
+                    <p>Pagada manualmente: {formatDate(commission.paidAt)}</p>
                     <p>Cancelada/Reversada: {formatDate(commission.cancelledAt ?? commission.reversedAt)}</p>
                   </div>
                 </div>
@@ -367,8 +373,8 @@ export default async function AdminCommissionsPage({
                   {commission.notes ? <p className="rounded-md bg-white px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">{commission.notes}</p> : null}
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                    <StatusActionForm commissionId={commission.id} status="APPROVED" label="Aprobar" returnTo={returnTo} icon="approve" />
-                    <StatusActionForm commissionId={commission.id} status="PAID" label="Marcar pagada" returnTo={returnTo} icon="pay" />
+                    <StatusActionForm commissionId={commission.id} status="APPROVED" label="Marcar aprobada" returnTo={returnTo} icon="approve" />
+                    <StatusActionForm commissionId={commission.id} status="PAID" label="Marcar pagada" returnTo={returnTo} icon="pay" paymentReference={commission.paymentReference} />
                     <StatusActionForm commissionId={commission.id} status="CANCELLED" label="Cancelar" returnTo={returnTo} icon="cancel" />
                     <StatusActionForm commissionId={commission.id} status="REVERSED" label="Reversar" returnTo={returnTo} icon="reverse" />
                   </div>

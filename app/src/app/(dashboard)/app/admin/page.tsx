@@ -10,30 +10,38 @@ const growthModules = [
     title: "Referidos",
     icon: Network,
     text: "Tiendas que recomiendan JAKAWI.",
-    detail: "Beneficios manuales futuros para tiendas que recomiendan nuevos negocios.",
+    detail: "Tiendas referidoras y atribuciones de comercios nuevos.",
     href: "/app/admin/referrals",
   },
   {
     title: "Partners",
     icon: UsersRound,
-    text: "Personas/agencias que activan comercios.",
-    detail: "Canales que crean y acompañan nuevas cuentas.",
+    text: "Canales comerciales que activan comercios.",
+    detail: "Partners con links, destinos y portal read-only.",
     href: "/app/admin/partners",
   },
   {
     title: "Comisiones",
     icon: HandCoins,
-    text: "Ledger manual para partners.",
-    detail: "Registrar, aprobar, cancelar y marcar pagadas. No ejecuta pagos automaticos.",
+    text: "Pagos manuales a partners.",
+    detail: "Registrar, aprobar, cancelar y marcar pagadas. No ejecuta pagos automáticos.",
     href: "/app/admin/commissions",
   },
   {
     title: "Recompensas",
     icon: Gift,
     text: "Beneficios internos para tiendas que recomiendan JAKAWI.",
-    detail: "Ledger manual. No aplica beneficios automaticamente.",
+    detail: "Beneficios manuales a tiendas referidoras. No se aplican automáticamente.",
     href: "/app/admin/rewards",
   },
+];
+
+const quickActions = [
+  { label: "Ver tiendas", href: "/app/admin/stores", icon: Store },
+  { label: "Ver referidos", href: "/app/admin/referrals", icon: Network },
+  { label: "Ver partners", href: "/app/admin/partners", icon: UsersRound },
+  { label: "Ver comisiones", href: "/app/admin/commissions", icon: HandCoins },
+  { label: "Ver recompensas", href: "/app/admin/rewards", icon: Gift },
 ];
 
 function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
@@ -56,7 +64,7 @@ export default async function AdminPage() {
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Operación comercial de JAKAWI</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Panel operativo para tiendas, planes y la base futura de crecimiento comercial.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Panel operativo para tiendas, planes, señales y crecimiento comercial manual.</p>
         </div>
         <Link href="/app/admin/stores" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
           <Store className="size-4" />
@@ -66,36 +74,21 @@ export default async function AdminPage() {
 
       <AdminNav />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total de tiendas" value={stats.totalStores} detail="Espacios comerciales creados" />
-        <StatCard label="Tiendas activas" value={stats.activeStores} detail="Sin trial vencido" />
-        <StatCard label="Trials activos" value={stats.activeTrials} detail="Pruebas en curso" />
-        <StatCard label="Trials vencidos" value={stats.expiredTrials} detail="Requieren seguimiento" />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Partners activos" value={stats.activePartners} detail="Canales comerciales habilitados" />
-        <StatCard label="Destinos activos" value={stats.activePartnerDestinations} detail="Links configurados de partners" />
-        <StatCard label="Store referrals" value={stats.storeReferralAttributions} detail="Tiendas atribuidas a tiendas" />
-        <StatCard label="Partner attribution" value={stats.partnerAttributions} detail="Tiendas atribuidas a partners" />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Comisiones pendientes" value={stats.partnerCommissionStats.PENDING.count} detail={formatCommissionMoney(stats.partnerCommissionStats.PENDING.amountCents)} />
-        <StatCard label="Comisiones aprobadas" value={stats.partnerCommissionStats.APPROVED.count} detail={formatCommissionMoney(stats.partnerCommissionStats.APPROVED.amountCents)} />
-        <StatCard label="Comisiones pagadas" value={stats.partnerCommissionStats.PAID.count} detail={formatCommissionMoney(stats.partnerCommissionStats.PAID.amountCents)} />
-        <StatCard label="Control manual" value="Sin auto-pagos" detail="No ejecuta pagos automaticos" />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Recompensas pendientes" value={stats.storeReferralRewardStats.PENDING.count} detail="Beneficios por revisar" />
-        <StatCard label="Recompensas aprobadas" value={stats.storeReferralRewardStats.APPROVED.count} detail="Pendientes de aplicar manualmente" />
-        <StatCard label="Recompensas aplicadas" value={stats.storeReferralRewardStats.APPLIED.count} detail="Registradas como aplicadas" />
-        <StatCard label="Beneficios manuales" value="Sin auto-aplicar" detail="No toca billing ni planes" />
-      </div>
+      <section className="space-y-3">
+        <div>
+          <p className="text-sm font-black text-brand-dark">Operación</p>
+          <h2 className="mt-1 text-2xl font-black text-brand-dark">Tiendas, planes y señales</h2>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Total de tiendas" value={stats.totalStores} detail="Espacios comerciales creados" />
+          <StatCard label="Tiendas activas" value={stats.activeStores} detail="Sin trial vencido" />
+          <StatCard label="Trials activos" value={stats.activeTrials} detail="Pruebas en curso" />
+          <StatCard label="Trials vencidos" value={stats.expiredTrials} detail="Requieren seguimiento" />
+        </div>
+      </section>
 
       <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-black text-brand-dark">Tiendas por plan</p>
@@ -112,7 +105,7 @@ export default async function AdminPage() {
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
         <div className="grid gap-3">
           <StatCard label="Seller AI habilitado" value={stats.sellerAiEnabledStores} detail="Tiendas con plan operativo" />
@@ -121,13 +114,31 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      <div>
+      <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-sm font-black text-brand-dark">Crecimiento</p>
-            <h2 className="mt-1 text-2xl font-black text-brand-dark">Modulos comerciales</h2>
+            <h2 className="mt-1 text-2xl font-black text-brand-dark">Referidos, partners, comisiones y recompensas</h2>
           </div>
           <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">Manual</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Partners activos" value={stats.activePartners} detail="Canales comerciales habilitados" />
+          <StatCard label="Destinos activos" value={stats.activePartnerDestinations} detail="Links configurados de partners" />
+          <StatCard label="Tiendas referidoras" value={stats.storeReferralAttributions} detail="Tiendas atribuidas a tiendas" />
+          <StatCard label="Atribución partner" value={stats.partnerAttributions} detail="Tiendas atribuidas a partners" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Comisiones pendientes" value={stats.partnerCommissionStats.PENDING.count} detail={formatCommissionMoney(stats.partnerCommissionStats.PENDING.amountCents)} />
+          <StatCard label="Comisiones aprobadas" value={stats.partnerCommissionStats.APPROVED.count} detail={formatCommissionMoney(stats.partnerCommissionStats.APPROVED.amountCents)} />
+          <StatCard label="Comisiones pagadas" value={stats.partnerCommissionStats.PAID.count} detail={formatCommissionMoney(stats.partnerCommissionStats.PAID.amountCents)} />
+          <StatCard label="Control manual" value="Sin auto-pagos" detail="No ejecuta pagos automáticos" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Recompensas pendientes" value={stats.storeReferralRewardStats.PENDING.count} detail="Beneficios por revisar" />
+          <StatCard label="Recompensas aprobadas" value={stats.storeReferralRewardStats.APPROVED.count} detail="Pendientes de aplicar manualmente" />
+          <StatCard label="Recompensas aplicadas" value={stats.storeReferralRewardStats.APPLIED.count} detail="Registradas como aplicadas" />
+          <StatCard label="Beneficios manuales" value="Sin auto-aplicar" detail="No toca billing ni planes" />
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           {growthModules.map((module) => {
@@ -157,7 +168,25 @@ export default async function AdminPage() {
             );
           })}
         </div>
-      </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <p className="text-sm font-black text-brand-dark">Acciones rápidas</p>
+          <h2 className="mt-1 text-2xl font-black text-brand-dark">Operación diaria</h2>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link key={action.href} href={action.href} className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-brand-border bg-brand-paper px-3 text-sm font-black text-brand-dark shadow-sm hover:border-brand">
+                <Icon className="size-4 shrink-0 text-brand" />
+                {action.label}
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </section>
   );
 }
