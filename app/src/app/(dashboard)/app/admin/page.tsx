@@ -1,4 +1,4 @@
-import { HandCoins, Network, Store, UsersRound } from "lucide-react";
+import { Gift, HandCoins, Network, Store, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { getSuperAdminDashboardStats, requireSuperAdmin } from "@/lib/admin";
@@ -26,6 +26,13 @@ const growthModules = [
     text: "Ledger manual para partners.",
     detail: "Registrar, aprobar, cancelar y marcar pagadas. No ejecuta pagos automaticos.",
     href: "/app/admin/commissions",
+  },
+  {
+    title: "Recompensas",
+    icon: Gift,
+    text: "Beneficios internos para tiendas que recomiendan JAKAWI.",
+    detail: "Ledger manual. No aplica beneficios automaticamente.",
+    href: "/app/admin/rewards",
   },
 ];
 
@@ -80,6 +87,13 @@ export default async function AdminPage() {
         <StatCard label="Control manual" value="Sin auto-pagos" detail="No ejecuta pagos automaticos" />
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Recompensas pendientes" value={stats.storeReferralRewardStats.PENDING.count} detail="Beneficios por revisar" />
+        <StatCard label="Recompensas aprobadas" value={stats.storeReferralRewardStats.APPROVED.count} detail="Pendientes de aplicar manualmente" />
+        <StatCard label="Recompensas aplicadas" value={stats.storeReferralRewardStats.APPLIED.count} detail="Registradas como aplicadas" />
+        <StatCard label="Beneficios manuales" value="Sin auto-aplicar" detail="No toca billing ni planes" />
+      </div>
+
       <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
           <div className="flex items-start justify-between gap-3">
@@ -115,7 +129,7 @@ export default async function AdminPage() {
           </div>
           <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">Manual</span>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
           {growthModules.map((module) => {
             const Icon = module.icon;
             const content = (

@@ -1,0 +1,163 @@
+import { ExternalLink, Gift, Network, UsersRound } from "lucide-react";
+import { CopyButton } from "@/components/CopyButton";
+import { getStoreReferralLink } from "@/lib/acquisition/partners";
+import { requireStore } from "@/lib/auth";
+import { getOwnerStoreReferralData, storeReferralRewardStatusLabel, storeReferralRewardTypeLabel } from "@/lib/store-referral-rewards";
+import { cn } from "@/lib/ui";
+
+function formatDate(date: Date | null | undefined) {
+  return date ? date.toLocaleDateString("es-BO") : "Sin fecha";
+}
+
+function rewardStatusClass(status: string) {
+  if (status === "PENDING") return "bg-amber-50 text-amber-800";
+  if (status === "APPROVED") return "bg-brand-soft text-brand-dark";
+  if (status === "APPLIED") return "bg-green-50 text-green-700";
+  if (status === "CANCELLED") return "bg-neutral-100 text-neutral-600";
+  if (status === "EXPIRED") return "bg-red-50 text-red-700";
+  return "bg-neutral-100 text-neutral-600";
+}
+
+function attributionStatusLabel(status: string) {
+  if (status === "SIGNED_UP") return "Registrado";
+  if (status === "ACTIVE") return "Activo";
+  if (status === "PAID") return "Plan pago";
+  if (status === "REWARD_PENDING") return "Beneficio en revision";
+  if (status === "REWARD_APPROVED") return "Beneficio aprobado";
+  if (status === "REWARD_APPLIED") return "Beneficio aplicado";
+  if (status === "CANCELLED") return "Cancelado";
+  return status;
+}
+
+export default async function ReferralsPage() {
+  const { store } = await requireStore();
+  const referralUrl = getStoreReferralLink(store.slug);
+  const [attributions, rewards] = await getOwnerStoreReferralData(store.id);
+
+  return (
+    <section className="space-y-5 md:space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-sm font-bold text-brand-dark">Referidos</p>
+          <h1 className="text-3xl font-black md:text-4xl">Referidos</h1>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Comparte JAKAWI con otros negocios y revisa beneficios asociados.</p>
+        </div>
+        <a href={referralUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+          <ExternalLink className="size-4" />
+          Abrir enlace
+        </a>
+      </div>
+
+      <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Invita negocios a JAKAWI</p>
+            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-neutral-500">Los beneficios son revisados y aplicados manualmente por JAKAWI.</p>
+          </div>
+          <Network className="size-5 shrink-0 text-brand" />
+        </div>
+        <code className="mt-3 block break-all rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{referralUrl}</code>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:flex md:items-center">
+          <a href={referralUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-4 font-bold text-white hover:bg-brand">
+            <ExternalLink className="size-4" />
+            Abrir enlace
+          </a>
+          <CopyButton value={referralUrl} />
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-brand-dark">Negocios referidos</p>
+              <p className="mt-1 text-sm font-semibold text-neutral-500">Registros atribuidos a tu enlace.</p>
+            </div>
+            <UsersRound className="size-5 shrink-0 text-brand" />
+          </div>
+          <p className="mt-3 text-2xl font-black text-brand-dark">{attributions.length}</p>
+        </div>
+        <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-brand-dark">Mis beneficios</p>
+              <p className="mt-1 text-sm font-semibold text-neutral-500">Beneficios internos registrados por JAKAWI.</p>
+            </div>
+            <Gift className="size-5 shrink-0 text-brand" />
+          </div>
+          <p className="mt-3 text-2xl font-black text-brand-dark">{rewards.length}</p>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Negocios referidos</p>
+            <h2 className="mt-1 text-2xl font-black text-brand-dark">Actividad de tu enlace</h2>
+          </div>
+        </div>
+        <div className="mt-4 space-y-3">
+          {attributions.length === 0 ? (
+            <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">Aun no hay negocios registrados desde tu enlace.</div>
+          ) : (
+            attributions.map((attribution) => (
+              <article key={attribution.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.65fr)]">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-start gap-2">
+                      <h3 className="min-w-0 break-words text-lg font-black leading-6 text-brand-dark">{attribution.store.name}</h3>
+                      <span className="rounded-full bg-brand-muted px-2.5 py-1 text-xs font-black text-brand-dark">{attributionStatusLabel(attribution.status)}</span>
+                    </div>
+                    <p className="mt-1 font-mono text-xs text-neutral-500">{attribution.store.slug}</p>
+                    <p className="mt-3 text-sm font-semibold text-neutral-600">Plan {attribution.store.plan} / {attribution.store.planStatus}</p>
+                  </div>
+                  <div className="rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">
+                    <p>Registro: {formatDate(attribution.signedUpAt)}</p>
+                    <p>Activacion: {formatDate(attribution.activatedAt)}</p>
+                    <p>Plan pago: {formatDate(attribution.paidAt)}</p>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Mis beneficios</p>
+            <h2 className="mt-1 text-2xl font-black text-brand-dark">Beneficios asociados</h2>
+          </div>
+        </div>
+        <div className="mt-4 space-y-3">
+          {rewards.length === 0 ? (
+            <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">Cuando JAKAWI apruebe beneficios por tus referidos, apareceran aqui.</div>
+          ) : (
+            rewards.map((reward) => (
+              <article key={reward.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.65fr)]">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-start gap-2">
+                      <h3 className="min-w-0 break-words text-lg font-black leading-6 text-brand-dark">{reward.valueLabel ?? storeReferralRewardTypeLabel(reward.rewardType)}</h3>
+                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", rewardStatusClass(reward.status))}>{storeReferralRewardStatusLabel(reward.status)}</span>
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-neutral-500">{storeReferralRewardTypeLabel(reward.rewardType)}</p>
+                    {reward.referredStore ? <p className="mt-3 text-sm font-semibold text-neutral-600">Referido asociado: {reward.referredStore.name}</p> : null}
+                    {reward.applicationReference ? <p className="mt-3 break-words rounded-md bg-brand-muted px-3 py-2 text-xs font-bold text-brand-dark">{reward.applicationReference}</p> : null}
+                  </div>
+                  <div className="rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">
+                    <p>Creado: {formatDate(reward.createdAt)}</p>
+                    <p>Aprobado: {formatDate(reward.approvedAt)}</p>
+                    <p>Aplicado: {formatDate(reward.appliedAt)}</p>
+                    <p>Expira: {formatDate(reward.expiresAt)}</p>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}

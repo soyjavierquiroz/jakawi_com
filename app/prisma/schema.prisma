@@ -184,6 +184,8 @@ model Store {
   acquisitionAttribution    AcquisitionAttribution?  @relation("AcquiredStore")
   referredStoreAttributions AcquisitionAttribution[] @relation("StoreReferrer")
   partnerCommissions        PartnerCommission[]
+  referralRewardsEarned     StoreReferralReward[]    @relation("ReferralRewardReferrer")
+  referralRewardsGenerated  StoreReferralReward[]    @relation("ReferralRewardReferred")
 
   @@index([ownerId])
   @@index([slug])
@@ -254,12 +256,13 @@ model AcquisitionAttribution {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  store              Store               @relation("AcquiredStore", fields: [storeId], references: [id], onDelete: Cascade)
-  referrerStore      Store?              @relation("StoreReferrer", fields: [referrerStoreId], references: [id], onDelete: SetNull)
-  partner            Partner?            @relation(fields: [partnerId], references: [id], onDelete: SetNull)
-  partnerDestination PartnerDestination? @relation(fields: [partnerDestinationId], references: [id], onDelete: SetNull)
-  user               User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  partnerCommissions PartnerCommission[]
+  store                Store                 @relation("AcquiredStore", fields: [storeId], references: [id], onDelete: Cascade)
+  referrerStore        Store?                @relation("StoreReferrer", fields: [referrerStoreId], references: [id], onDelete: SetNull)
+  partner              Partner?              @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  partnerDestination   PartnerDestination?   @relation(fields: [partnerDestinationId], references: [id], onDelete: SetNull)
+  user                 User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  partnerCommissions   PartnerCommission[]
+  storeReferralRewards StoreReferralReward[]
 
   @@index([sourceType])
   @@index([status])
@@ -270,6 +273,52 @@ model AcquisitionAttribution {
   @@index([userId])
   @@index([code])
   @@index([createdAt])
+}
+
+model StoreReferralReward {
+  id String @id @default(cuid())
+
+  referrerStoreId String
+  referrerStore   Store  @relation("ReferralRewardReferrer", fields: [referrerStoreId], references: [id], onDelete: Cascade)
+
+  referredStoreId String?
+  referredStore   Store?  @relation("ReferralRewardReferred", fields: [referredStoreId], references: [id], onDelete: SetNull)
+
+  attributionId String?
+  attribution   AcquisitionAttribution? @relation(fields: [attributionId], references: [id], onDelete: SetNull)
+
+  rewardType       String
+  valueLabel       String?
+  valueAmountCents Int?
+  currency         String?
+  sellerAiCredits  Int?
+  months           Int?
+
+  status               String  @default("PENDING")
+  description          String?
+  notes                String?
+  applicationReference String?
+
+  earnedAt    DateTime?
+  approvedAt  DateTime?
+  appliedAt   DateTime?
+  cancelledAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdByUserId   String?
+  approvedByUserId  String?
+  appliedByUserId   String?
+  cancelledByUserId String?
+
+  @@index([referrerStoreId])
+  @@index([referredStoreId])
+  @@index([attributionId])
+  @@index([rewardType])
+  @@index([status])
+  @@index([createdAt])
+  @@index([appliedAt])
 }
 
 model PartnerCommission {

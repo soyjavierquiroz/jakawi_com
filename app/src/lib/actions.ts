@@ -22,6 +22,7 @@ import { isPartnerCommissionStatus, parseCommissionAmountToCents } from "@/lib/p
 import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { allowedImageDeletePrefixes, deleteJakawiMediaObjectIfOwned, deleteSellerVoiceObjectIfOwned, isJakawiMediaUrlOwnedByStore, uploadOptimizedImage } from "@/lib/storage";
+import { buildRewardValueLabel, isStoreReferralRewardStatus, isStoreReferralRewardType, parseOptionalDate, parseOptionalPositiveInt, parseRewardAmountToCents } from "@/lib/store-referral-rewards";
 import { getVisitorInfoFromHeaders, hashIp } from "@/lib/visitor";
 import { normalizeStorePlanCode } from "@/lib/storefront-flow";
 
@@ -987,6 +988,136 @@ export async function updatePartnerCommissionNotesAction(formData: FormData) {
 
   revalidatePath("/app/admin/commissions");
   revalidatePath("/app/admin/partners");
+  redirect(appendQueryParam(returnTo, "ok", "notes"));
+}
+
+export async function createStoreReferralRewardAction(formData: FormData) {
+  const user = await requireSuperAdmin();
+  const returnTo = adminReturnTo(formData, "/app/admin/rewards");
+  const referrerStoreId = field(formData, "referrerStoreId");
+  const referredStoreIdInput = cleanOptional(field(formData, "referredStoreId"));
+  const attributionId = cleanOptional(field(formData, "attributionId"));
+  const rewardType = field(formData, "rewardType");
+  const valueAmountCents = parseRewardAmountToCents(formData.get("valueAmount"));
+  const currencyInput = cleanOptional(field(formData, "currency"));
+  const currency = currencyInput ? currencyInput.toUpperCase() : null;
+  const sellerAiCredits = parseOptionalPositiveInt(formData.get("sellerAiCredits"));
+  const months = parseOptionalPositiveInt(formData.get("months"));
+  const expiresAt = parseOptionalDate(formData.get("expiresAt"));
+
+  if (!isStoreReferralRewardType(rewardType)) redirect(appendQueryParam(returnTo, "error", "Tipo de beneficio invalido"));
+  if (currency && !/^[A-Z]{3}$/.test(currency)) redirect(appendQueryParam(returnTo, "error", "Moneda invalida"));
+  if (String(formData.get("valueAmount") ?? "").trim() && valueAmountCents === null) redirect(appendQueryParam(returnTo, "error", "Monto invalido"));
+  if (String(formData.get("sellerAiCredits") ?? "").trim() && sellerAiCredits === null) redirect(appendQueryParam(returnTo, "error", "Creditos Seller AI invalidos"));
+  if (String(formData.get("months") ?? "").trim() && months === null) redirect(appendQueryParam(returnTo, "error", "Meses invalidos"));
+  if (String(formData.get("expiresAt") ?? "").trim() && expiresAt === null) redirect(appendQueryParam(returnTo, "error", "Fecha de expiracion invalida"));
+
+  const prisma = getPrisma();
+  const referrerStore = await prisma.store.findUnique({ where: { id: referrerStoreId }, select: { id: true } });
+  if (!referrerStore) redirect(appendQueryParam(returnTo, "error", "Tienda referidora no encontrada"));
+
+  const attribution = attributionId ? await prisma.acquisitionAttribution.findUnique({ where: { id: attributionId } }) : null;
+  if (attributionId && !attribution) redirect(appendQueryParam(returnTo, "error", "Atribucion no encontrada"));
+  if (attribution && attribution.sourceType !== "STORE_REFERRAL") redirect(appendQueryParam(returnTo, "error", "La atribucion no es de tienda referidora"));
+  if (attribution && attribution.referrerStoreId !== referrerStore.id) redirect(appendQueryParam(returnTo, "error", "La atribucion no coincide con la tienda referidora"));
+
+  const referredStoreId = referredStoreIdInput ?? attribution?.storeId ?? null;
+  if (attribution && referredStoreId && referredStoreId !== attribution.storeId) redirect(appendQueryParam(returnTo, "error", "La tienda referida no coincide con la atribucion"));
+  if (referredStoreId) {
+    const referredStore = await prisma.store.findUnique({ where: { id: referredStoreId }, select: { id: true } });
+    if (!referredStore) redirect(appendQueryParam(returnTo, "error", "Tienda referida no encontrada"));
+  }
+
+  const valueLabel = buildRewardValueLabel({
+    rewardType,
+    valueLabel: cleanOptional(field(formData, "valueLabel")),
+    valueAmountCents,
+    currency,
+    sellerAiCredits,
+    months,
+  });
+
+  await prisma.storeReferralReward.create({
+    data: {
+      referrerStoreId: referrerStore.id,
+      referredStoreId,
+      attributionId: attribution?.id ?? null,
+      rewardType,
+      valueLabel,
+      valueAmountCents,
+      currency,
+      sellerAiCredits,
+      months,
+      status: "PENDING",
+      description: cleanOptional(field(formData, "description")),
+      notes: cleanOptional(field(formData, "notes")),
+      expiresAt,
+      earnedAt: new Date(),
+      createdByUserId: user.id,
+    },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/rewards");
+  revalidatePath("/app/admin/referrals");
+  revalidatePath("/app/referrals");
+  redirect(`/app/admin/rewards?referrerStoreId=${encodeURIComponent(referrerStore.id)}&ok=created`);
+}
+
+export async function updateStoreReferralRewardStatusAction(formData: FormData) {
+  const user = await requireSuperAdmin();
+  const rewardId = field(formData, "rewardId");
+  const status = field(formData, "status");
+  const returnTo = adminReturnTo(formData, "/app/admin/rewards");
+  if (!isStoreReferralRewardStatus(status)) redirect(appendQueryParam(returnTo, "error", "Estado invalido"));
+
+  const prisma = getPrisma();
+  const reward = await prisma.storeReferralReward.findUnique({ where: { id: rewardId } });
+  if (!reward) redirect(appendQueryParam(returnTo, "error", "Recompensa no encontrada"));
+
+  const now = new Date();
+  const notes = cleanOptional(field(formData, "notes"));
+  const applicationReference = cleanOptional(field(formData, "applicationReference"));
+
+  await prisma.storeReferralReward.update({
+    where: { id: reward.id },
+    data: {
+      status,
+      notes: notes ?? reward.notes,
+      applicationReference: status === "APPLIED" ? applicationReference ?? reward.applicationReference : reward.applicationReference,
+      approvedAt: status === "APPROVED" ? now : reward.approvedAt,
+      appliedAt: status === "APPLIED" ? now : reward.appliedAt,
+      cancelledAt: status === "CANCELLED" ? now : reward.cancelledAt,
+      approvedByUserId: status === "APPROVED" ? user.id : reward.approvedByUserId,
+      appliedByUserId: status === "APPLIED" ? user.id : reward.appliedByUserId,
+      cancelledByUserId: status === "CANCELLED" ? user.id : reward.cancelledByUserId,
+    },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/rewards");
+  revalidatePath("/app/admin/referrals");
+  revalidatePath("/app/referrals");
+  redirect(appendQueryParam(returnTo, "ok", "status"));
+}
+
+export async function updateStoreReferralRewardNotesAction(formData: FormData) {
+  await requireSuperAdmin();
+  const rewardId = field(formData, "rewardId");
+  const returnTo = adminReturnTo(formData, "/app/admin/rewards");
+  const reward = await getPrisma().storeReferralReward.findUnique({ where: { id: rewardId } });
+  if (!reward) redirect(appendQueryParam(returnTo, "error", "Recompensa no encontrada"));
+
+  await getPrisma().storeReferralReward.update({
+    where: { id: reward.id },
+    data: {
+      notes: cleanOptional(field(formData, "notes")),
+      applicationReference: cleanOptional(field(formData, "applicationReference")),
+    },
+  });
+
+  revalidatePath("/app/admin/rewards");
+  revalidatePath("/app/referrals");
   redirect(appendQueryParam(returnTo, "ok", "notes"));
 }
 

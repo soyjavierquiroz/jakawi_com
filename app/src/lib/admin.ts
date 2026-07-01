@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { getStorePlanState } from "@/lib/plan-limits";
 import { emptyPartnerCommissionStats, getPartnerCommissionStats, getPartnerCommissionStatsByPartner } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
+import { getStoreReferralRewardStats } from "@/lib/store-referral-rewards";
 import { AnalyticsEventType, type Prisma } from "@prisma/client";
 
 type UserWithRole = {
@@ -121,6 +122,7 @@ export async function getSuperAdminDashboardStats() {
     partnerAttributions,
     organicAttributions,
     partnerCommissionStats,
+    storeReferralRewardStats,
   ] = await Promise.all([
     prisma.store.findMany({
       select: {
@@ -144,6 +146,7 @@ export async function getSuperAdminDashboardStats() {
     prisma.acquisitionAttribution.count({ where: { sourceType: "PARTNER" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "ORGANIC" } }),
     getPartnerCommissionStats(),
+    getStoreReferralRewardStats(),
   ]);
 
   const planCounts = emptyPlanCounts();
@@ -177,6 +180,7 @@ export async function getSuperAdminDashboardStats() {
     partnerAttributions,
     organicAttributions,
     partnerCommissionStats,
+    storeReferralRewardStats,
   };
 }
 

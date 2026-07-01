@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, HandCoins, Network, Store, UsersRound } from "lucide-react";
+import { BarChart3, Gift, HandCoins, Network, Store, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ui";
@@ -11,6 +11,7 @@ const adminNavItems = [
   { label: "Referidos", href: "/app/admin/referrals", icon: Network },
   { label: "Partners", href: "/app/admin/partners", icon: UsersRound },
   { label: "Comisiones", href: "/app/admin/commissions", icon: HandCoins },
+  { label: "Recompensas", href: "/app/admin/rewards", icon: Gift },
 ];
 
 export function AdminNav() {
@@ -18,7 +19,7 @@ export function AdminNav() {
 
   return (
     <nav aria-label="Navegación de superadmin" className="rounded-lg border border-brand-border bg-brand-paper p-2 shadow-sm">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {adminNavItems.map((item) => {
           const Icon = item.icon;
           const active = item.href ? pathname === item.href : false;

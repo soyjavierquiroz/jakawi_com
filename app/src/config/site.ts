@@ -12,6 +12,7 @@ export const routesConfig = {
   sellerAi: "/app/seller-ai",
   agent: "/app/seller-ai",
   leads: "/app/leads",
+  referrals: "/app/referrals",
   plan: "/app/plan",
 };
 

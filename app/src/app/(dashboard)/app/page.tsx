@@ -155,6 +155,9 @@ export default async function DashboardPage() {
             Abrir enlace
           </a>
           <CopyButton value={referralUrl} />
+          <Link href={siteConfig.routes.referrals} className="col-span-2 inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-white px-4 font-bold text-brand-dark hover:border-brand md:col-span-1">
+            Ver referidos
+          </Link>
         </div>
       </div>
 
