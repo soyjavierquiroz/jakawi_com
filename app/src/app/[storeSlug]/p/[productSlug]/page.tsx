@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { ArrowLeft, MessageCircle, Sparkles } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
@@ -38,7 +38,7 @@ export default async function PublicProductPage({
   });
 
   return (
-    <main style={themeStyle} className="min-h-dvh bg-[var(--space-background)] pb-24 text-[var(--space-background-contrast)]">
+    <main style={themeStyle} className="min-h-dvh bg-[var(--space-background)] pb-[calc(8.5rem+env(safe-area-inset-bottom))] text-[var(--space-background-contrast)] md:pb-12">
       <header className="px-4 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 lg:px-8">
         <div className="mx-auto flex min-h-12 max-w-5xl items-center justify-between gap-3">
           <Link href={`/${store.slug}`} className="inline-flex h-10 items-center gap-2 rounded-full bg-[var(--space-surface)] px-3 text-sm font-black text-[var(--space-surface-contrast)] ring-1 ring-[var(--space-border)] transition hover:bg-[var(--space-muted)]">
@@ -60,17 +60,6 @@ export default async function PublicProductPage({
           <h1 className="mt-3 text-3xl font-black leading-tight sm:text-4xl">{product.name}</h1>
           <p className="mt-2 text-3xl font-black text-[var(--space-primary)]">{productPriceLabel}</p>
           <p className="mt-4 leading-7 opacity-75">{product.description ?? "Consulta disponibilidad y detalles antes de comprar."}</p>
-          {flow.sellerAiEnabled ? (
-            <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--space-muted)] px-3 py-2 text-sm font-black">
-              <Sparkles className="size-4 text-[var(--space-primary)]" />
-              Te ayudo a elegir
-            </p>
-          ) : (
-            <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-[var(--space-muted)] px-3 py-2 text-sm font-black">
-              <MessageCircle className="size-4 text-[var(--space-primary)]" />
-              Hablemos por WhatsApp
-            </p>
-          )}
           <ProductConversionCta
             storeSlug={store.slug}
             storePlan={store.plan}
@@ -78,10 +67,25 @@ export default async function PublicProductPage({
             productName={product.name}
             fallbackWhatsappHref={`/api/whatsapp/click?productId=${product.id}`}
             variant="product-page"
-            className="mt-6"
+            primaryLabel="Te ayudo a elegir"
+            className="mt-6 hidden md:block"
           />
         </div>
       </article>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--space-border)] bg-[var(--space-surface)]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 shadow-[0_-16px_40px_rgb(0_0_0/0.16)] backdrop-blur-xl md:hidden">
+        <div className="mx-auto max-w-md">
+          <ProductConversionCta
+            storeSlug={store.slug}
+            storePlan={store.plan}
+            productId={product.id}
+            productName={product.name}
+            fallbackWhatsappHref={`/api/whatsapp/click?productId=${product.id}`}
+            variant="product-page"
+            primaryLabel="Te ayudo a elegir"
+            layout="inline"
+          />
+        </div>
+      </div>
       {flow.sellerAiEnabled ? (
         <VisitorProvider>
           <SellerAiWidget
