@@ -1,5 +1,6 @@
 import { ExternalLink, Search } from "lucide-react";
 import Link from "next/link";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { getPublicStoreUrl } from "@/config/site";
 import { updateAttributionStatusAction } from "@/lib/actions";
 import { adminAttributionFilters, getAdminAttributionFilter, getAdminAttributionRows, requireSuperAdmin } from "@/lib/admin";
@@ -81,6 +82,8 @@ export default async function AdminReferralsPage({
         </Link>
       </div>
 
+      <AdminNav />
+
       {params.ok ? <p className="rounded-md bg-green-50 px-3 py-2 text-sm font-bold text-green-700">Cambios guardados.</p> : null}
       {params.error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{params.error}</p> : null}
 
@@ -92,7 +95,7 @@ export default async function AdminReferralsPage({
         </label>
       </form>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-2 pb-1">
         {adminAttributionFilters.map((filter) => (
           <Link
             key={filter.key}
@@ -112,113 +115,68 @@ export default async function AdminReferralsPage({
         <span className="hidden md:inline">Mostrando hasta 250 resultados</span>
       </div>
 
-      <div className="hidden overflow-hidden rounded-lg border border-brand-border bg-brand-paper shadow-sm md:block">
+      <div className="space-y-3">
         {rows.length === 0 ? (
-          <div className="p-8 text-center text-sm font-semibold text-neutral-600">No hay atribuciones para esta busqueda.</div>
+          <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay atribuciones para esta busqueda.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-[1280px] w-full text-left text-sm">
-              <thead className="border-b border-brand-border text-xs font-black uppercase text-neutral-500">
-                <tr>
-                  <th className="px-4 py-3">Tienda creada</th>
-                  <th className="px-4 py-3">Owner</th>
-                  <th className="px-4 py-3">Fuente</th>
-                  <th className="px-4 py-3">Referidor / Partner</th>
-                  <th className="px-4 py-3">Codigo</th>
-                  <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3">Plan</th>
-                  <th className="px-4 py-3">Fechas</th>
-                  <th className="px-4 py-3">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {rows.map((row) => {
-                  const publicUrl = getPublicStoreUrl(row.store.slug);
-                  const sourceName = row.partner ? `${row.partner.name} (${row.partner.code})` : row.referrerStore ? `${row.referrerStore.name} (${row.referrerStore.slug})` : "Sin referidor";
+          rows.map((row) => {
+            const publicUrl = getPublicStoreUrl(row.store.slug);
+            const sourceName = row.partner ? `${row.partner.name} (${row.partner.code})` : row.referrerStore ? `${row.referrerStore.name} (${row.referrerStore.slug})` : "Sin referidor";
+            const destinationLabel = row.partnerDestination ? `${row.partnerDestination.label} (${row.partnerDestination.slug})` : row.partnerDestinationSlug ?? row.landingPath ?? "Sin destino";
 
-                  return (
-                    <tr key={row.id} className="align-top">
-                      <td className="px-4 py-4">
-                        <p className="font-black text-brand-dark">{row.store.name}</p>
-                        <p className="mt-1 font-mono text-xs text-neutral-500">{row.store.slug}</p>
-                        <a href={publicUrl} target="_blank" className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-brand-dark hover:text-brand">
-                          Abrir <ExternalLink className="size-3" />
-                        </a>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="max-w-[220px] truncate font-semibold text-neutral-700">{row.store.owner.email}</p>
-                        <p className="mt-1 text-xs font-semibold text-neutral-500">{row.store.owner.name ?? "Sin nombre"}</p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-black", sourceClass(row.sourceType))}>{sourceLabel(row.sourceType)}</span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="max-w-[240px] truncate font-semibold text-neutral-700">{sourceName}</p>
-                      </td>
-                      <td className="px-4 py-4 font-mono text-xs text-neutral-600">{row.code ?? "Sin codigo"}</td>
-                      <td className="px-4 py-4 font-black text-brand-dark">{row.status}</td>
-                      <td className="px-4 py-4 font-black text-brand-dark">{row.store.plan}</td>
-                      <td className="px-4 py-4 text-xs font-semibold leading-5 text-neutral-600">
-                        <p>Registro: {formatDate(row.signedUpAt)}</p>
-                        <p>Activacion: {formatDate(row.activatedAt)}</p>
-                        <p>Pago: {formatDate(row.paidAt)}</p>
-                      </td>
-                      <td className="w-[220px] px-4 py-4">
-                        <AttributionStatusForm attributionId={row.id} status={row.status} notes={row.notes} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+            return (
+              <article key={row.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(220px,0.65fr)]">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-start gap-2">
+                      <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{row.store.name}</h2>
+                      <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", sourceClass(row.sourceType))}>{sourceLabel(row.sourceType)}</span>
+                    </div>
+                    <p className="mt-1 font-mono text-xs text-neutral-500">{row.store.slug}</p>
+                    <p className="mt-2 break-all text-sm font-semibold text-neutral-700">{row.store.owner.email}</p>
+                    <p className="text-xs font-semibold text-neutral-500">{row.store.owner.name ?? "Sin nombre"}</p>
+                    <a href={publicUrl} target="_blank" className="mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-bold text-white hover:bg-brand">
+                      <ExternalLink className="size-4" />
+                      Abrir tienda
+                    </a>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Referidor / partner</p>
+                      <p className="mt-1 break-words text-sm font-black text-brand-dark">{sourceName}</p>
+                      <p className="mt-1 font-mono text-xs text-neutral-600">{row.code ?? "Sin codigo"}</p>
+                    </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Destino</p>
+                      <p className="mt-1 break-words text-sm font-black text-brand-dark">{destinationLabel}</p>
+                      {row.landingPath ? <p className="mt-1 break-all font-mono text-xs text-neutral-600">{row.landingPath}</p> : null}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Estado</p>
+                        <p className="mt-1 truncate font-black text-brand-dark">{row.status}</p>
+                      </div>
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Plan</p>
+                        <p className="mt-1 font-black text-brand-dark">{row.store.plan}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">
+                      <p>Registro: {formatDate(row.signedUpAt)}</p>
+                      <p>Activacion: {formatDate(row.activatedAt)}</p>
+                      <p>Pago: {formatDate(row.paidAt)}</p>
+                    </div>
+                    <AttributionStatusForm attributionId={row.id} status={row.status} notes={row.notes} />
+                  </div>
+                </div>
+              </article>
+            );
+          })
         )}
-      </div>
-
-      <div className="space-y-3 md:hidden">
-        {rows.map((row) => {
-          const publicUrl = getPublicStoreUrl(row.store.slug);
-          const sourceName = row.partner ? `${row.partner.name} (${row.partner.code})` : row.referrerStore ? `${row.referrerStore.name} (${row.referrerStore.slug})` : "Sin referidor";
-
-          return (
-            <article key={row.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="truncate text-lg font-black text-brand-dark">{row.store.name}</h2>
-                  <p className="mt-1 font-mono text-xs text-neutral-500">{row.store.slug}</p>
-                  <p className="mt-2 truncate text-sm font-semibold text-neutral-600">{row.store.owner.email}</p>
-                </div>
-                <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-black", sourceClass(row.sourceType))}>{sourceLabel(row.sourceType)}</span>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <div className="rounded-md bg-brand-muted px-3 py-2">
-                  <p className="text-[11px] font-black uppercase text-neutral-500">Origen</p>
-                  <p className="mt-1 truncate font-black text-brand-dark">{sourceName}</p>
-                </div>
-                <div className="rounded-md bg-brand-muted px-3 py-2">
-                  <p className="text-[11px] font-black uppercase text-neutral-500">Estado</p>
-                  <p className="mt-1 truncate font-black text-brand-dark">{row.status}</p>
-                </div>
-                <div className="rounded-md bg-brand-muted px-3 py-2">
-                  <p className="text-[11px] font-black uppercase text-neutral-500">Codigo</p>
-                  <p className="mt-1 truncate font-mono text-xs text-brand-dark">{row.code ?? "Sin codigo"}</p>
-                </div>
-                <div className="rounded-md bg-brand-muted px-3 py-2">
-                  <p className="text-[11px] font-black uppercase text-neutral-500">Plan</p>
-                  <p className="mt-1 font-black text-brand-dark">{row.store.plan}</p>
-                </div>
-              </div>
-              <a href={publicUrl} target="_blank" className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-bold text-white hover:bg-brand">
-                <ExternalLink className="size-4" />
-                Abrir tienda
-              </a>
-              <div className="mt-3">
-                <AttributionStatusForm attributionId={row.id} status={row.status} notes={row.notes} />
-              </div>
-            </article>
-          );
-        })}
-        {rows.length === 0 ? <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay atribuciones para esta busqueda.</div> : null}
       </div>
     </section>
   );

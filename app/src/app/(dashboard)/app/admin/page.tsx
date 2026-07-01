@@ -1,14 +1,8 @@
-import { ArrowRight, HandCoins, Network, Store, UsersRound } from "lucide-react";
+import { HandCoins, Network, Store, UsersRound } from "lucide-react";
 import Link from "next/link";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { getSuperAdminDashboardStats, requireSuperAdmin } from "@/lib/admin";
 import { storePlans, type StorePlanCode } from "@/config/plans";
-
-const adminLinks = [
-  { label: "Tiendas", href: "/app/admin/stores", active: true },
-  { label: "Referidos", href: "/app/admin/referrals", active: true },
-  { label: "Partners", href: "/app/admin/partners", active: true },
-  { label: "Comisiones", hint: "Próximamente" },
-];
 
 const growthModules = [
   {
@@ -61,21 +55,7 @@ export default async function AdminPage() {
         </Link>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {adminLinks.map((link) =>
-          link.active ? (
-            <Link key={link.label} href={link.href} className="inline-flex h-11 items-center justify-between gap-3 rounded-md border border-brand-border bg-brand-paper px-4 text-sm font-black text-brand-dark shadow-sm hover:border-brand">
-              {link.label}
-              <ArrowRight className="size-4" />
-            </Link>
-          ) : (
-            <div key={link.label} className="inline-flex h-11 items-center justify-between gap-3 rounded-md border border-dashed border-brand-border bg-white/60 px-4 text-sm font-black text-neutral-500">
-              {link.label}
-              <span className="text-[11px] uppercase">{link.hint}</span>
-            </div>
-          ),
-        )}
-      </div>
+      <AdminNav />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total de tiendas" value={stats.totalStores} detail="Espacios comerciales creados" />
@@ -86,9 +66,9 @@ export default async function AdminPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Partners activos" value={stats.activePartners} detail="Canales comerciales habilitados" />
+        <StatCard label="Destinos activos" value={stats.activePartnerDestinations} detail="Links configurados de partners" />
         <StatCard label="Store referrals" value={stats.storeReferralAttributions} detail="Tiendas atribuidas a tiendas" />
         <StatCard label="Partner attribution" value={stats.partnerAttributions} detail="Tiendas atribuidas a partners" />
-        <StatCard label="Organico" value={stats.organicAttributions} detail="Altas sin tracking valido" />
       </div>
 
       <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">

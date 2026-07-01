@@ -1,5 +1,6 @@
 import { Bot, ExternalLink, Search, Store } from "lucide-react";
 import Link from "next/link";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { CopyButton } from "@/components/CopyButton";
 import { getCountryCommerceConfig } from "@/config/countries";
 import { storePlans } from "@/config/plans";
@@ -95,6 +96,8 @@ export default async function AdminStoresPage({
         </Link>
       </div>
 
+      <AdminNav />
+
       {params.ok ? <p className="rounded-md bg-green-50 px-3 py-2 text-sm font-bold text-green-700">Cambios guardados.</p> : null}
       {params.error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{params.error}</p> : null}
 
@@ -106,7 +109,7 @@ export default async function AdminStoresPage({
         </label>
       </form>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-2 pb-1">
         {adminStoreFilters.map((filter) => (
           <Link
             key={filter.key}
@@ -126,81 +129,7 @@ export default async function AdminStoresPage({
         <span className="hidden md:inline">Mostrando hasta 250 resultados</span>
       </div>
 
-      <div className="hidden overflow-hidden rounded-lg border border-brand-border bg-brand-paper shadow-sm md:block">
-        {rows.length === 0 ? (
-          <div className="p-8 text-center text-sm font-semibold text-neutral-600">No hay tiendas para esta búsqueda.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-[1240px] w-full text-left text-sm">
-              <thead className="border-b border-brand-border text-xs font-black uppercase text-neutral-500">
-                <tr>
-                  <th className="px-4 py-3">Espacio comercial</th>
-                  <th className="px-4 py-3">Owner</th>
-                  <th className="px-4 py-3">País / moneda</th>
-                  <th className="px-4 py-3">Plan</th>
-                  <th className="px-4 py-3">Uso</th>
-                  <th className="px-4 py-3">Fechas</th>
-                  <th className="px-4 py-3">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {rows.map(({ store, productUsage, sellerAiUsage, planState, leadSignals }) => {
-                  const country = getCountryCommerceConfig(store.countryCode);
-                  const publicUrl = getPublicStoreUrl(store.slug);
-                  const status = planStatusLabel(planState.planStatus, planState.trialExpired);
-
-                  return (
-                    <tr key={store.id} className="align-top">
-                      <td className="px-4 py-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-dark">
-                            <Store className="size-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-black leading-5 text-brand-dark">{store.name}</p>
-                            <p className="mt-1 font-mono text-xs text-neutral-500">{store.slug}</p>
-                            <a href={publicUrl} target="_blank" className="mt-1 block max-w-[220px] truncate text-xs font-bold text-brand-dark hover:text-brand">
-                              {publicUrl}
-                            </a>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="max-w-[220px] truncate font-semibold text-neutral-700">{store.owner.email}</p>
-                        <p className="mt-1 text-xs font-semibold text-neutral-500">{store.owner.name ?? "Sin nombre"}</p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="font-black text-brand-dark">{country.countryCode}</p>
-                        <p className="mt-1 text-xs font-semibold text-neutral-500">{store.countryName ?? country.countryName} · {store.currency ?? country.defaultCurrency}</p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="font-black text-brand-dark">{planState.planCode}</p>
-                        <span className={cn("mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-black", statusClass(planState.planStatus, planState.trialExpired))}>{status}</span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="font-semibold text-neutral-700">Productos: {productUsage.used} / {productUsage.limit}</p>
-                        <p className="mt-1 font-semibold text-neutral-700">Seller AI: {sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido"}</p>
-                        <p className="mt-1 text-xs font-semibold text-neutral-500">Clientes/señales: {leadSignals}</p>
-                      </td>
-                      <td className="px-4 py-4 text-xs font-semibold leading-5 text-neutral-600">
-                        <p>Trial: {formatDate(planState.trialEndsAt, country.locale)}</p>
-                        <p>Renueva: {formatDate(store.planRenewsAt, country.locale)}</p>
-                        <p>Creada: {formatDate(store.createdAt, country.locale)}</p>
-                        <p>Actualizada: {formatDate(store.updatedAt, country.locale)}</p>
-                      </td>
-                      <td className="w-[280px] px-4 py-4">
-                        <AdminStoreActions storeId={store.id} planCode={planState.planCode} publicUrl={publicUrl} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-3 md:hidden">
+      <div className="space-y-3">
         {rows.length === 0 ? (
           <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay tiendas para esta búsqueda.</div>
         ) : (
@@ -210,52 +139,69 @@ export default async function AdminStoresPage({
             const status = planStatusLabel(planState.planStatus, planState.trialExpired);
 
             return (
-              <article key={store.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
+              <article key={store.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.9fr)_minmax(260px,0.7fr)]">
                   <div className="min-w-0">
-                    <h2 className="truncate text-lg font-black leading-6 text-brand-dark">{store.name}</h2>
-                    <p className="mt-1 font-mono text-xs text-neutral-500">{store.slug}</p>
-                    <p className="mt-2 truncate text-sm font-semibold text-neutral-600">{store.owner.email}</p>
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-dark">
+                        <Store className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="break-words text-xl font-black leading-6 text-brand-dark">{store.name}</h2>
+                        <p className="mt-1 font-mono text-xs text-neutral-500">{store.slug}</p>
+                        <a href={publicUrl} target="_blank" className="mt-2 block break-all text-xs font-bold text-brand-dark hover:text-brand">
+                          {publicUrl}
+                        </a>
+                      </div>
+                    </div>
+                    <div className="mt-4 rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Owner</p>
+                      <p className="mt-1 break-all text-sm font-semibold text-neutral-700">{store.owner.email}</p>
+                      <p className="text-xs font-semibold text-neutral-500">{store.owner.name ?? "Sin nombre"}</p>
+                    </div>
                   </div>
-                  <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-black", statusClass(planState.planStatus, planState.trialExpired))}>{status}</span>
-                </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-md bg-brand-muted px-3 py-2">
-                    <p className="text-[11px] font-black uppercase text-neutral-500">Plan</p>
-                    <p className="mt-1 font-black text-brand-dark">{planState.planCode}</p>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Plan</p>
+                        <p className="mt-1 font-black text-brand-dark">{planState.planCode}</p>
+                      </div>
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Estado</p>
+                        <span className={cn("mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-black", statusClass(planState.planStatus, planState.trialExpired))}>{status}</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">País</p>
+                        <p className="mt-1 font-black text-brand-dark">{country.countryCode}</p>
+                        <p className="text-xs font-semibold text-neutral-500">{store.currency ?? country.defaultCurrency}</p>
+                      </div>
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Señales</p>
+                        <p className="mt-1 font-black text-brand-dark">{leadSignals}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Uso</p>
+                      <p className="mt-1 text-sm font-semibold text-neutral-700">Productos: {productUsage.used} / {productUsage.limit}</p>
+                      <p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-neutral-700">
+                        <Bot className="size-3.5" />
+                        Seller AI: {sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="rounded-md bg-brand-muted px-3 py-2">
-                    <p className="text-[11px] font-black uppercase text-neutral-500">País</p>
-                    <p className="mt-1 font-black text-brand-dark">{country.countryCode} · {store.currency ?? country.defaultCurrency}</p>
-                  </div>
-                  <div className="rounded-md bg-brand-muted px-3 py-2">
-                    <p className="text-[11px] font-black uppercase text-neutral-500">Productos</p>
-                    <p className="mt-1 font-black text-brand-dark">{productUsage.used} / {productUsage.limit}</p>
-                  </div>
-                  <div className="rounded-md bg-brand-muted px-3 py-2">
-                    <p className="text-[11px] font-black uppercase text-neutral-500">Seller AI</p>
-                    <p className="mt-1 flex items-center gap-1.5 font-black text-brand-dark">
-                      <Bot className="size-3.5" />
-                      {sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No"}
-                    </p>
-                  </div>
-                </div>
 
-                <details className="mt-4 rounded-md border border-brand-border bg-white px-3 py-2">
-                  <summary className="cursor-pointer text-sm font-black text-brand-dark">Detalles básicos</summary>
-                  <div className="mt-3 space-y-1 text-sm font-semibold leading-6 text-neutral-600">
-                    <p>Link público: <a href={publicUrl} target="_blank" className="text-brand-dark underline underline-offset-2">{publicUrl}</a></p>
-                    <p>Trial: {formatDate(planState.trialEndsAt, country.locale)}</p>
-                    <p>Renueva: {formatDate(store.planRenewsAt, country.locale)}</p>
-                    <p>Clientes/señales: {leadSignals}</p>
-                    <p>Creada: {formatDate(store.createdAt, country.locale)}</p>
-                    <p>Actualizada: {formatDate(store.updatedAt, country.locale)}</p>
+                  <div className="space-y-2">
+                    <div className="rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">
+                      <p>Trial: {formatDate(planState.trialEndsAt, country.locale)}</p>
+                      <p>Renueva: {formatDate(store.planRenewsAt, country.locale)}</p>
+                      <p>Creada: {formatDate(store.createdAt, country.locale)}</p>
+                      <p>Actualizada: {formatDate(store.updatedAt, country.locale)}</p>
+                    </div>
+                    <AdminStoreActions storeId={store.id} planCode={planState.planCode} publicUrl={publicUrl} />
                   </div>
-                </details>
-
-                <div className="mt-4">
-                  <AdminStoreActions storeId={store.id} planCode={planState.planCode} publicUrl={publicUrl} />
                 </div>
               </article>
             );

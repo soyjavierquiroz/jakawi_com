@@ -11,6 +11,8 @@ type AttributionInput = {
   sourceType: "ORGANIC" | "STORE_REFERRAL" | "PARTNER" | "MANUAL";
   referrerStoreId?: string;
   partnerId?: string;
+  partnerDestinationId?: string;
+  partnerDestinationSlug?: string;
   code?: string;
   landingPath?: string;
   notes?: string;
@@ -26,6 +28,8 @@ export async function createAttributionForStore({ storeId, userId }: CreateAttri
   const source = cleanCookieValue(cookieStore.get(acquisitionCookieNames.source)?.value);
   const code = cleanCookieValue(cookieStore.get(acquisitionCookieNames.referralCode)?.value);
   const landingPath = cleanCookieValue(cookieStore.get(acquisitionCookieNames.landingPath)?.value);
+  const partnerDestinationCookie = cleanCookieValue(cookieStore.get(acquisitionCookieNames.partnerDestination)?.value);
+  const partnerDestinationIdCookie = cleanCookieValue(cookieStore.get(acquisitionCookieNames.partnerDestinationId)?.value);
 
   let attribution: AttributionInput = {
     sourceType: "ORGANIC",
@@ -41,11 +45,23 @@ export async function createAttributionForStore({ storeId, userId }: CreateAttri
           select: { id: true, code: true },
         })
       : null;
+    const partnerDestination = partner && partnerDestinationIdCookie
+      ? await getPrisma().partnerDestination.findFirst({
+          where: {
+            id: partnerDestinationIdCookie,
+            partnerId: partner.id,
+            status: "ACTIVE",
+          },
+          select: { id: true, slug: true },
+        })
+      : null;
 
     if (partner) {
       attribution = {
         sourceType: "PARTNER",
         partnerId: partner.id,
+        partnerDestinationId: partnerDestination?.id,
+        partnerDestinationSlug: partnerDestination?.slug ?? partnerDestinationCookie,
         code: code ?? partner.code,
         landingPath,
       };
@@ -83,6 +99,8 @@ export async function createAttributionForStore({ storeId, userId }: CreateAttri
       status: "SIGNED_UP",
       referrerStoreId: attribution.referrerStoreId,
       partnerId: attribution.partnerId,
+      partnerDestinationId: attribution.partnerDestinationId,
+      partnerDestinationSlug: attribution.partnerDestinationSlug,
       code: attribution.code,
       landingPath: attribution.landingPath,
       notes: attribution.notes,

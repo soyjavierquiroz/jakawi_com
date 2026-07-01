@@ -12,7 +12,7 @@ import { registrationConfig } from "@/config/registration";
 import { storePlans } from "@/config/plans";
 import { createAttributionForStore } from "@/lib/acquisition/attribution";
 import { clearAcquisitionCookies } from "@/lib/acquisition/cookies";
-import { normalizePartnerCode } from "@/lib/acquisition/partners";
+import { normalizePartnerCode, normalizePartnerDestinationSlug, validatePartnerDestinationTargetUrl } from "@/lib/acquisition/partners";
 import { requireSuperAdmin } from "@/lib/admin";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
@@ -666,6 +666,67 @@ export async function createPartnerAction(formData: FormData) {
   redirect("/app/admin/partners?ok=created");
 }
 
+export async function createPartnerDestinationAction(formData: FormData) {
+  await requireSuperAdmin();
+  const partnerId = field(formData, "partnerId");
+  const label = field(formData, "label");
+  const slug = normalizePartnerDestinationSlug(field(formData, "slug") || label);
+  const shouldBeDefault = formData.get("isDefault") === "on";
+  let targetUrl: string;
+
+  if (!label || !slug) redirect("/app/admin/partners?error=Destino invalido");
+
+  try {
+    targetUrl = validatePartnerDestinationTargetUrl(field(formData, "targetUrl"));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Destino invalido";
+    redirect(`/app/admin/partners?error=${encodeURIComponent(message)}`);
+  }
+
+  const partner = await getPrisma().partner.findUnique({ where: { id: partnerId }, select: { id: true } });
+  if (!partner) redirect("/app/admin/partners?error=Partner no encontrado");
+
+  try {
+    if (shouldBeDefault) {
+      await getPrisma().$transaction([
+        getPrisma().partnerDestination.updateMany({
+          where: { partnerId: partner.id, isDefault: true },
+          data: { isDefault: false },
+        }),
+        getPrisma().partnerDestination.create({
+          data: {
+            partnerId: partner.id,
+            label,
+            slug,
+            targetUrl,
+            isDefault: true,
+            notes: cleanOptional(field(formData, "notes")),
+          },
+        }),
+      ]);
+    } else {
+      await getPrisma().partnerDestination.create({
+        data: {
+          partnerId: partner.id,
+          label,
+          slug,
+          targetUrl,
+          notes: cleanOptional(field(formData, "notes")),
+        },
+      });
+    }
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect("/app/admin/partners?error=Ese slug de destino ya existe para este partner");
+    }
+    throw error;
+  }
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/partners");
+  redirect("/app/admin/partners?ok=destination");
+}
+
 export async function updatePartnerStatusAction(formData: FormData) {
   await requireSuperAdmin();
   const partnerId = field(formData, "partnerId");
@@ -681,6 +742,49 @@ export async function updatePartnerStatusAction(formData: FormData) {
   revalidatePath("/app/admin");
   revalidatePath("/app/admin/partners");
   redirect("/app/admin/partners?ok=status");
+}
+
+export async function updatePartnerDestinationStatusAction(formData: FormData) {
+  await requireSuperAdmin();
+  const destinationId = field(formData, "destinationId");
+  const status = field(formData, "status") === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+  const destination = await getPrisma().partnerDestination.findUnique({ where: { id: destinationId } });
+  if (!destination) redirect("/app/admin/partners?error=Destino no encontrado");
+
+  await getPrisma().partnerDestination.update({
+    where: { id: destination.id },
+    data: {
+      status,
+      isDefault: status === "INACTIVE" ? false : destination.isDefault,
+    },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/partners");
+  redirect("/app/admin/partners?ok=destination-status");
+}
+
+export async function setDefaultPartnerDestinationAction(formData: FormData) {
+  await requireSuperAdmin();
+  const destinationId = field(formData, "destinationId");
+  const destination = await getPrisma().partnerDestination.findUnique({ where: { id: destinationId } });
+  if (!destination) redirect("/app/admin/partners?error=Destino no encontrado");
+  if (destination.status !== "ACTIVE") redirect("/app/admin/partners?error=Solo un destino activo puede ser default");
+
+  await getPrisma().$transaction([
+    getPrisma().partnerDestination.updateMany({
+      where: { partnerId: destination.partnerId, isDefault: true },
+      data: { isDefault: false },
+    }),
+    getPrisma().partnerDestination.update({
+      where: { id: destination.id },
+      data: { isDefault: true },
+    }),
+  ]);
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/partners");
+  redirect("/app/admin/partners?ok=default-destination");
 }
 
 const attributionStatusValues = new Set(["SIGNED_UP", "ACTIVE", "PAID", "REWARD_PENDING", "REWARD_APPROVED", "REWARD_APPLIED", "CANCELLED"]);

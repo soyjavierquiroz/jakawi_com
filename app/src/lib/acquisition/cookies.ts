@@ -4,6 +4,8 @@ export const acquisitionCookieNames = {
   source: "jakawi_acq_source",
   referrerStoreId: "jakawi_referrer_store_id",
   partnerId: "jakawi_partner_id",
+  partnerDestination: "jakawi_partner_destination",
+  partnerDestinationId: "jakawi_partner_destination_id",
   referralCode: "jakawi_referral_code",
   landingPath: "jakawi_acq_landing_path",
 } as const;

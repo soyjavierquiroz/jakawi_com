@@ -201,38 +201,66 @@ model Partner {
   updatedAt         DateTime @updatedAt
 
   attributions AcquisitionAttribution[]
+  destinations PartnerDestination[]
 
   @@index([status])
   @@index([createdAt])
 }
 
-model AcquisitionAttribution {
-  id              String    @id @default(cuid())
-  storeId         String    @unique
-  userId          String?
-  sourceType      String
-  status          String    @default("SIGNED_UP")
-  referrerStoreId String?
-  partnerId       String?
-  code            String?
-  landingPath     String?
-  notes           String?
-  firstSeenAt     DateTime?
-  signedUpAt      DateTime  @default(now())
-  activatedAt     DateTime?
-  paidAt          DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+model PartnerDestination {
+  id        String   @id @default(cuid())
+  partnerId String
+  label     String
+  slug      String
+  targetUrl String
+  status    String   @default("ACTIVE")
+  isDefault Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  store         Store    @relation("AcquiredStore", fields: [storeId], references: [id], onDelete: Cascade)
-  referrerStore Store?   @relation("StoreReferrer", fields: [referrerStoreId], references: [id], onDelete: SetNull)
-  partner       Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
-  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  partner      Partner                  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  attributions AcquisitionAttribution[]
+
+  @@unique([partnerId, slug])
+  @@index([partnerId])
+  @@index([status])
+  @@index([partnerId, isDefault])
+  @@index([createdAt])
+}
+
+model AcquisitionAttribution {
+  id                     String    @id @default(cuid())
+  storeId                String    @unique
+  userId                 String?
+  sourceType             String
+  status                 String    @default("SIGNED_UP")
+  referrerStoreId        String?
+  partnerId              String?
+  partnerDestinationId   String?
+  partnerDestinationSlug String?
+  code                   String?
+  landingPath            String?
+  notes                  String?
+  firstSeenAt            DateTime?
+  signedUpAt             DateTime  @default(now())
+  activatedAt            DateTime?
+  paidAt                 DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  store              Store               @relation("AcquiredStore", fields: [storeId], references: [id], onDelete: Cascade)
+  referrerStore      Store?              @relation("StoreReferrer", fields: [referrerStoreId], references: [id], onDelete: SetNull)
+  partner            Partner?            @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  partnerDestination PartnerDestination? @relation(fields: [partnerDestinationId], references: [id], onDelete: SetNull)
+  user               User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([sourceType])
   @@index([status])
   @@index([referrerStoreId])
   @@index([partnerId])
+  @@index([partnerDestinationId])
+  @@index([partnerDestinationSlug])
   @@index([userId])
   @@index([code])
   @@index([createdAt])

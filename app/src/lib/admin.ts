@@ -110,7 +110,7 @@ function buildAttributionWhere(params: { q: string; filter: AdminAttributionFilt
 
 export async function getSuperAdminDashboardStats() {
   const prisma = getPrisma();
-  const [stores, whatsappClicksLast7Days, leadSignals, activePartners, storeReferralAttributions, partnerAttributions, organicAttributions] = await Promise.all([
+  const [stores, whatsappClicksLast7Days, leadSignals, activePartners, activePartnerDestinations, storeReferralAttributions, partnerAttributions, organicAttributions] = await Promise.all([
     prisma.store.findMany({
       select: {
         id: true,
@@ -128,6 +128,7 @@ export async function getSuperAdminDashboardStats() {
     }),
     prisma.lead.count(),
     prisma.partner.count({ where: { status: "ACTIVE" } }),
+    prisma.partnerDestination.count({ where: { status: "ACTIVE" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "STORE_REFERRAL" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "PARTNER" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "ORGANIC" } }),
@@ -159,6 +160,7 @@ export async function getSuperAdminDashboardStats() {
     whatsappClicksLast7Days,
     leadSignals,
     activePartners,
+    activePartnerDestinations,
     storeReferralAttributions,
     partnerAttributions,
     organicAttributions,
@@ -168,6 +170,7 @@ export async function getSuperAdminDashboardStats() {
 export async function getAdminPartnerRows() {
   return getPrisma().partner.findMany({
     include: {
+      destinations: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
       _count: { select: { attributions: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -185,6 +188,7 @@ export async function getAdminAttributionRows(params: { q?: string; filter?: str
       store: { include: { owner: true } },
       referrerStore: true,
       partner: true,
+      partnerDestination: true,
     },
     orderBy: { createdAt: "desc" },
     take: 250,
