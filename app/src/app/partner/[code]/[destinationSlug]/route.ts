@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { siteConfig } from "@/config/site";
 import { acquisitionCookieNames, getReferralCookieOptions } from "@/lib/acquisition/cookies";
 import { normalizePartnerCode, normalizePartnerDestinationSlug } from "@/lib/acquisition/partners";
+import { getRequestTrackingMetadata, recordGrowthLinkClick } from "@/lib/growth-link-clicks";
 import { getPrisma } from "@/lib/prisma";
 
 function registrationRedirect(request: NextRequest) {
@@ -37,6 +38,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const response = redirectToTarget(destination.targetUrl, request);
   const landingPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  await recordGrowthLinkClick({
+    sourceType: "PARTNER",
+    partnerId: partner.id,
+    partnerDestinationId: destination.id,
+    destinationSlug: destination.slug,
+    code: partner.code,
+    landingPath,
+    targetUrl: destination.targetUrl,
+    metadata: getRequestTrackingMetadata(request),
+  });
+
   const options = getReferralCookieOptions();
   response.cookies.set(acquisitionCookieNames.source, "PARTNER", options);
   response.cookies.set(acquisitionCookieNames.partnerId, partner.id, options);

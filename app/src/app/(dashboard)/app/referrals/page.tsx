@@ -32,7 +32,9 @@ function attributionStatusLabel(status: string) {
 export default async function ReferralsPage() {
   const { store } = await requireStore();
   const referralUrl = getStoreReferralLink(store.slug);
-  const [attributions, rewards] = await getOwnerStoreReferralData(store.id);
+  const [attributions, rewards, clickStats] = await getOwnerStoreReferralData(store.id);
+  const approvedBenefits = rewards.filter((reward) => reward.status === "APPROVED").length;
+  const appliedBenefits = rewards.filter((reward) => reward.status === "APPLIED").length;
 
   return (
     <section className="space-y-5 md:space-y-6">
@@ -57,6 +59,11 @@ export default async function ReferralsPage() {
           <Network className="size-5 shrink-0 text-brand" />
         </div>
         <code className="mt-3 block break-all rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{referralUrl}</code>
+        <div className="mt-3 rounded-md bg-white px-3 py-2">
+          <p className="text-xs font-black uppercase text-neutral-500">Clicks registrados</p>
+          <p className="mt-1 text-xl font-black text-brand-dark">{clickStats.total}</p>
+          <p className="mt-1 text-sm font-semibold text-neutral-600">Estos clicks indican visitas a tu link de referido. Los beneficios se revisan manualmente.</p>
+        </div>
         <div className="mt-3 grid grid-cols-2 gap-3 md:flex md:items-center">
           <a href={referralUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-4 font-bold text-white hover:bg-brand">
             <ExternalLink className="size-4" />
@@ -66,7 +73,31 @@ export default async function ReferralsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-brand-dark">Clicks de mi link</p>
+              <p className="mt-1 text-sm font-semibold text-neutral-500">Visitas al link.</p>
+            </div>
+            <Network className="size-5 shrink-0 text-brand" />
+          </div>
+          <p className="mt-3 text-2xl font-black text-brand-dark">{clickStats.total}</p>
+        </div>
+        <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Últimos 7 días</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Clicks recientes.</p>
+          </div>
+          <p className="mt-3 text-2xl font-black text-brand-dark">{clickStats.last7Days}</p>
+        </div>
+        <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Últimos 30 días</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-500">Tráfico generado.</p>
+          </div>
+          <p className="mt-3 text-2xl font-black text-brand-dark">{clickStats.last30Days}</p>
+        </div>
         <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -85,7 +116,8 @@ export default async function ReferralsPage() {
             </div>
             <Gift className="size-5 shrink-0 text-brand" />
           </div>
-          <p className="mt-3 text-2xl font-black text-brand-dark">{rewards.length}</p>
+          <p className="mt-3 text-2xl font-black text-brand-dark">{approvedBenefits} / {appliedBenefits}</p>
+          <p className="mt-1 text-xs font-semibold text-neutral-500">Aprobados / aplicados</p>
         </div>
       </div>
 

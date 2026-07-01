@@ -188,6 +188,23 @@ export default async function AdminPartnersPage({
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
                     <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Tráfico generado</p>
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-semibold text-neutral-600">
+                        <p>
+                          <span className="block text-[10px] uppercase">Total</span>
+                          <span className="font-black text-brand-dark">{partner.clickStats.total}</span>
+                        </p>
+                        <p>
+                          <span className="block text-[10px] uppercase">7 días</span>
+                          <span className="font-black text-brand-dark">{partner.clickStats.last7Days}</span>
+                        </p>
+                        <p>
+                          <span className="block text-[10px] uppercase">30 días</span>
+                          <span className="font-black text-brand-dark">{partner.clickStats.last30Days}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
                       <p className="text-[11px] font-black uppercase text-neutral-500">Contacto</p>
                       <p className="mt-1 truncate text-sm font-black text-brand-dark">{partner.contactName ?? "Sin contacto"}</p>
                       <p className="truncate text-xs font-semibold text-neutral-600">{partner.contactEmail ?? "Sin email"}</p>
@@ -279,7 +296,7 @@ export default async function AdminPartnersPage({
                       const destinationLink = getPartnerDestinationReferralLink(partner.code, destination.slug);
                       return (
                         <div key={destination.id} className="rounded-md border border-brand-border bg-white p-3">
-                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-start">
+                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(160px,0.45fr)_auto] lg:items-start">
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="break-words text-sm font-black text-brand-dark">{destination.label}</p>
@@ -301,6 +318,11 @@ export default async function AdminPartnersPage({
                               <span className="mt-1 inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-black text-neutral-500">{targetKindLabel(destination.targetUrl)}</span>
                               <p className="mt-1 break-all text-xs font-semibold text-neutral-700">{destination.targetUrl}</p>
                               {destination.notes ? <p className="mt-2 break-words text-xs font-semibold text-neutral-500">{destination.notes}</p> : null}
+                            </div>
+                            <div className="rounded-md bg-brand-muted px-3 py-2">
+                              <p className="text-[11px] font-black uppercase text-neutral-500">Destinos más usados</p>
+                              <p className="mt-1 text-sm font-black text-brand-dark">{destination.clickStats.total} clicks</p>
+                              <p className="mt-1 text-xs font-semibold text-neutral-600">7 días: {destination.clickStats.last7Days} · 30 días: {destination.clickStats.last30Days}</p>
                             </div>
                             <div className="flex flex-wrap gap-2 lg:justify-end">
                               <CopyButton value={destinationLink} />

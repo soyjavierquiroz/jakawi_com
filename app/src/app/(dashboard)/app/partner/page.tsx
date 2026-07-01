@@ -119,12 +119,15 @@ export default async function PartnerPortalPage({
             </div>
           </div>
           <div className="rounded-md bg-white px-4 py-3 text-sm font-semibold leading-6 text-neutral-600 lg:max-w-sm">
-            Las comisiones se aprueban y pagan manualmente por JAKAWI.
+            Clicks registrados antes del registro. Las atribuciones se confirman cuando el comercio crea su cuenta.
           </div>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Clicks totales" value={summary.clickStats.total} detail="Tráfico generado" />
+        <StatCard label="Clicks últimos 7 días" value={summary.clickStats.last7Days} />
+        <StatCard label="Clicks últimos 30 días" value={summary.clickStats.last30Days} />
         <StatCard label="Comercios registrados" value={summary.registeredStores} />
         <StatCard label="Comercios activos" value={summary.activeStores} />
         <StatCard label="Comercios pagados" value={summary.paidStores} />
@@ -150,6 +153,20 @@ export default async function PartnerPortalPage({
           <a href={links.mainLink} target="_blank" className="mt-2 block break-all text-sm font-bold text-brand-dark hover:text-brand">
             {links.mainLink}
           </a>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-md bg-brand-muted px-3 py-2">
+              <p className="text-[11px] font-black uppercase text-neutral-500">Clicks</p>
+              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainClickStats.total}</p>
+            </div>
+            <div className="rounded-md bg-brand-muted px-3 py-2">
+              <p className="text-[11px] font-black uppercase text-neutral-500">Últimos 7 días</p>
+              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainClickStats.last7Days}</p>
+            </div>
+            <div className="rounded-md bg-brand-muted px-3 py-2">
+              <p className="text-[11px] font-black uppercase text-neutral-500">Últimos 30 días</p>
+              <p className="mt-1 text-sm font-black text-brand-dark">{links.mainClickStats.last30Days}</p>
+            </div>
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <CopyButton value={links.mainLink} />
             <a href={links.mainLink} target="_blank" className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand">
@@ -173,6 +190,11 @@ export default async function PartnerPortalPage({
               <a href={destination.trackedLink} target="_blank" className="mt-1 block break-all text-xs font-bold text-brand-dark hover:text-brand">
                 {destination.trackedLink}
               </a>
+              <div className="mt-3 rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold text-neutral-600">
+                <p className="font-black uppercase text-neutral-500">Clicks</p>
+                <p className="mt-1 text-sm font-black text-brand-dark">{destination.clickStats.total}</p>
+                <p className="mt-1">Últimos 30 días: {destination.clickStats.last30Days}</p>
+              </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <CopyButton value={destination.trackedLink} />
                 <a href={destination.trackedLink} target="_blank" className="inline-flex h-10 items-center justify-center rounded-md border border-brand-border bg-white px-3 text-brand-dark hover:border-brand" aria-label="Abrir destino">

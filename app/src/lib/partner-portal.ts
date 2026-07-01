@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getPartnerDestinationReferralLink, getPartnerReferralLink } from "@/lib/acquisition/partners";
 import { isSuperAdmin } from "@/lib/admin";
 import { requireUser } from "@/lib/auth";
+import { emptyGrowthClickStats, getGrowthClickStats, getGrowthClickStatsByPartnerDestination, getPartnerClickStats } from "@/lib/growth-link-clicks";
 import { getPartnerCommissionStats } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
 
@@ -20,7 +21,7 @@ export async function getCurrentUserPartnerPortal(partnerId?: string | null) {
 }
 
 export async function getPartnerPortalSummary(partnerId: string) {
-  const [attributions, commissionStats] = await Promise.all([
+  const [attributions, commissionStats, clickStats] = await Promise.all([
     getPrisma().acquisitionAttribution.findMany({
       where: { partnerId },
       select: {
@@ -30,6 +31,7 @@ export async function getPartnerPortalSummary(partnerId: string) {
       take: 500,
     }),
     getPartnerCommissionStats(partnerId),
+    getPartnerClickStats(partnerId),
   ]);
 
   const registeredStores = attributions.length;
@@ -45,6 +47,7 @@ export async function getPartnerPortalSummary(partnerId: string) {
     activeStores,
     paidStores,
     commissionStats,
+    clickStats,
   };
 }
 
@@ -60,12 +63,19 @@ export async function getPartnerPortalLinks(partnerId: string) {
   });
 
   if (!partner) notFound();
+  const destinationIds = partner.destinations.map((destination) => destination.id);
+  const [mainClickStats, clickStatsByDestination] = await Promise.all([
+    getGrowthClickStats({ partnerId, landingPath: `/partner/${partner.code}` }),
+    getGrowthClickStatsByPartnerDestination(destinationIds),
+  ]);
 
   return {
     mainLink: getPartnerReferralLink(partner.code),
+    mainClickStats,
     destinations: partner.destinations.map((destination) => ({
       ...destination,
       trackedLink: getPartnerDestinationReferralLink(partner.code, destination.slug),
+      clickStats: clickStatsByDestination.get(destination.id) ?? emptyGrowthClickStats(),
     })),
   };
 }

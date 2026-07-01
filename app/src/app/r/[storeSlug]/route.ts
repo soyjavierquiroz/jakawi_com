@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { siteConfig } from "@/config/site";
 import { acquisitionCookieNames, getReferralCookieOptions } from "@/lib/acquisition/cookies";
+import { getRequestTrackingMetadata, recordGrowthLinkClick } from "@/lib/growth-link-clicks";
 import { getPrisma } from "@/lib/prisma";
 
 function registrationRedirect(request: NextRequest) {
@@ -18,6 +19,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!store) return response;
 
   const landingPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  await recordGrowthLinkClick({
+    sourceType: "STORE_REFERRAL",
+    referrerStoreId: store.id,
+    code: store.slug,
+    landingPath,
+    targetUrl: siteConfig.routes.register,
+    metadata: getRequestTrackingMetadata(request),
+  });
+
   const options = getReferralCookieOptions();
   response.cookies.set(acquisitionCookieNames.source, "STORE_REFERRAL", options);
   response.cookies.set(acquisitionCookieNames.referrerStoreId, store.id, options);

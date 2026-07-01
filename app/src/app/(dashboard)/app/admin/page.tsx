@@ -123,6 +123,12 @@ export default async function AdminPage() {
           <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">Manual</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Clicks últimos 7 días" value={stats.growthClickOverview.all.last7Days} detail="Referidos y partners" />
+          <StatCard label="Clicks últimos 30 días" value={stats.growthClickOverview.all.last30Days} detail="Tráfico generado" />
+          <StatCard label="Top partner por clicks" value={stats.growthClickOverview.topPartner?.code ?? "Sin clicks"} detail={stats.growthClickOverview.topPartner ? `${stats.growthClickOverview.topPartner.clicks} clicks` : "Aún sin tráfico"} />
+          <StatCard label="Top tienda referidora" value={stats.growthClickOverview.topStore?.slug ?? "Sin clicks"} detail={stats.growthClickOverview.topStore ? `${stats.growthClickOverview.topStore.clicks} clicks` : "Aún sin tráfico"} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Partners activos" value={stats.activePartners} detail="Canales comerciales habilitados" />
           <StatCard label="Destinos activos" value={stats.activePartnerDestinations} detail="Links configurados de partners" />
           <StatCard label="Tiendas referidoras" value={stats.storeReferralAttributions} detail="Tiendas atribuidas a tiendas" />

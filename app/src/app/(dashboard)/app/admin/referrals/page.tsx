@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { getPublicStoreUrl } from "@/config/site";
 import { updateAttributionStatusAction } from "@/lib/actions";
-import { adminAttributionFilters, getAdminAttributionFilter, getAdminAttributionRows, requireSuperAdmin } from "@/lib/admin";
+import { adminAttributionFilters, getAdminAttributionFilter, getAdminAttributionRows, getAdminGrowthClickOverview, requireSuperAdmin } from "@/lib/admin";
 import { cn } from "@/lib/ui";
 
 type AdminReferralsSearchParams = {
@@ -78,6 +78,16 @@ function AttributionStatusForm({ attributionId, status, notes }: { attributionId
   );
 }
 
+function MetricCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
+  return (
+    <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm">
+      <p className="text-xs font-black uppercase text-neutral-500">{label}</p>
+      <p className="mt-2 text-2xl font-black leading-8 text-brand-dark">{value}</p>
+      {detail ? <p className="mt-1 text-sm font-semibold text-neutral-500">{detail}</p> : null}
+    </div>
+  );
+}
+
 export default async function AdminReferralsPage({
   searchParams,
 }: {
@@ -87,7 +97,10 @@ export default async function AdminReferralsPage({
   const params = await searchParams;
   const activeFilter = getAdminAttributionFilter(params.filter);
   const q = params.q?.trim() ?? "";
-  const rows = await getAdminAttributionRows({ filter: activeFilter, q });
+  const [rows, clickOverview] = await Promise.all([
+    getAdminAttributionRows({ filter: activeFilter, q }),
+    getAdminGrowthClickOverview(),
+  ]);
 
   return (
     <section className="space-y-4 md:space-y-6">
@@ -106,6 +119,13 @@ export default async function AdminReferralsPage({
 
       {params.ok ? <p className="rounded-md bg-green-50 px-3 py-2 text-sm font-bold text-green-700">Cambios guardados.</p> : null}
       {params.error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{params.error}</p> : null}
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Clicks totales referidos" value={clickOverview.storeReferral.total} detail="STORE_REFERRAL" />
+        <MetricCard label="Clicks totales partners" value={clickOverview.partner.total} detail="PARTNER" />
+        <MetricCard label="Clicks últimos 7 días" value={clickOverview.all.last7Days} detail="Todos los links" />
+        <MetricCard label="Clicks últimos 30 días" value={clickOverview.all.last30Days} detail="Todos los links" />
+      </div>
 
       <form action="/app/admin/referrals" className="rounded-lg border border-brand-border bg-brand-paper p-3 shadow-sm">
         {activeFilter !== "all" ? <input type="hidden" name="filter" value={activeFilter} /> : null}
@@ -187,6 +207,13 @@ export default async function AdminReferralsPage({
                       <p className="mt-1 break-words text-sm font-black text-brand-dark">{destinationLabel}</p>
                       {row.landingPath ? <p className="mt-1 break-all font-mono text-xs text-neutral-600">{row.landingPath}</p> : null}
                     </div>
+                    {row.sourceType === "PARTNER" || row.sourceType === "STORE_REFERRAL" ? (
+                      <div className="rounded-md bg-brand-muted px-3 py-2">
+                        <p className="text-[11px] font-black uppercase text-neutral-500">Clicks</p>
+                        <p className="mt-1 text-sm font-black text-brand-dark">{row.growthClickStats.total}</p>
+                        <p className="mt-1 text-xs font-semibold text-neutral-600">Últimos 30 días: {row.growthClickStats.last30Days}</p>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">

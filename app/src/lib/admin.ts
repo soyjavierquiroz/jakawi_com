@@ -1,11 +1,20 @@
 import { notFound } from "next/navigation";
 import { type StorePlanCode } from "@/config/plans";
 import { requireUser } from "@/lib/auth";
+import {
+  emptyGrowthClickStats,
+  getAdminGrowthClickOverview as getAdminGrowthClickOverviewInternal,
+  getGrowthClickStatsByPartner,
+  getGrowthClickStatsByPartnerDestination,
+  getGrowthClickStatsByReferrerStore,
+} from "@/lib/growth-link-clicks";
 import { getStorePlanState } from "@/lib/plan-limits";
 import { emptyPartnerCommissionStats, getPartnerCommissionStats, getPartnerCommissionStatsByPartner } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
 import { getStoreReferralRewardStats } from "@/lib/store-referral-rewards";
 import { AnalyticsEventType, type Prisma } from "@prisma/client";
+
+export { getAdminGrowthClickOverview } from "@/lib/growth-link-clicks";
 
 type UserWithRole = {
   role?: string | null;
@@ -123,6 +132,7 @@ export async function getSuperAdminDashboardStats() {
     organicAttributions,
     partnerCommissionStats,
     storeReferralRewardStats,
+    growthClickOverview,
   ] = await Promise.all([
     prisma.store.findMany({
       select: {
@@ -147,6 +157,7 @@ export async function getSuperAdminDashboardStats() {
     prisma.acquisitionAttribution.count({ where: { sourceType: "ORGANIC" } }),
     getPartnerCommissionStats(),
     getStoreReferralRewardStats(),
+    getAdminGrowthClickOverviewInternal(),
   ]);
 
   const planCounts = emptyPlanCounts();
@@ -181,6 +192,7 @@ export async function getSuperAdminDashboardStats() {
     organicAttributions,
     partnerCommissionStats,
     storeReferralRewardStats,
+    growthClickOverview,
   };
 }
 
@@ -197,10 +209,21 @@ export async function getAdminPartnerRows() {
     }),
     getPartnerCommissionStatsByPartner(),
   ]);
+  const partnerIds = partners.map((partner) => partner.id);
+  const destinationIds = partners.flatMap((partner) => partner.destinations.map((destination) => destination.id));
+  const [clickStatsByPartner, clickStatsByDestination] = await Promise.all([
+    getGrowthClickStatsByPartner(partnerIds),
+    getGrowthClickStatsByPartnerDestination(destinationIds),
+  ]);
 
   return partners.map((partner) => ({
     ...partner,
     commissionStats: commissionStatsByPartner.get(partner.id) ?? emptyPartnerCommissionStats(),
+    clickStats: clickStatsByPartner.get(partner.id) ?? emptyGrowthClickStats(),
+    destinations: partner.destinations.map((destination) => ({
+      ...destination,
+      clickStats: clickStatsByDestination.get(destination.id) ?? emptyGrowthClickStats(),
+    })),
   }));
 }
 
@@ -208,7 +231,7 @@ export async function getAdminAttributionRows(params: { q?: string; filter?: str
   const q = params.q?.trim() ?? "";
   const activeFilter = getAdminAttributionFilter(params.filter);
 
-  return getPrisma().acquisitionAttribution.findMany({
+  const rows = await getPrisma().acquisitionAttribution.findMany({
     where: buildAttributionWhere({ q, filter: activeFilter }),
     include: {
       store: { include: { owner: true } },
@@ -219,6 +242,26 @@ export async function getAdminAttributionRows(params: { q?: string; filter?: str
     orderBy: { createdAt: "desc" },
     take: 250,
   });
+  const partnerIds = rows.flatMap((row) => (row.sourceType === "PARTNER" && row.partnerId ? [row.partnerId] : []));
+  const destinationIds = rows.flatMap((row) => (row.sourceType === "PARTNER" && row.partnerDestinationId ? [row.partnerDestinationId] : []));
+  const referrerStoreIds = rows.flatMap((row) => (row.sourceType === "STORE_REFERRAL" && row.referrerStoreId ? [row.referrerStoreId] : []));
+  const [clickStatsByPartner, clickStatsByDestination, clickStatsByReferrerStore] = await Promise.all([
+    getGrowthClickStatsByPartner(partnerIds),
+    getGrowthClickStatsByPartnerDestination(destinationIds),
+    getGrowthClickStatsByReferrerStore(referrerStoreIds),
+  ]);
+
+  return rows.map((row) => ({
+    ...row,
+    growthClickStats:
+      row.sourceType === "PARTNER" && row.partnerDestinationId
+        ? clickStatsByDestination.get(row.partnerDestinationId) ?? emptyGrowthClickStats()
+        : row.sourceType === "PARTNER" && row.partnerId
+          ? clickStatsByPartner.get(row.partnerId) ?? emptyGrowthClickStats()
+          : row.sourceType === "STORE_REFERRAL" && row.referrerStoreId
+            ? clickStatsByReferrerStore.get(row.referrerStoreId) ?? emptyGrowthClickStats()
+            : emptyGrowthClickStats(),
+  }));
 }
 
 export async function getAdminStoreRows(params: { q?: string; filter?: string }) {

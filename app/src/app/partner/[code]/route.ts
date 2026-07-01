@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { siteConfig } from "@/config/site";
 import { acquisitionCookieNames, getReferralCookieOptions } from "@/lib/acquisition/cookies";
 import { normalizePartnerCode } from "@/lib/acquisition/partners";
+import { getRequestTrackingMetadata, recordGrowthLinkClick } from "@/lib/growth-link-clicks";
 import { getPrisma } from "@/lib/prisma";
 
 function redirectToTarget(targetUrl: string, request: NextRequest) {
@@ -32,6 +33,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!partner) return response;
 
   const landingPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  await recordGrowthLinkClick({
+    sourceType: "PARTNER",
+    partnerId: partner.id,
+    partnerDestinationId: destination?.id ?? null,
+    destinationSlug: destination?.slug ?? null,
+    code: partner.code,
+    landingPath,
+    targetUrl: destination?.targetUrl ?? siteConfig.routes.register,
+    metadata: getRequestTrackingMetadata(request),
+  });
+
   const options = getReferralCookieOptions();
   response.cookies.set(acquisitionCookieNames.source, "PARTNER", options);
   response.cookies.set(acquisitionCookieNames.partnerId, partner.id, options);

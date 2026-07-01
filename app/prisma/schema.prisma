@@ -186,6 +186,7 @@ model Store {
   partnerCommissions        PartnerCommission[]
   referralRewardsEarned     StoreReferralReward[]    @relation("ReferralRewardReferrer")
   referralRewardsGenerated  StoreReferralReward[]    @relation("ReferralRewardReferred")
+  referralGrowthClicks      GrowthLinkClick[]        @relation("GrowthClickReferrerStore")
 
   @@index([ownerId])
   @@index([slug])
@@ -208,6 +209,7 @@ model Partner {
   attributions AcquisitionAttribution[]
   destinations PartnerDestination[]
   commissions  PartnerCommission[]
+  growthClicks GrowthLinkClick[]
   portalUser   User?                    @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
 
   @@index([status])
@@ -228,6 +230,7 @@ model PartnerDestination {
 
   partner      Partner                  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   attributions AcquisitionAttribution[]
+  growthClicks GrowthLinkClick[]
 
   @@unique([partnerId, slug])
   @@index([partnerId])
@@ -273,6 +276,43 @@ model AcquisitionAttribution {
   @@index([userId])
   @@index([code])
   @@index([createdAt])
+}
+
+model GrowthLinkClick {
+  id String @id @default(cuid())
+
+  sourceType String
+
+  partnerId String?
+  partner   Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+
+  partnerDestinationId String?
+  partnerDestination   PartnerDestination? @relation(fields: [partnerDestinationId], references: [id], onDelete: SetNull)
+
+  referrerStoreId String?
+  referrerStore   Store?  @relation("GrowthClickReferrerStore", fields: [referrerStoreId], references: [id], onDelete: SetNull)
+
+  code            String?
+  destinationSlug String?
+  landingPath     String
+  targetUrl       String?
+  referrer        String?
+  userAgent       String?
+  ipHash          String?
+  visitorId       String?
+  clickedAt       DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([sourceType])
+  @@index([partnerId])
+  @@index([partnerDestinationId])
+  @@index([referrerStoreId])
+  @@index([code])
+  @@index([destinationSlug])
+  @@index([clickedAt])
+  @@index([sourceType, clickedAt])
+  @@index([partnerId, clickedAt])
+  @@index([referrerStoreId, clickedAt])
 }
 
 model StoreReferralReward {
