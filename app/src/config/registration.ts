@@ -58,6 +58,8 @@ export const registrationConfig = {
     "api",
     "login",
     "registro",
+    "r",
+    "partner",
     "demo",
     "pricing",
     "planes",

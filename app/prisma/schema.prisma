@@ -104,8 +104,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions Session[]
-  stores   Store[]
+  sessions                Session[]
+  stores                  Store[]
+  acquisitionAttributions AcquisitionAttribution[]
 }
 
 model Session {
@@ -122,66 +123,119 @@ model Session {
 }
 
 model Store {
-  id          String   @id @default(cuid())
-  ownerId     String
-  name        String
-  slug        String   @unique
-  description String?
-  commercialTagline String?
-  whatsapp    String
-  instagram   String?
-  tiktok      String?
-  logoUrl     String?
-  coverUrl    String?
-  countryCode String?  @default("BO")
-  countryName String?
-  currency    String?  @default("BOB")
-  locale      String?
-  timezone    String?
-  city        String?
-  region      String?
-  themeColor  String   @default("#128C4A")
-  brandPrimaryColor String? @default("#128C4A")
-  brandBackgroundColor String? @default("#FAF7EF")
-  brandAccentColor String? @default("#A3E635")
-  brandThemePreset String? @default("JAKAWI")
-  commercialTemplate String? @default("SHOWCASE")
-  isPublished Boolean  @default(true)
-  plan        String   @default("LAUNCH")
-  planStatus  String   @default("ACTIVE")
-  planStartedAt DateTime?
-  trialEndsAt DateTime?
-  planRenewsAt DateTime?
-  sellerAiPeriodStart DateTime?
-  sellerAiConversationCount Int @default(0)
-  sellerVoiceEnabled Boolean @default(true)
-  sellerVoiceDisplayName String?
-  sellerVoiceAvatarUrl String?
-  sellerIntroAudioUrl String?
-  sellerIntroTranscript String?
-  sellerIntroDurationSeconds Int?
-  sellerIntroEnabled Boolean @default(true)
-  sellerGuidanceAudioUrl String?
-  sellerGuidanceTranscript String?
+  id                            String    @id @default(cuid())
+  ownerId                       String
+  name                          String
+  slug                          String    @unique
+  description                   String?
+  commercialTagline             String?
+  whatsapp                      String
+  instagram                     String?
+  tiktok                        String?
+  logoUrl                       String?
+  coverUrl                      String?
+  countryCode                   String?   @default("BO")
+  countryName                   String?
+  currency                      String?   @default("BOB")
+  locale                        String?
+  timezone                      String?
+  city                          String?
+  region                        String?
+  themeColor                    String    @default("#128C4A")
+  brandPrimaryColor             String?   @default("#128C4A")
+  brandBackgroundColor          String?   @default("#FAF7EF")
+  brandAccentColor              String?   @default("#A3E635")
+  brandThemePreset              String?   @default("JAKAWI")
+  commercialTemplate            String?   @default("SHOWCASE")
+  isPublished                   Boolean   @default(true)
+  plan                          String    @default("LAUNCH")
+  planStatus                    String    @default("ACTIVE")
+  planStartedAt                 DateTime?
+  trialEndsAt                   DateTime?
+  planRenewsAt                  DateTime?
+  sellerAiPeriodStart           DateTime?
+  sellerAiConversationCount     Int       @default(0)
+  sellerVoiceEnabled            Boolean   @default(true)
+  sellerVoiceDisplayName        String?
+  sellerVoiceAvatarUrl          String?
+  sellerIntroAudioUrl           String?
+  sellerIntroTranscript         String?
+  sellerIntroDurationSeconds    Int?
+  sellerIntroEnabled            Boolean   @default(true)
+  sellerGuidanceAudioUrl        String?
+  sellerGuidanceTranscript      String?
   sellerGuidanceDurationSeconds Int?
-  sellerGuidanceEnabled Boolean @default(true)
-  sellerHandoffAudioUrl String?
-  sellerHandoffTranscript String?
-  sellerHandoffDurationSeconds Int?
-  sellerHandoffEnabled Boolean @default(true)
-  commercialType String? @default("PRODUCT_STORE")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  sellerGuidanceEnabled         Boolean   @default(true)
+  sellerHandoffAudioUrl         String?
+  sellerHandoffTranscript       String?
+  sellerHandoffDurationSeconds  Int?
+  sellerHandoffEnabled          Boolean   @default(true)
+  commercialType                String?   @default("PRODUCT_STORE")
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
 
-  owner      User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  products   Product[]
-  categories Category[]
-  events     AnalyticsEvent[]
-  leads      Lead[]
-  journeys   CustomerJourney[]
+  owner                     User                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  products                  Product[]
+  categories                Category[]
+  events                    AnalyticsEvent[]
+  leads                     Lead[]
+  journeys                  CustomerJourney[]
+  acquisitionAttribution    AcquisitionAttribution?  @relation("AcquiredStore")
+  referredStoreAttributions AcquisitionAttribution[] @relation("StoreReferrer")
 
   @@index([ownerId])
   @@index([slug])
+}
+
+model Partner {
+  id                String   @id @default(cuid())
+  name              String
+  code              String   @unique
+  contactName       String?
+  contactEmail      String?
+  contactPhone      String?
+  status            String   @default("ACTIVE")
+  commissionRateBps Int      @default(2000)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  attributions AcquisitionAttribution[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AcquisitionAttribution {
+  id              String    @id @default(cuid())
+  storeId         String    @unique
+  userId          String?
+  sourceType      String
+  status          String    @default("SIGNED_UP")
+  referrerStoreId String?
+  partnerId       String?
+  code            String?
+  landingPath     String?
+  notes           String?
+  firstSeenAt     DateTime?
+  signedUpAt      DateTime  @default(now())
+  activatedAt     DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  store         Store    @relation("AcquiredStore", fields: [storeId], references: [id], onDelete: Cascade)
+  referrerStore Store?   @relation("StoreReferrer", fields: [referrerStoreId], references: [id], onDelete: SetNull)
+  partner       Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([sourceType])
+  @@index([status])
+  @@index([referrerStoreId])
+  @@index([partnerId])
+  @@index([userId])
+  @@index([code])
+  @@index([createdAt])
 }
 
 model Category {
@@ -192,9 +246,9 @@ model Category {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  products Product[]
-  journeys CustomerJourney[]
+  store         Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products      Product[]
+  journeys      CustomerJourney[]
   journeyEvents JourneyEvent[]
 
   @@unique([storeId, slug])
@@ -202,27 +256,27 @@ model Category {
 }
 
 model Product {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   storeId     String
   categoryId  String?
   name        String
   slug        String
   description String?
   priceCents  Int
-  currency    String   @default("BOB")
+  currency    String    @default("BOB")
   imageUrl    String?
-  isVisible   Boolean  @default(true)
-  isFeatured  Boolean  @default(false)
+  isVisible   Boolean   @default(true)
+  isFeatured  Boolean   @default(false)
   featuredAt  DateTime?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  events   AnalyticsEvent[]
+  store           Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  events          AnalyticsEvent[]
   currentJourneys CustomerJourney[] @relation("JourneyCurrentProduct")
-  journeyEvents JourneyEvent[]
+  journeyEvents   JourneyEvent[]
 
   @@unique([storeId, slug])
   @@index([storeId, isVisible])
@@ -279,12 +333,12 @@ model Lead {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  journey      CustomerJourney? @relation(fields: [journeyId], references: [id], onDelete: SetNull)
-  activeSnapshot CommercialSnapshot? @relation("LeadActiveSnapshot", fields: [snapshotId], references: [id], onDelete: SetNull)
-  snapshots    CommercialSnapshot[] @relation("LeadSnapshots")
-  conversation Conversation?
-  events       LeadEvent[]
+  store          Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  journey        CustomerJourney?     @relation(fields: [journeyId], references: [id], onDelete: SetNull)
+  activeSnapshot CommercialSnapshot?  @relation("LeadActiveSnapshot", fields: [snapshotId], references: [id], onDelete: SetNull)
+  snapshots      CommercialSnapshot[] @relation("LeadSnapshots")
+  conversation   Conversation?
+  events         LeadEvent[]
 
   @@index([storeId, createdAt])
   @@index([storeId, lastActivityAt])
@@ -297,44 +351,44 @@ model Lead {
 }
 
 model CustomerJourney {
-  id                    String                @id @default(cuid())
-  journeyCode           String                @unique
-  storeId               String
-  sessionId             String
-  visitorId             String?
-  source                String?
-  status                CustomerJourneyStatus @default(ACTIVE)
-  stage                 CustomerJourneyStage  @default(DISCOVERY)
+  id          String                @id @default(cuid())
+  journeyCode String                @unique
+  storeId     String
+  sessionId   String
+  visitorId   String?
+  source      String?
+  status      CustomerJourneyStatus @default(ACTIVE)
+  stage       CustomerJourneyStage  @default(DISCOVERY)
 
-  currentProductId      String?
-  currentCategoryId     String?
+  currentProductId  String?
+  currentCategoryId String?
 
-  detectedNeed          String?
-  budget                String?
-  urgency               String?
-  objections            String?
-  conversationSummary   String?
-  sellerAiCountedAt     DateTime?
+  detectedNeed        String?
+  budget              String?
+  urgency             String?
+  objections          String?
+  conversationSummary String?
+  sellerAiCountedAt   DateTime?
 
-  intentScore           Int                   @default(0)
+  intentScore Int @default(0)
 
-  customerName          String?
-  customerPhone         String?
-  city                  String?
+  customerName  String?
+  customerPhone String?
+  city          String?
 
-  viewedProducts        Json?
-  recommendedProducts   Json?
+  viewedProducts      Json?
+  recommendedProducts Json?
 
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  store                 Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  currentProduct        Product?              @relation("JourneyCurrentProduct", fields: [currentProductId], references: [id], onDelete: SetNull)
-  currentCategory       Category?             @relation(fields: [currentCategoryId], references: [id], onDelete: SetNull)
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  currentProduct  Product?  @relation("JourneyCurrentProduct", fields: [currentProductId], references: [id], onDelete: SetNull)
+  currentCategory Category? @relation(fields: [currentCategoryId], references: [id], onDelete: SetNull)
 
-  events                JourneyEvent[]
-  snapshots             CommercialSnapshot[]
-  leads                 Lead[]
+  events    JourneyEvent[]
+  snapshots CommercialSnapshot[]
+  leads     Lead[]
 
   @@index([storeId])
   @@index([sessionId])
@@ -345,17 +399,17 @@ model CustomerJourney {
 }
 
 model JourneyEvent {
-  id          String           @id @default(cuid())
-  journeyId   String
-  type        JourneyEventType
-  productId   String?
-  categoryId  String?
-  payload     Json?
-  createdAt   DateTime         @default(now())
+  id         String           @id @default(cuid())
+  journeyId  String
+  type       JourneyEventType
+  productId  String?
+  categoryId String?
+  payload    Json?
+  createdAt  DateTime         @default(now())
 
-  journey     CustomerJourney  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  product     Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
-  category    Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  journey  CustomerJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  product  Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  category Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([journeyId])
   @@index([type])
@@ -363,36 +417,36 @@ model JourneyEvent {
 }
 
 model CommercialSnapshot {
-  id                String                    @id @default(cuid())
-  snapshotCode      String                    @unique
+  id           String @id @default(cuid())
+  snapshotCode String @unique
 
-  journeyId         String
-  leadId            String?
+  journeyId String
+  leadId    String?
 
-  channel           CommercialSnapshotChannel @default(WHATSAPP)
+  channel CommercialSnapshotChannel @default(WHATSAPP)
 
-  customerSummary   String?
-  detectedNeed      String?
-  currentItem       Json?
-  recommendedItems  Json?
-  viewedItems       Json?
-  objections        String?
-  budget            String?
-  urgency           String?
-  intentScore       Int                       @default(0)
+  customerSummary  String?
+  detectedNeed     String?
+  currentItem      Json?
+  recommendedItems Json?
+  viewedItems      Json?
+  objections       String?
+  budget           String?
+  urgency          String?
+  intentScore      Int     @default(0)
 
-  customerName      String?
-  customerPhone     String?
-  city              String?
+  customerName  String?
+  customerPhone String?
+  city          String?
 
-  channelMessage    String?
-  whatsappMessage   String?
+  channelMessage  String?
+  whatsappMessage String?
 
-  createdAt         DateTime                  @default(now())
+  createdAt DateTime @default(now())
 
-  journey           CustomerJourney           @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  lead              Lead?                     @relation("LeadSnapshots", fields: [leadId], references: [id], onDelete: SetNull)
-  selectedByLeads   Lead[]                    @relation("LeadActiveSnapshot")
+  journey         CustomerJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  lead            Lead?           @relation("LeadSnapshots", fields: [leadId], references: [id], onDelete: SetNull)
+  selectedByLeads Lead[]          @relation("LeadActiveSnapshot")
 
   @@index([journeyId])
   @@index([leadId])

@@ -35,6 +35,22 @@ export function getAdminStoreFilter(value: string | null | undefined): AdminStor
   return adminStoreFilters.some((filter) => filter.key === value) ? (value as AdminStoreFilter) : "all";
 }
 
+export const adminAttributionFilters = [
+  { key: "all", label: "Todos" },
+  { key: "store-referral", label: "Store referrals" },
+  { key: "partner", label: "Partners" },
+  { key: "organic", label: "Organico" },
+  { key: "signed-up", label: "Signed up" },
+  { key: "active", label: "Active" },
+  { key: "paid", label: "Paid" },
+] as const;
+
+export type AdminAttributionFilter = (typeof adminAttributionFilters)[number]["key"];
+
+export function getAdminAttributionFilter(value: string | null | undefined): AdminAttributionFilter {
+  return adminAttributionFilters.some((filter) => filter.key === value) ? (value as AdminAttributionFilter) : "all";
+}
+
 function emptyPlanCounts() {
   return {
     TRIAL: 0,
@@ -60,9 +76,41 @@ function buildStoreSearchWhere(q: string): Prisma.StoreWhereInput {
   };
 }
 
+function buildAttributionWhere(params: { q: string; filter: AdminAttributionFilter }): Prisma.AcquisitionAttributionWhereInput {
+  const where: Prisma.AcquisitionAttributionWhereInput = {};
+  if (params.filter === "store-referral") where.sourceType = "STORE_REFERRAL";
+  if (params.filter === "partner") where.sourceType = "PARTNER";
+  if (params.filter === "organic") where.sourceType = "ORGANIC";
+  if (params.filter === "signed-up") where.status = "SIGNED_UP";
+  if (params.filter === "active") where.status = "ACTIVE";
+  if (params.filter === "paid") where.status = "PAID";
+
+  if (!params.q) return where;
+
+  return {
+    AND: [
+      where,
+      {
+        OR: [
+          { code: { contains: params.q, mode: "insensitive" } },
+          { sourceType: { contains: params.q, mode: "insensitive" } },
+          { status: { contains: params.q, mode: "insensitive" } },
+          { store: { name: { contains: params.q, mode: "insensitive" } } },
+          { store: { slug: { contains: params.q, mode: "insensitive" } } },
+          { store: { owner: { email: { contains: params.q, mode: "insensitive" } } } },
+          { partner: { name: { contains: params.q, mode: "insensitive" } } },
+          { partner: { code: { contains: params.q, mode: "insensitive" } } },
+          { referrerStore: { name: { contains: params.q, mode: "insensitive" } } },
+          { referrerStore: { slug: { contains: params.q, mode: "insensitive" } } },
+        ],
+      },
+    ],
+  };
+}
+
 export async function getSuperAdminDashboardStats() {
   const prisma = getPrisma();
-  const [stores, whatsappClicksLast7Days, leadSignals] = await Promise.all([
+  const [stores, whatsappClicksLast7Days, leadSignals, activePartners, storeReferralAttributions, partnerAttributions, organicAttributions] = await Promise.all([
     prisma.store.findMany({
       select: {
         id: true,
@@ -79,6 +127,10 @@ export async function getSuperAdminDashboardStats() {
       },
     }),
     prisma.lead.count(),
+    prisma.partner.count({ where: { status: "ACTIVE" } }),
+    prisma.acquisitionAttribution.count({ where: { sourceType: "STORE_REFERRAL" } }),
+    prisma.acquisitionAttribution.count({ where: { sourceType: "PARTNER" } }),
+    prisma.acquisitionAttribution.count({ where: { sourceType: "ORGANIC" } }),
   ]);
 
   const planCounts = emptyPlanCounts();
@@ -106,7 +158,37 @@ export async function getSuperAdminDashboardStats() {
     sellerAiEnabledStores,
     whatsappClicksLast7Days,
     leadSignals,
+    activePartners,
+    storeReferralAttributions,
+    partnerAttributions,
+    organicAttributions,
   };
+}
+
+export async function getAdminPartnerRows() {
+  return getPrisma().partner.findMany({
+    include: {
+      _count: { select: { attributions: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 250,
+  });
+}
+
+export async function getAdminAttributionRows(params: { q?: string; filter?: string }) {
+  const q = params.q?.trim() ?? "";
+  const activeFilter = getAdminAttributionFilter(params.filter);
+
+  return getPrisma().acquisitionAttribution.findMany({
+    where: buildAttributionWhere({ q, filter: activeFilter }),
+    include: {
+      store: { include: { owner: true } },
+      referrerStore: true,
+      partner: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 250,
+  });
 }
 
 export async function getAdminStoreRows(params: { q?: string; filter?: string }) {

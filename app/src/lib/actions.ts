@@ -10,6 +10,9 @@ import { getCountryCommerceConfig, normalizeCountryCode, normalizeCurrency } fro
 import { COMMERCIAL_SPACE_TEMPLATES, normalizeCommercialTemplate } from "@/config/commercial-templates";
 import { registrationConfig } from "@/config/registration";
 import { storePlans } from "@/config/plans";
+import { createAttributionForStore } from "@/lib/acquisition/attribution";
+import { clearAcquisitionCookies } from "@/lib/acquisition/cookies";
+import { normalizePartnerCode } from "@/lib/acquisition/partners";
 import { requireSuperAdmin } from "@/lib/admin";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
@@ -158,9 +161,26 @@ export async function registerAction(formData: FormData) {
           },
         },
       },
+      include: {
+        stores: {
+          select: { id: true },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+        },
+      },
     });
 
+    const storeId = user.stores[0]?.id;
+    if (storeId) {
+      try {
+        await createAttributionForStore({ storeId, userId: user.id });
+      } catch (attributionError) {
+        console.warn("Could not create acquisition attribution", attributionError);
+      }
+    }
+
     await createSession(user.id);
+    await clearAcquisitionCookies();
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       redirect("/registro?error=Este email o link comercial ya esta registrado");
@@ -611,6 +631,83 @@ export async function extendStoreTrialAction(formData: FormData) {
 
   revalidatePath("/app/admin/stores");
   redirect("/app/admin/stores?ok=trial");
+}
+
+export async function createPartnerAction(formData: FormData) {
+  await requireSuperAdmin();
+  const name = field(formData, "name");
+  const submittedCode = field(formData, "code");
+  const code = normalizePartnerCode(submittedCode || name);
+  const commissionRateBps = Math.max(0, Math.min(10000, Number(field(formData, "commissionRateBps") || 2000)));
+
+  if (!name || !code) redirect("/app/admin/partners?error=Nombre o codigo invalido");
+
+  try {
+    await getPrisma().partner.create({
+      data: {
+        name,
+        code,
+        contactName: cleanOptional(field(formData, "contactName")),
+        contactEmail: cleanOptional(field(formData, "contactEmail")),
+        contactPhone: cleanOptional(field(formData, "contactPhone")),
+        commissionRateBps,
+        notes: cleanOptional(field(formData, "notes")),
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirect("/app/admin/partners?error=Ese codigo de partner ya existe");
+    }
+    throw error;
+  }
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/partners");
+  redirect("/app/admin/partners?ok=created");
+}
+
+export async function updatePartnerStatusAction(formData: FormData) {
+  await requireSuperAdmin();
+  const partnerId = field(formData, "partnerId");
+  const status = field(formData, "status") === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+  const partner = await getPrisma().partner.findUnique({ where: { id: partnerId } });
+  if (!partner) redirect("/app/admin/partners?error=Partner no encontrado");
+
+  await getPrisma().partner.update({
+    where: { id: partner.id },
+    data: { status },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/partners");
+  redirect("/app/admin/partners?ok=status");
+}
+
+const attributionStatusValues = new Set(["SIGNED_UP", "ACTIVE", "PAID", "REWARD_PENDING", "REWARD_APPROVED", "REWARD_APPLIED", "CANCELLED"]);
+
+export async function updateAttributionStatusAction(formData: FormData) {
+  await requireSuperAdmin();
+  const attributionId = field(formData, "attributionId");
+  const status = field(formData, "status");
+  if (!attributionStatusValues.has(status)) redirect("/app/admin/referrals?error=Estado invalido");
+
+  const attribution = await getPrisma().acquisitionAttribution.findUnique({ where: { id: attributionId } });
+  if (!attribution) redirect("/app/admin/referrals?error=Atribucion no encontrada");
+
+  const now = new Date();
+  await getPrisma().acquisitionAttribution.update({
+    where: { id: attribution.id },
+    data: {
+      status,
+      notes: cleanOptional(field(formData, "notes")) ?? attribution.notes,
+      activatedAt: status === "ACTIVE" && !attribution.activatedAt ? now : attribution.activatedAt,
+      paidAt: status === "PAID" && !attribution.paidAt ? now : attribution.paidAt,
+    },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/referrals");
+  redirect("/app/admin/referrals?ok=status");
 }
 
 export async function ensureUserHasStore() {

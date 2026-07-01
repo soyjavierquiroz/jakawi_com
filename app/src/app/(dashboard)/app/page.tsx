@@ -4,6 +4,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCard";
 import { getCountryCommerceConfig } from "@/config/countries";
 import { getPublicStoreUrl, siteConfig } from "@/config/site";
+import { getStoreReferralLink } from "@/lib/acquisition/partners";
 import { requireStore } from "@/lib/auth";
 import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
@@ -47,6 +48,7 @@ export default async function DashboardPage() {
   const anonymousIntentCount = leadClassifications.filter((lead) => lead.isAnonymousIntent).length;
   const leadCount = contactableCount + whatsappStartedCount + anonymousIntentCount;
   const publicUrl = getPublicStoreUrl(store.slug);
+  const referralUrl = getStoreReferralLink(store.slug);
   const flow = getStorefrontFlow(store.plan);
   const planState = getStorePlanState(store);
   const country = getCountryCommerceConfig(store.countryCode);
@@ -135,6 +137,24 @@ export default async function DashboardPage() {
             Ver espacio
           </a>
           <CopyButton value={publicUrl} />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Invita negocios a JAKAWI</p>
+            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-neutral-500">Comparte tu enlace. Si un negocio se registra y activa su espacio, podremos aplicar beneficios a tu cuenta.</p>
+          </div>
+          <UsersRound className="size-5 shrink-0 text-brand" />
+        </div>
+        <code className="mt-3 block break-all rounded-md bg-brand-muted px-3 py-3 text-sm text-neutral-800">{referralUrl}</code>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:flex md:items-center">
+          <a href={referralUrl} target="_blank" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-4 font-bold text-white hover:bg-brand">
+            <ExternalLink className="size-4" />
+            Abrir enlace
+          </a>
+          <CopyButton value={referralUrl} />
         </div>
       </div>
 

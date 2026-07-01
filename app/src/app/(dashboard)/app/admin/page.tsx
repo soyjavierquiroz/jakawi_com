@@ -5,8 +5,8 @@ import { storePlans, type StorePlanCode } from "@/config/plans";
 
 const adminLinks = [
   { label: "Tiendas", href: "/app/admin/stores", active: true },
-  { label: "Referidos", hint: "Próximamente" },
-  { label: "Partners", hint: "Próximamente" },
+  { label: "Referidos", href: "/app/admin/referrals", active: true },
+  { label: "Partners", href: "/app/admin/partners", active: true },
   { label: "Comisiones", hint: "Próximamente" },
 ];
 
@@ -14,20 +14,22 @@ const growthModules = [
   {
     title: "Referidos",
     icon: Network,
-    text: "Tiendas que recomiendan otras tiendas.",
-    detail: "Créditos y beneficios para tiendas que recomiendan JAKAWI.",
+    text: "Tiendas que recomiendan JAKAWI.",
+    detail: "Beneficios manuales futuros para tiendas que recomiendan nuevos negocios.",
+    href: "/app/admin/referrals",
   },
   {
     title: "Partners",
     icon: UsersRound,
     text: "Personas/agencias que activan comercios.",
     detail: "Canales que crean y acompañan nuevas cuentas.",
+    href: "/app/admin/partners",
   },
   {
     title: "Comisiones",
     icon: HandCoins,
-    text: "Pagos manuales futuros por ventas confirmadas.",
-    detail: "Control manual de comisiones antes de automatizar pagos.",
+    text: "Control manual futuro sobre ventas confirmadas.",
+    detail: "Control manual de comisiones antes de cualquier automatizacion.",
   },
 ];
 
@@ -82,6 +84,13 @@ export default async function AdminPage() {
         <StatCard label="Trials vencidos" value={stats.expiredTrials} detail="Requieren seguimiento" />
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Partners activos" value={stats.activePartners} detail="Canales comerciales habilitados" />
+        <StatCard label="Store referrals" value={stats.storeReferralAttributions} detail="Tiendas atribuidas a tiendas" />
+        <StatCard label="Partner attribution" value={stats.partnerAttributions} detail="Tiendas atribuidas a partners" />
+        <StatCard label="Organico" value={stats.organicAttributions} detail="Altas sin tracking valido" />
+      </div>
+
       <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
           <div className="flex items-start justify-between gap-3">
@@ -120,8 +129,8 @@ export default async function AdminPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {growthModules.map((module) => {
             const Icon = module.icon;
-            return (
-              <article key={module.title} className="rounded-lg border border-dashed border-brand-border bg-white/70 p-5 shadow-sm">
+            const content = (
+              <>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-lg font-black text-brand-dark">{module.title}</p>
@@ -130,7 +139,17 @@ export default async function AdminPage() {
                   <Icon className="size-5 shrink-0 text-brand" />
                 </div>
                 <p className="mt-4 text-sm font-semibold leading-6 text-neutral-500">{module.detail}</p>
-                <span className="mt-4 inline-flex rounded-full bg-brand-muted px-3 py-1 text-xs font-black text-neutral-500">Próximamente</span>
+                <span className="mt-4 inline-flex rounded-full bg-brand-muted px-3 py-1 text-xs font-black text-neutral-500">{module.href ? "Activo" : "Próximamente"}</span>
+              </>
+            );
+
+            return module.href ? (
+              <Link key={module.title} href={module.href} className="rounded-lg border border-brand-border bg-white/70 p-5 shadow-sm transition hover:border-brand hover:shadow-md">
+                {content}
+              </Link>
+            ) : (
+              <article key={module.title} className="rounded-lg border border-dashed border-brand-border bg-white/70 p-5 shadow-sm">
+                {content}
               </article>
             );
           })}
