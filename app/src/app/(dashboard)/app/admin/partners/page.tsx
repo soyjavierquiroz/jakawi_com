@@ -5,6 +5,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { createPartnerAction, createPartnerDestinationAction, setDefaultPartnerDestinationAction, updatePartnerDestinationStatusAction, updatePartnerStatusAction } from "@/lib/actions";
 import { getAdminPartnerRows, requireSuperAdmin } from "@/lib/admin";
 import { getPartnerDestinationReferralLink, getPartnerReferralLink } from "@/lib/acquisition/partners";
+import { formatCommissionMoney } from "@/lib/partner-commissions";
 import { cn } from "@/lib/ui";
 
 type AdminPartnersSearchParams = {
@@ -76,7 +77,7 @@ export default async function AdminPartnersPage({
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Partners</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Canales comerciales con links configurables. Comisiones solo como referencia manual futura.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Canales comerciales con links configurables y comisiones manuales. No ejecuta pagos automaticos.</p>
         </div>
         <Link href="/app/admin" className="inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-brand-paper px-5 font-bold text-brand-dark hover:border-brand">
           Volver al panel
@@ -184,6 +185,23 @@ export default async function AdminPartnersPage({
                         <p className="mt-1 font-black text-brand-dark">{partner._count.attributions}</p>
                       </div>
                     </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Comisiones manuales</p>
+                      <div className="mt-2 grid gap-2 text-xs font-semibold text-neutral-600">
+                        <p className="flex justify-between gap-2">
+                          <span>Pendientes</span>
+                          <span className="font-black text-brand-dark">{partner.commissionStats.PENDING.count} / {formatCommissionMoney(partner.commissionStats.PENDING.amountCents)}</span>
+                        </p>
+                        <p className="flex justify-between gap-2">
+                          <span>Aprobadas</span>
+                          <span className="font-black text-brand-dark">{partner.commissionStats.APPROVED.count} / {formatCommissionMoney(partner.commissionStats.APPROVED.amountCents)}</span>
+                        </p>
+                        <p className="flex justify-between gap-2">
+                          <span>Pagadas</span>
+                          <span className="font-black text-brand-dark">{partner.commissionStats.PAID.count} / {formatCommissionMoney(partner.commissionStats.PAID.amountCents)}</span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -191,6 +209,14 @@ export default async function AdminPartnersPage({
                       <p className="text-[11px] font-black uppercase text-neutral-500">Creado</p>
                       <p className="mt-1 text-sm font-black text-brand-dark">{formatDate(partner.createdAt)}</p>
                     </div>
+                    <Link href={`/app/admin/commissions?partnerId=${partner.id}`} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand">
+                      <HandCoins className="size-4" />
+                      Ver comisiones
+                    </Link>
+                    <Link href={`/app/admin/commissions?partnerId=${partner.id}`} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">
+                      <Plus className="size-4" />
+                      Nueva comision
+                    </Link>
                     <PartnerStatusForm partnerId={partner.id} status={partner.status} />
                   </div>
                 </div>

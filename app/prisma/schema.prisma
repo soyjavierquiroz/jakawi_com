@@ -182,6 +182,7 @@ model Store {
   journeys                  CustomerJourney[]
   acquisitionAttribution    AcquisitionAttribution?  @relation("AcquiredStore")
   referredStoreAttributions AcquisitionAttribution[] @relation("StoreReferrer")
+  partnerCommissions        PartnerCommission[]
 
   @@index([ownerId])
   @@index([slug])
@@ -202,6 +203,7 @@ model Partner {
 
   attributions AcquisitionAttribution[]
   destinations PartnerDestination[]
+  commissions  PartnerCommission[]
 
   @@index([status])
   @@index([createdAt])
@@ -254,6 +256,7 @@ model AcquisitionAttribution {
   partner            Partner?            @relation(fields: [partnerId], references: [id], onDelete: SetNull)
   partnerDestination PartnerDestination? @relation(fields: [partnerDestinationId], references: [id], onDelete: SetNull)
   user               User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  partnerCommissions PartnerCommission[]
 
   @@index([sourceType])
   @@index([status])
@@ -264,6 +267,48 @@ model AcquisitionAttribution {
   @@index([userId])
   @@index([code])
   @@index([createdAt])
+}
+
+model PartnerCommission {
+  id String @id @default(cuid())
+
+  partnerId     String
+  partner       Partner                 @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  storeId       String?
+  store         Store?                  @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  attributionId String?
+  attribution   AcquisitionAttribution? @relation(fields: [attributionId], references: [id], onDelete: SetNull)
+
+  currency              String @default("BOB")
+  basisAmountCents      Int?
+  commissionAmountCents Int
+  commissionRateBps     Int?
+
+  status           String  @default("PENDING")
+  description      String?
+  notes            String?
+  paymentReference String?
+
+  earnedAt    DateTime?
+  approvedAt  DateTime?
+  paidAt      DateTime?
+  cancelledAt DateTime?
+  reversedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdByUserId   String?
+  approvedByUserId  String?
+  paidByUserId      String?
+  cancelledByUserId String?
+  reversedByUserId  String?
+
+  @@index([partnerId])
+  @@index([storeId])
+  @@index([attributionId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([paidAt])
 }
 
 model Category {

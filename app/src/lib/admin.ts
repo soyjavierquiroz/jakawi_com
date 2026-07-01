@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { type StorePlanCode } from "@/config/plans";
 import { requireUser } from "@/lib/auth";
 import { getStorePlanState } from "@/lib/plan-limits";
+import { emptyPartnerCommissionStats, getPartnerCommissionStats, getPartnerCommissionStatsByPartner } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
 import { AnalyticsEventType, type Prisma } from "@prisma/client";
 
@@ -110,7 +111,17 @@ function buildAttributionWhere(params: { q: string; filter: AdminAttributionFilt
 
 export async function getSuperAdminDashboardStats() {
   const prisma = getPrisma();
-  const [stores, whatsappClicksLast7Days, leadSignals, activePartners, activePartnerDestinations, storeReferralAttributions, partnerAttributions, organicAttributions] = await Promise.all([
+  const [
+    stores,
+    whatsappClicksLast7Days,
+    leadSignals,
+    activePartners,
+    activePartnerDestinations,
+    storeReferralAttributions,
+    partnerAttributions,
+    organicAttributions,
+    partnerCommissionStats,
+  ] = await Promise.all([
     prisma.store.findMany({
       select: {
         id: true,
@@ -132,6 +143,7 @@ export async function getSuperAdminDashboardStats() {
     prisma.acquisitionAttribution.count({ where: { sourceType: "STORE_REFERRAL" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "PARTNER" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "ORGANIC" } }),
+    getPartnerCommissionStats(),
   ]);
 
   const planCounts = emptyPlanCounts();
@@ -164,18 +176,27 @@ export async function getSuperAdminDashboardStats() {
     storeReferralAttributions,
     partnerAttributions,
     organicAttributions,
+    partnerCommissionStats,
   };
 }
 
 export async function getAdminPartnerRows() {
-  return getPrisma().partner.findMany({
-    include: {
-      destinations: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
-      _count: { select: { attributions: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 250,
-  });
+  const [partners, commissionStatsByPartner] = await Promise.all([
+    getPrisma().partner.findMany({
+      include: {
+        destinations: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
+        _count: { select: { attributions: true, commissions: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 250,
+    }),
+    getPartnerCommissionStatsByPartner(),
+  ]);
+
+  return partners.map((partner) => ({
+    ...partner,
+    commissionStats: commissionStatsByPartner.get(partner.id) ?? emptyPartnerCommissionStats(),
+  }));
 }
 
 export async function getAdminAttributionRows(params: { q?: string; filter?: string }) {

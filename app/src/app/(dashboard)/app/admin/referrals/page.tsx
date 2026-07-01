@@ -1,4 +1,4 @@
-import { ExternalLink, Search } from "lucide-react";
+import { ExternalLink, HandCoins, Search } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { getPublicStoreUrl } from "@/config/site";
@@ -135,10 +135,18 @@ export default async function AdminReferralsPage({
                     <p className="mt-1 font-mono text-xs text-neutral-500">{row.store.slug}</p>
                     <p className="mt-2 break-all text-sm font-semibold text-neutral-700">{row.store.owner.email}</p>
                     <p className="text-xs font-semibold text-neutral-500">{row.store.owner.name ?? "Sin nombre"}</p>
-                    <a href={publicUrl} target="_blank" className="mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-bold text-white hover:bg-brand">
-                      <ExternalLink className="size-4" />
-                      Abrir tienda
-                    </a>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <a href={publicUrl} target="_blank" className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-brand-dark px-3 text-sm font-bold text-white hover:bg-brand">
+                        <ExternalLink className="size-4" />
+                        Abrir tienda
+                      </a>
+                      {row.sourceType === "PARTNER" && row.partnerId ? (
+                        <Link href={`/app/admin/commissions?partnerId=${row.partnerId}&attributionId=${row.id}&storeId=${row.storeId}`} className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark hover:border-brand">
+                          <HandCoins className="size-4" />
+                          Crear comision
+                        </Link>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">

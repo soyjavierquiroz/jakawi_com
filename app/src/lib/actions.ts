@@ -18,6 +18,7 @@ import { createSession, destroySession, hashPassword, requireStore, requireUser,
 import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
+import { isPartnerCommissionStatus, parseCommissionAmountToCents } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { allowedImageDeletePrefixes, deleteJakawiMediaObjectIfOwned, deleteSellerVoiceObjectIfOwned, isJakawiMediaUrlOwnedByStore, uploadOptimizedImage } from "@/lib/storage";
@@ -36,6 +37,15 @@ function field(formData: FormData, name: string) {
 function cleanOptional(value?: string | null) {
   const cleanValue = value?.trim() ?? "";
   return cleanValue.length ? cleanValue : null;
+}
+
+function adminReturnTo(formData: FormData, fallback: string) {
+  const returnTo = field(formData, "returnTo");
+  return returnTo.startsWith("/app/admin") ? returnTo : fallback;
+}
+
+function appendQueryParam(path: string, key: string, value: string) {
+  return `${path}${path.includes("?") ? "&" : "?"}${key}=${encodeURIComponent(value)}`;
 }
 
 function uploadErrorMessage(error: unknown) {
@@ -812,6 +822,120 @@ export async function updateAttributionStatusAction(formData: FormData) {
   revalidatePath("/app/admin");
   revalidatePath("/app/admin/referrals");
   redirect("/app/admin/referrals?ok=status");
+}
+
+export async function createPartnerCommissionAction(formData: FormData) {
+  const user = await requireSuperAdmin();
+  const partnerId = field(formData, "partnerId");
+  const storeIdInput = cleanOptional(field(formData, "storeId"));
+  const attributionId = cleanOptional(field(formData, "attributionId"));
+  const currency = (field(formData, "currency") || "BOB").toUpperCase();
+  const basisAmountCents = parseCommissionAmountToCents(formData.get("basisAmount"));
+  const commissionAmountCents = parseCommissionAmountToCents(formData.get("commissionAmount"));
+  const commissionRateInput = cleanOptional(field(formData, "commissionRateBps"));
+  const commissionRateBps = commissionRateInput === null ? null : Number(commissionRateInput);
+
+  if (!/^[A-Z]{3}$/.test(currency)) redirect("/app/admin/commissions?error=Moneda invalida");
+  if (!commissionAmountCents || commissionAmountCents <= 0) redirect("/app/admin/commissions?error=Monto de comision invalido");
+  if (basisAmountCents !== null && basisAmountCents < 0) redirect("/app/admin/commissions?error=Base de comision invalida");
+  if (commissionRateBps !== null && (!Number.isInteger(commissionRateBps) || commissionRateBps < 0 || commissionRateBps > 10000)) {
+    redirect("/app/admin/commissions?error=Rate bps invalido");
+  }
+
+  const prisma = getPrisma();
+  const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+  if (!partner) redirect("/app/admin/commissions?error=Partner no encontrado");
+
+  const attribution = attributionId ? await prisma.acquisitionAttribution.findUnique({ where: { id: attributionId } }) : null;
+  if (attributionId && !attribution) redirect("/app/admin/commissions?error=Atribucion no encontrada");
+  if (attribution && attribution.partnerId !== partner.id) redirect("/app/admin/commissions?error=La atribucion no pertenece al partner");
+
+  const storeId = storeIdInput ?? attribution?.storeId ?? null;
+  if (attribution && storeId && storeId !== attribution.storeId) redirect("/app/admin/commissions?error=La tienda no coincide con la atribucion");
+  if (storeId) {
+    const store = await prisma.store.findUnique({ where: { id: storeId }, select: { id: true } });
+    if (!store) redirect("/app/admin/commissions?error=Tienda no encontrada");
+  }
+
+  await prisma.partnerCommission.create({
+    data: {
+      partnerId: partner.id,
+      storeId,
+      attributionId: attribution?.id ?? null,
+      currency,
+      basisAmountCents,
+      commissionAmountCents,
+      commissionRateBps,
+      status: "PENDING",
+      description: cleanOptional(field(formData, "description")),
+      notes: cleanOptional(field(formData, "notes")),
+      createdByUserId: user.id,
+    },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/commissions");
+  revalidatePath("/app/admin/partners");
+  revalidatePath("/app/admin/referrals");
+  redirect(`/app/admin/commissions?partnerId=${encodeURIComponent(partner.id)}&ok=created`);
+}
+
+export async function updatePartnerCommissionStatusAction(formData: FormData) {
+  const user = await requireSuperAdmin();
+  const commissionId = field(formData, "commissionId");
+  const status = field(formData, "status");
+  const returnTo = adminReturnTo(formData, "/app/admin/commissions");
+  if (!isPartnerCommissionStatus(status)) redirect(appendQueryParam(returnTo, "error", "Estado invalido"));
+
+  const prisma = getPrisma();
+  const commission = await prisma.partnerCommission.findUnique({ where: { id: commissionId } });
+  if (!commission) redirect(appendQueryParam(returnTo, "error", "Comision no encontrada"));
+
+  const now = new Date();
+  const notes = cleanOptional(field(formData, "notes"));
+  const paymentReference = cleanOptional(field(formData, "paymentReference"));
+
+  await prisma.partnerCommission.update({
+    where: { id: commission.id },
+    data: {
+      status,
+      notes: notes ?? commission.notes,
+      paymentReference: status === "PAID" ? paymentReference ?? commission.paymentReference : commission.paymentReference,
+      approvedAt: status === "APPROVED" ? now : commission.approvedAt,
+      paidAt: status === "PAID" ? now : commission.paidAt,
+      cancelledAt: status === "CANCELLED" ? now : commission.cancelledAt,
+      reversedAt: status === "REVERSED" ? now : commission.reversedAt,
+      approvedByUserId: status === "APPROVED" ? user.id : commission.approvedByUserId,
+      paidByUserId: status === "PAID" ? user.id : commission.paidByUserId,
+      cancelledByUserId: status === "CANCELLED" ? user.id : commission.cancelledByUserId,
+      reversedByUserId: status === "REVERSED" ? user.id : commission.reversedByUserId,
+    },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/commissions");
+  revalidatePath("/app/admin/partners");
+  redirect(appendQueryParam(returnTo, "ok", "status"));
+}
+
+export async function updatePartnerCommissionNotesAction(formData: FormData) {
+  await requireSuperAdmin();
+  const commissionId = field(formData, "commissionId");
+  const returnTo = adminReturnTo(formData, "/app/admin/commissions");
+  const commission = await getPrisma().partnerCommission.findUnique({ where: { id: commissionId } });
+  if (!commission) redirect(appendQueryParam(returnTo, "error", "Comision no encontrada"));
+
+  await getPrisma().partnerCommission.update({
+    where: { id: commission.id },
+    data: {
+      notes: cleanOptional(field(formData, "notes")),
+      paymentReference: cleanOptional(field(formData, "paymentReference")),
+    },
+  });
+
+  revalidatePath("/app/admin/commissions");
+  revalidatePath("/app/admin/partners");
+  redirect(appendQueryParam(returnTo, "ok", "notes"));
 }
 
 export async function ensureUserHasStore() {

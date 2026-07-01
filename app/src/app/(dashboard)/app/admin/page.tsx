@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { getSuperAdminDashboardStats, requireSuperAdmin } from "@/lib/admin";
 import { storePlans, type StorePlanCode } from "@/config/plans";
+import { formatCommissionMoney } from "@/lib/partner-commissions";
 
 const growthModules = [
   {
@@ -22,8 +23,9 @@ const growthModules = [
   {
     title: "Comisiones",
     icon: HandCoins,
-    text: "Control manual futuro sobre ventas confirmadas.",
-    detail: "Control manual de comisiones antes de cualquier automatizacion.",
+    text: "Ledger manual para partners.",
+    detail: "Registrar, aprobar, cancelar y marcar pagadas. No ejecuta pagos automaticos.",
+    href: "/app/admin/commissions",
   },
 ];
 
@@ -71,6 +73,13 @@ export default async function AdminPage() {
         <StatCard label="Partner attribution" value={stats.partnerAttributions} detail="Tiendas atribuidas a partners" />
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Comisiones pendientes" value={stats.partnerCommissionStats.PENDING.count} detail={formatCommissionMoney(stats.partnerCommissionStats.PENDING.amountCents)} />
+        <StatCard label="Comisiones aprobadas" value={stats.partnerCommissionStats.APPROVED.count} detail={formatCommissionMoney(stats.partnerCommissionStats.APPROVED.amountCents)} />
+        <StatCard label="Comisiones pagadas" value={stats.partnerCommissionStats.PAID.count} detail={formatCommissionMoney(stats.partnerCommissionStats.PAID.amountCents)} />
+        <StatCard label="Control manual" value="Sin auto-pagos" detail="No ejecuta pagos automaticos" />
+      </div>
+
       <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
           <div className="flex items-start justify-between gap-3">
@@ -102,9 +111,9 @@ export default async function AdminPage() {
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-sm font-black text-brand-dark">Crecimiento</p>
-            <h2 className="mt-1 text-2xl font-black text-brand-dark">Próximos módulos</h2>
+            <h2 className="mt-1 text-2xl font-black text-brand-dark">Modulos comerciales</h2>
           </div>
-          <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">Próximamente</span>
+          <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">Manual</span>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {growthModules.map((module) => {
