@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Eye, LogOut, MoreHorizontal, X } from "lucide-react";
+import { BarChart3, Eye, Handshake, LogOut, MoreHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -10,11 +10,14 @@ import { navigationConfig } from "@/config/navigation";
 import { logoutAction } from "@/lib/actions";
 import { cn } from "@/lib/ui";
 
-export function DashboardNav({ publicUrl }: { publicUrl?: string }) {
+export function DashboardNav({ publicUrl, hasPartnerPortal = false }: { publicUrl?: string; hasPartnerPortal?: boolean }) {
   const pathname = usePathname();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const partnerItem = { href: "/app/partner", label: "Partner", icon: Handshake };
+  const desktopItems = hasPartnerPortal ? [...navigationConfig.dashboard, partnerItem] : navigationConfig.dashboard;
   const mainItems = navigationConfig.dashboard.filter((item) => ["Inicio", "Mi espacio", "Productos", "Seller AI"].includes(item.label));
-  const moreItems = navigationConfig.dashboard.filter((item) => ["Categorías", "WhatsApp", "Clientes", "Plan"].includes(item.label));
+  const ownerMoreItems = navigationConfig.dashboard.filter((item) => ["Categorías", "WhatsApp", "Clientes", "Plan"].includes(item.label));
+  const moreItems = hasPartnerPortal ? [...ownerMoreItems, partnerItem] : ownerMoreItems;
   const isActive = (href: string) => (href === "/app" ? pathname === href : pathname.startsWith(href));
 
   return (
@@ -39,7 +42,7 @@ export function DashboardNav({ publicUrl }: { publicUrl?: string }) {
         <BrandLogo href="/app" className="px-2 text-white" />
 
         <nav className="mt-8 space-y-1">
-          {navigationConfig.dashboard.map((item) => (
+          {desktopItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

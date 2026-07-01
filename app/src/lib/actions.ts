@@ -797,6 +797,58 @@ export async function setDefaultPartnerDestinationAction(formData: FormData) {
   redirect("/app/admin/partners?ok=default-destination");
 }
 
+export async function linkPartnerPortalUserAction(formData: FormData) {
+  await requireSuperAdmin();
+  const partnerId = field(formData, "partnerId");
+  const email = field(formData, "email").toLowerCase();
+
+  if (!email) redirect("/app/admin/partners?error=Email requerido");
+
+  const prisma = getPrisma();
+  const [partner, user] = await Promise.all([
+    prisma.partner.findUnique({ where: { id: partnerId }, select: { id: true } }),
+    prisma.user.findUnique({ where: { email }, select: { id: true, email: true } }),
+  ]);
+
+  if (!partner) redirect("/app/admin/partners?error=Partner no encontrado");
+  if (!user) redirect("/app/admin/partners?error=No existe un usuario con ese email. Primero debe crear una cuenta en JAKAWI.");
+
+  const linkedPartner = await prisma.partner.findFirst({
+    where: {
+      portalUserId: user.id,
+      NOT: { id: partner.id },
+    },
+    select: { name: true },
+  });
+
+  if (linkedPartner) redirect(`/app/admin/partners?error=${encodeURIComponent("Ese usuario ya esta vinculado a otro partner.")}`);
+
+  await prisma.partner.update({
+    where: { id: partner.id },
+    data: { portalUserId: user.id },
+  });
+
+  revalidatePath("/app/admin/partners");
+  revalidatePath("/app/partner");
+  redirect("/app/admin/partners?ok=portal-user");
+}
+
+export async function unlinkPartnerPortalUserAction(formData: FormData) {
+  await requireSuperAdmin();
+  const partnerId = field(formData, "partnerId");
+  const partner = await getPrisma().partner.findUnique({ where: { id: partnerId }, select: { id: true } });
+  if (!partner) redirect("/app/admin/partners?error=Partner no encontrado");
+
+  await getPrisma().partner.update({
+    where: { id: partner.id },
+    data: { portalUserId: null },
+  });
+
+  revalidatePath("/app/admin/partners");
+  revalidatePath("/app/partner");
+  redirect("/app/admin/partners?ok=portal-user");
+}
+
 const attributionStatusValues = new Set(["SIGNED_UP", "ACTIVE", "PAID", "REWARD_PENDING", "REWARD_APPROVED", "REWARD_APPLIED", "CANCELLED"]);
 
 export async function updateAttributionStatusAction(formData: FormData) {

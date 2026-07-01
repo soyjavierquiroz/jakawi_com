@@ -2,7 +2,15 @@ import { CheckCircle2, ExternalLink, HandCoins, Plus, UsersRound } from "lucide-
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CopyButton } from "@/components/CopyButton";
-import { createPartnerAction, createPartnerDestinationAction, setDefaultPartnerDestinationAction, updatePartnerDestinationStatusAction, updatePartnerStatusAction } from "@/lib/actions";
+import {
+  createPartnerAction,
+  createPartnerDestinationAction,
+  linkPartnerPortalUserAction,
+  setDefaultPartnerDestinationAction,
+  unlinkPartnerPortalUserAction,
+  updatePartnerDestinationStatusAction,
+  updatePartnerStatusAction,
+} from "@/lib/actions";
 import { getAdminPartnerRows, requireSuperAdmin } from "@/lib/admin";
 import { getPartnerDestinationReferralLink, getPartnerReferralLink } from "@/lib/acquisition/partners";
 import { formatCommissionMoney } from "@/lib/partner-commissions";
@@ -202,6 +210,28 @@ export default async function AdminPartnersPage({
                         </p>
                       </div>
                     </div>
+                    <div className="rounded-md bg-brand-muted px-3 py-2">
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Portal access</p>
+                      {partner.portalUser ? (
+                        <div className="mt-1">
+                          <p className="truncate text-sm font-black text-brand-dark">{partner.portalUser.email}</p>
+                          <p className="text-xs font-semibold text-neutral-600">{partner.portalUser.role}</p>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-sm font-black text-neutral-500">Sin usuario de portal</p>
+                      )}
+                      <form action={linkPartnerPortalUserAction} className="mt-3 grid gap-2">
+                        <input type="hidden" name="partnerId" value={partner.id} />
+                        <input name="email" type="email" placeholder="usuario@jakawi.com" className="h-10 w-full rounded-md border border-brand-border bg-white px-3 text-xs font-semibold outline-none focus:border-brand" />
+                        <button className="h-10 rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">Vincular usuario</button>
+                      </form>
+                      {partner.portalUser ? (
+                        <form action={unlinkPartnerPortalUserAction} className="mt-2">
+                          <input type="hidden" name="partnerId" value={partner.id} />
+                          <button className="h-10 w-full rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand">Quitar acceso</button>
+                        </form>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -216,6 +246,10 @@ export default async function AdminPartnersPage({
                     <Link href={`/app/admin/commissions?partnerId=${partner.id}`} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-brand px-3 text-xs font-black text-white hover:bg-brand-dark">
                       <Plus className="size-4" />
                       Nueva comision
+                    </Link>
+                    <Link href={`/app/partner?partnerId=${partner.id}`} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand">
+                      <ExternalLink className="size-4" />
+                      Ver portal
                     </Link>
                     <PartnerStatusForm partnerId={partner.id} status={partner.status} />
                   </div>

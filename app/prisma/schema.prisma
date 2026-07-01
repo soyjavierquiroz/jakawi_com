@@ -107,6 +107,7 @@ model User {
   sessions                Session[]
   stores                  Store[]
   acquisitionAttributions AcquisitionAttribution[]
+  partnerPortal           Partner?
 }
 
 model Session {
@@ -195,6 +196,7 @@ model Partner {
   contactName       String?
   contactEmail      String?
   contactPhone      String?
+  portalUserId      String?  @unique
   status            String   @default("ACTIVE")
   commissionRateBps Int      @default(2000)
   notes             String?
@@ -204,6 +206,7 @@ model Partner {
   attributions AcquisitionAttribution[]
   destinations PartnerDestination[]
   commissions  PartnerCommission[]
+  portalUser   User?                    @relation(fields: [portalUserId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([createdAt])

@@ -185,6 +185,7 @@ export async function getAdminPartnerRows() {
     getPrisma().partner.findMany({
       include: {
         destinations: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
+        portalUser: { select: { email: true, role: true } },
         _count: { select: { attributions: true, commissions: true } },
       },
       orderBy: { createdAt: "desc" },
