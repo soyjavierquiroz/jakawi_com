@@ -12,6 +12,7 @@ import { getStorePlanState } from "@/lib/plan-limits";
 import { emptyPartnerCommissionStats, getPartnerCommissionStats, getPartnerCommissionStatsByPartner } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
 import { getStoreReferralRewardStats } from "@/lib/store-referral-rewards";
+import { getAdminPaymentStats } from "@/lib/store-payments";
 import { AnalyticsEventType, type Prisma } from "@prisma/client";
 
 export { getAdminGrowthClickOverview } from "@/lib/growth-link-clicks";
@@ -132,6 +133,7 @@ export async function getSuperAdminDashboardStats() {
     partnerAttributions,
     organicAttributions,
     partnerCommissionStats,
+    storePaymentStats,
     storeReferralRewardStats,
     growthConversionSummary,
   ] = await Promise.all([
@@ -157,6 +159,7 @@ export async function getSuperAdminDashboardStats() {
     prisma.acquisitionAttribution.count({ where: { sourceType: "PARTNER" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "ORGANIC" } }),
     getPartnerCommissionStats(),
+    getAdminPaymentStats(),
     getStoreReferralRewardStats(),
     getAdminGrowthConversionSummaryInternal(),
   ]);
@@ -192,6 +195,7 @@ export async function getSuperAdminDashboardStats() {
     partnerAttributions,
     organicAttributions,
     partnerCommissionStats,
+    storePaymentStats,
     storeReferralRewardStats,
     growthConversionSummary,
   };
@@ -284,15 +288,26 @@ export async function getAdminAttributionRows(params: { q?: string; filter?: str
 export async function getAdminStoreRows(params: { q?: string; filter?: string }) {
   const q = params.q?.trim() ?? "";
   const activeFilter = getAdminStoreFilter(params.filter);
-  const stores = await getPrisma().store.findMany({
+  const prisma = getPrisma();
+  const stores = await prisma.store.findMany({
     where: buildStoreSearchWhere(q),
     include: {
       owner: true,
+      payments: { orderBy: { createdAt: "desc" }, take: 1 },
       _count: { select: { products: true, leads: true } },
     },
     orderBy: { createdAt: "desc" },
     take: 250,
   });
+  const paymentTotals = await prisma.storePayment.groupBy({
+    by: ["storeId"],
+    where: {
+      storeId: { in: stores.map((store) => store.id) },
+      status: "CONFIRMED",
+    },
+    _sum: { amountCents: true },
+  });
+  const confirmedTotalByStore = new Map(paymentTotals.map((row) => [row.storeId, row._sum.amountCents ?? 0]));
 
   const rows = stores.map((store) => {
     const planState = getStorePlanState(store);
@@ -310,6 +325,10 @@ export async function getAdminStoreRows(params: { q?: string; filter?: string })
         enabled: planState.sellerAiEnabled,
         used: sellerAiUsed,
         limit: sellerAiLimit,
+      },
+      paymentSummary: {
+        lastPayment: store.payments[0] ?? null,
+        confirmedTotalCents: confirmedTotalByStore.get(store.id) ?? 0,
       },
       leadSignals: store._count.leads,
     };

@@ -184,6 +184,7 @@ model Store {
   acquisitionAttribution    AcquisitionAttribution?  @relation("AcquiredStore")
   referredStoreAttributions AcquisitionAttribution[] @relation("StoreReferrer")
   partnerCommissions        PartnerCommission[]
+  payments                  StorePayment[]
   referralRewardsEarned     StoreReferralReward[]    @relation("ReferralRewardReferrer")
   referralRewardsGenerated  StoreReferralReward[]    @relation("ReferralRewardReferred")
   referralGrowthClicks      GrowthLinkClick[]        @relation("GrowthClickReferrerStore")
@@ -401,6 +402,51 @@ model PartnerCommission {
   @@index([status])
   @@index([createdAt])
   @@index([paidAt])
+}
+
+model StorePayment {
+  id String @id @default(cuid())
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  planKey     String?
+  paymentType String
+
+  amountCents Int
+  currency    String @default("BOB")
+
+  status String @default("PENDING")
+
+  paymentMethod    String?
+  externalReference String?
+  description       String?
+  notes             String?
+
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  paidAt      DateTime?
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  refundedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdByUserId   String?
+  confirmedByUserId String?
+  cancelledByUserId String?
+  refundedByUserId  String?
+
+  @@index([storeId])
+  @@index([status])
+  @@index([planKey])
+  @@index([paymentType])
+  @@index([paidAt])
+  @@index([confirmedAt])
+  @@index([createdAt])
+  @@index([storeId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Category {

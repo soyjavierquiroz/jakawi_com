@@ -23,6 +23,14 @@ import { getPrisma } from "@/lib/prisma";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { allowedImageDeletePrefixes, deleteJakawiMediaObjectIfOwned, deleteSellerVoiceObjectIfOwned, isJakawiMediaUrlOwnedByStore, uploadOptimizedImage } from "@/lib/storage";
 import { buildRewardValueLabel, isStoreReferralRewardStatus, isStoreReferralRewardType, parseOptionalDate, parseOptionalPositiveInt, parseRewardAmountToCents } from "@/lib/store-referral-rewards";
+import {
+  isStorePaymentMethod,
+  isStorePaymentPlanKey,
+  isStorePaymentStatus,
+  isStorePaymentType,
+  parseOptionalPaymentDate,
+  parsePaymentAmountToCents,
+} from "@/lib/store-payments";
 import { getVisitorInfoFromHeaders, hashIp } from "@/lib/visitor";
 import { normalizeStorePlanCode } from "@/lib/storefront-flow";
 
@@ -47,6 +55,11 @@ function adminReturnTo(formData: FormData, fallback: string) {
 
 function appendQueryParam(path: string, key: string, value: string) {
   return `${path}${path.includes("?") ? "&" : "?"}${key}=${encodeURIComponent(value)}`;
+}
+
+function looksLikeSensitivePaymentReference(value: string | null | undefined) {
+  if (!value) return false;
+  return /\d{13,19}/.test(value.replace(/[\s-]/g, ""));
 }
 
 function uploadErrorMessage(error: unknown) {
@@ -642,6 +655,126 @@ export async function extendStoreTrialAction(formData: FormData) {
 
   revalidatePath("/app/admin/stores");
   redirect("/app/admin/stores?ok=trial");
+}
+
+export async function createStorePaymentAction(formData: FormData) {
+  const user = await requireSuperAdmin();
+  const returnTo = adminReturnTo(formData, "/app/admin/payments");
+  const storeId = field(formData, "storeId");
+  const planKeyInput = cleanOptional(field(formData, "planKey"));
+  const paymentType = field(formData, "paymentType");
+  const amountCents = parsePaymentAmountToCents(formData.get("amount"));
+  const currency = (field(formData, "currency") || "BOB").toUpperCase();
+  const paymentMethodInput = cleanOptional(field(formData, "paymentMethod"));
+  const externalReference = cleanOptional(field(formData, "externalReference"));
+  const periodStart = parseOptionalPaymentDate(formData.get("periodStart"));
+  const periodEnd = parseOptionalPaymentDate(formData.get("periodEnd"));
+  const paidAt = parseOptionalPaymentDate(formData.get("paidAt"));
+
+  if (planKeyInput && !isStorePaymentPlanKey(planKeyInput)) redirect(appendQueryParam(returnTo, "error", "Plan invalido"));
+  if (!isStorePaymentType(paymentType)) redirect(appendQueryParam(returnTo, "error", "Tipo de pago invalido"));
+  if (!amountCents || amountCents <= 0) redirect(appendQueryParam(returnTo, "error", "Monto invalido"));
+  if (!/^[A-Z]{3}$/.test(currency)) redirect(appendQueryParam(returnTo, "error", "Moneda invalida"));
+  if (paymentMethodInput && !isStorePaymentMethod(paymentMethodInput)) redirect(appendQueryParam(returnTo, "error", "Metodo invalido"));
+  if (looksLikeSensitivePaymentReference(externalReference)) {
+    redirect(appendQueryParam(returnTo, "error", "La referencia externa no debe incluir numeros completos de tarjeta o cuenta"));
+  }
+  if (periodStart && periodEnd && periodEnd < periodStart) redirect(appendQueryParam(returnTo, "error", "Periodo invalido"));
+
+  const store = await getPrisma().store.findUnique({ where: { id: storeId }, select: { id: true } });
+  if (!store) redirect(appendQueryParam(returnTo, "error", "Tienda no encontrada"));
+
+  await getPrisma().storePayment.create({
+    data: {
+      storeId: store.id,
+      planKey: planKeyInput,
+      paymentType,
+      amountCents,
+      currency,
+      status: "PENDING",
+      paymentMethod: paymentMethodInput,
+      externalReference,
+      description: cleanOptional(field(formData, "description")),
+      notes: cleanOptional(field(formData, "notes")),
+      periodStart,
+      periodEnd,
+      paidAt,
+      createdByUserId: user.id,
+    },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/payments");
+  revalidatePath("/app/admin/stores");
+  revalidatePath("/app/plan");
+  redirect(appendQueryParam(returnTo, "ok", "created"));
+}
+
+export async function updateStorePaymentStatusAction(formData: FormData) {
+  const user = await requireSuperAdmin();
+  const returnTo = adminReturnTo(formData, "/app/admin/payments");
+  const paymentId = field(formData, "paymentId");
+  const status = field(formData, "status");
+  const notes = cleanOptional(field(formData, "notes"));
+  const externalReference = cleanOptional(field(formData, "externalReference"));
+
+  if (!isStorePaymentStatus(status)) redirect(appendQueryParam(returnTo, "error", "Estado invalido"));
+  if (looksLikeSensitivePaymentReference(externalReference)) {
+    redirect(appendQueryParam(returnTo, "error", "La referencia externa no debe incluir numeros completos de tarjeta o cuenta"));
+  }
+
+  const payment = await getPrisma().storePayment.findUnique({ where: { id: paymentId }, include: { store: { select: { slug: true } } } });
+  if (!payment) redirect(appendQueryParam(returnTo, "error", "Pago no encontrado"));
+
+  const now = new Date();
+  await getPrisma().storePayment.update({
+    where: { id: payment.id },
+    data: {
+      status,
+      notes: notes ?? payment.notes,
+      externalReference: externalReference ?? payment.externalReference,
+      confirmedAt: status === "CONFIRMED" ? payment.confirmedAt ?? now : payment.confirmedAt,
+      cancelledAt: status === "CANCELLED" ? payment.cancelledAt ?? now : payment.cancelledAt,
+      refundedAt: status === "REFUNDED" ? payment.refundedAt ?? now : payment.refundedAt,
+      confirmedByUserId: status === "CONFIRMED" ? payment.confirmedByUserId ?? user.id : payment.confirmedByUserId,
+      cancelledByUserId: status === "CANCELLED" ? payment.cancelledByUserId ?? user.id : payment.cancelledByUserId,
+      refundedByUserId: status === "REFUNDED" ? payment.refundedByUserId ?? user.id : payment.refundedByUserId,
+    },
+  });
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/payments");
+  revalidatePath("/app/admin/stores");
+  revalidatePath("/app/plan");
+  revalidatePath(`/${payment.store.slug}`);
+  redirect(appendQueryParam(returnTo, "ok", "status"));
+}
+
+export async function updateStorePaymentNotesAction(formData: FormData) {
+  await requireSuperAdmin();
+  const returnTo = adminReturnTo(formData, "/app/admin/payments");
+  const paymentId = field(formData, "paymentId");
+  const externalReference = cleanOptional(field(formData, "externalReference"));
+  if (looksLikeSensitivePaymentReference(externalReference)) {
+    redirect(appendQueryParam(returnTo, "error", "La referencia externa no debe incluir numeros completos de tarjeta o cuenta"));
+  }
+
+  const payment = await getPrisma().storePayment.findUnique({ where: { id: paymentId } });
+  if (!payment) redirect(appendQueryParam(returnTo, "error", "Pago no encontrado"));
+
+  await getPrisma().storePayment.update({
+    where: { id: payment.id },
+    data: {
+      notes: cleanOptional(field(formData, "notes")),
+      externalReference,
+      description: cleanOptional(field(formData, "description")),
+    },
+  });
+
+  revalidatePath("/app/admin/payments");
+  revalidatePath("/app/admin/stores");
+  revalidatePath("/app/plan");
+  redirect(appendQueryParam(returnTo, "ok", "notes"));
 }
 
 export async function createPartnerAction(formData: FormData) {

@@ -1,10 +1,11 @@
-import { Gift, HandCoins, Network, Store, UsersRound } from "lucide-react";
+import { CreditCard, Gift, HandCoins, Network, Store, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { getSuperAdminDashboardStats, requireSuperAdmin } from "@/lib/admin";
 import { storePlans, type StorePlanCode } from "@/config/plans";
 import { formatConversionContext, formatConversionRate, type GrowthConversionTopItem } from "@/lib/growth-conversion-metrics";
 import { formatCommissionMoney } from "@/lib/partner-commissions";
+import { formatStorePaymentMoney } from "@/lib/store-payments";
 
 const growthModules = [
   {
@@ -20,6 +21,13 @@ const growthModules = [
     text: "Canales comerciales que activan comercios.",
     detail: "Partners con links, destinos y portal read-only.",
     href: "/app/admin/partners",
+  },
+  {
+    title: "Pagos",
+    icon: CreditCard,
+    text: "Ledger manual de pagos y renovaciones.",
+    detail: "Registra pagos externos. No ejecuta cobros automáticos ni cambia planes.",
+    href: "/app/admin/payments",
   },
   {
     title: "Comisiones",
@@ -43,6 +51,7 @@ const quickActions = [
   { label: "Ver partners", href: "/app/admin/partners", icon: UsersRound },
   { label: "Ver comisiones", href: "/app/admin/commissions", icon: HandCoins },
   { label: "Ver recompensas", href: "/app/admin/rewards", icon: Gift },
+  { label: "Ver pagos", href: "/app/admin/payments", icon: CreditCard },
 ];
 
 function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
@@ -123,6 +132,23 @@ export default async function AdminPage() {
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
+            <p className="text-sm font-black text-brand-dark">Revenue / Pagos</p>
+            <h2 className="mt-1 text-2xl font-black text-brand-dark">Pagos registrados manualmente</h2>
+          </div>
+          <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">No implica cobro automático</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Total confirmado" value={formatStorePaymentMoney(stats.storePaymentStats.CONFIRMED.amountCents)} detail={`${stats.storePaymentStats.CONFIRMED.count} pagos confirmados`} />
+          <StatCard label="Confirmado 30 días" value={formatStorePaymentMoney(stats.storePaymentStats.confirmedLast30DaysCents)} detail="Revenue manual reciente" />
+          <StatCard label="Pagos pendientes" value={stats.storePaymentStats.PENDING.count} detail={formatStorePaymentMoney(stats.storePaymentStats.PENDING.amountCents)} />
+          <StatCard label="Tiendas con pago" value={stats.storePaymentStats.confirmedStoreCount} detail="Al menos un pago confirmado" />
+        </div>
+        <p className="text-sm font-semibold text-neutral-600">Pagos registrados manualmente. No implica cobro automático.</p>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
             <p className="text-sm font-black text-brand-dark">Crecimiento</p>
             <h2 className="mt-1 text-2xl font-black text-brand-dark">Referidos, partners, comisiones y recompensas</h2>
           </div>
@@ -164,7 +190,7 @@ export default async function AdminPage() {
           <StatCard label="Recompensas aplicadas" value={stats.storeReferralRewardStats.APPLIED.count} detail="Registradas como aplicadas" />
           <StatCard label="Beneficios manuales" value="Sin auto-aplicar" detail="No toca billing ni planes" />
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-5">
           {growthModules.map((module) => {
             const Icon = module.icon;
             const content = (
@@ -199,7 +225,7 @@ export default async function AdminPage() {
           <p className="text-sm font-black text-brand-dark">Acciones rápidas</p>
           <h2 className="mt-1 text-2xl font-black text-brand-dark">Operación diaria</h2>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
           {quickActions.map((action) => {
             const Icon = action.icon;
             return (
