@@ -17,6 +17,7 @@ import { normalizePartnerCode, normalizePartnerDestinationSlug, validatePartnerD
 import { requireSuperAdmin } from "@/lib/admin";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
+import { sendOwnerCrmEvent, sendPartnerCrmEvent } from "@/lib/crm-webhook";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
 import { isPartnerCommissionStatus, parseCommissionAmountToCents } from "@/lib/partner-commissions";
@@ -198,20 +199,37 @@ export async function registerAction(formData: FormData) {
       },
       include: {
         stores: {
-          select: { id: true },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            countryCode: true,
+            countryName: true,
+            currency: true,
+            plan: true,
+            planStatus: true,
+            createdAt: true,
+          },
           orderBy: { createdAt: "asc" },
           take: 1,
         },
       },
     });
 
-    const storeId = user.stores[0]?.id;
-    if (storeId) {
+    const store = user.stores[0];
+    if (store) {
       try {
-        await createAttributionForStore({ storeId, userId: user.id });
+        await createAttributionForStore({ storeId: store.id, userId: user.id });
       } catch (attributionError) {
         console.warn("Could not create acquisition attribution", attributionError);
       }
+
+      await sendOwnerCrmEvent({
+        user,
+        store,
+        event: "owner.registered",
+        sourceFlow: "registration",
+      });
     }
 
     await createSession(user.id);
@@ -804,11 +822,22 @@ export async function createPartnerAction(formData: FormData) {
   const submittedCode = field(formData, "code");
   const code = normalizePartnerCode(submittedCode || name);
   const commissionRateBps = Math.max(0, Math.min(10000, Number(field(formData, "commissionRateBps") || 2000)));
+  let createdPartner:
+    | {
+        id: string;
+        name: string;
+        code: string;
+        contactName: string | null;
+        contactEmail: string | null;
+        status: string;
+        createdAt: Date;
+      }
+    | null = null;
 
   if (!name || !code) redirect("/app/admin/partners?error=Nombre o codigo invalido");
 
   try {
-    await getPrisma().partner.create({
+    createdPartner = await getPrisma().partner.create({
       data: {
         name,
         code,
@@ -824,6 +853,10 @@ export async function createPartnerAction(formData: FormData) {
       redirect("/app/admin/partners?error=Ese codigo de partner ya existe");
     }
     throw error;
+  }
+
+  if (createdPartner) {
+    await sendPartnerCrmEvent({ partner: createdPartner, sourceFlow: "admin_partner_create" });
   }
 
   revalidatePath("/app/admin");
