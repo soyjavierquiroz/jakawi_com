@@ -895,3 +895,4 @@ Prioridad recomendada:
 - `docs/PRE-LAUNCH-OPS-RUNBOOK.md`
 - `docs/BACKUP-RESTORE-RUNBOOK.md`
 - `docs/PRIVATE-BETA-CHECKLIST.md`
+- `docs/OWNER-ONBOARDING-CHECKLIST.md` - guia para activar negocios reales en private beta con onboarding asistido.

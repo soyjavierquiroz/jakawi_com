@@ -83,3 +83,7 @@ Ultima actualizacion: 2026-07-01.
 ## 8. Execution report
 
 Execution v1 completed in `docs/PRIVATE-BETA-LAUNCH-CHECKLIST-EXECUTION.md`.
+
+## 9. Owner onboarding
+
+Owner Onboarding Checklist v1: `docs/OWNER-ONBOARDING-CHECKLIST.md`.
