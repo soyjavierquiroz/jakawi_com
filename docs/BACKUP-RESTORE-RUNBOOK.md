@@ -5,7 +5,7 @@ Ultima actualizacion: 2026-07-01.
 
 ## 1. Objetivo
 
-Definir un proceso minimo para proteger datos de Postgres y objetos de MinIO antes de pilotos pagos. Este sprint no ejecuta backup ni restore real.
+Definir un proceso minimo para proteger datos de Postgres y objetos de MinIO antes de pilotos pagos. Este runbook define el proceso minimo. Los backups y restore drills reales deben ejecutarse fuera del repo y documentarse en archivos de evidencia como `docs/BACKUP-RESTORE-DRILL.md`.
 
 ## 2. Servicios y volumenes
 
@@ -30,20 +30,28 @@ set -a
 source .env.stack
 set +a
 
-mkdir -p backups/postgres
+export BACKUP_ROOT="/var/backups/jakawi.com/manual"
+export BACKUP_TS="$(date -u +%Y%m%d-%H%M%S)"
+export BACKUP_DIR="$BACKUP_ROOT/$BACKUP_TS/postgres"
+umask 077
+mkdir -p "$BACKUP_DIR"
+chmod 700 "$BACKUP_ROOT/$BACKUP_TS" "$BACKUP_DIR"
+
 docker run --rm \
   --network jakawi_com_jakawi_internal \
   -e PGPASSWORD="$POSTGRES_PASSWORD" \
-  -v "$PWD/backups/postgres:/backups" \
+  -v "$BACKUP_DIR:/backups" \
   postgres:16-alpine \
   pg_dump -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   --format=custom --file="/backups/jakawi-postgres-$(date -u +%Y%m%d-%H%M%S).dump"
 ```
 
+Nunca usar rutas dentro de `/var/opt/jakawi.com` para dumps, mirrors o evidencia pesada.
+
 Verificacion minima:
 
 ```bash
-ls -lh backups/postgres
+ls -lh "$BACKUP_DIR"
 ```
 
 No subir dumps a git.
@@ -117,3 +125,11 @@ pg_restore -h <host-temporal> -U <user-temporal> -d <db-temporal> --clean --if-e
 - Probar restore antes de piloto pago.
 - Mantener backups fuera del repo.
 - Documentar cada ejecucion con fecha UTC, tamano, destino y resultado.
+
+## Ultimo drill ejecutado
+
+- Fecha UTC: 2026-07-01 23:04:58.
+- Resultado Postgres: PASS, backup real y restore temporal con conteos coincidentes.
+- Resultado MinIO: PASS, backup real y restore temporal con 25 objetos coincidentes.
+- Evidencia: `docs/BACKUP-RESTORE-DRILL.md`.
+- Proximo drill recomendado: 2026-08-01 o antes si cambian estrategia de backup, volumenes o infraestructura.
