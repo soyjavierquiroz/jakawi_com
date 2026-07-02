@@ -10,6 +10,9 @@ Ultima actualizacion: 2026-07-01.
 - Verificar que `soporte@jakawi.com` existe y recibe mensajes.
 - Confirmar legal/privacidad/cookies/contacto publicados.
 - Confirmar backup reciente y restore drill documentado antes de piloto pago.
+- Si se usara CRM/email automation, verificar `crm.jakawi.com`, FluentCRM/FluentSMTP/AWS SES y que JAKAWI siga siendo la fuente de verdad.
+- Confirmar que `soporte@jakawi.com` sera el reply-to operativo si se activan secuencias.
+- Confirmar que no se enviaran campanas sin consentimiento, copy aprobado y opcion de baja.
 - Verificar que el negocio no depende de checkout automatico.
 - Explicar que plan, pagos, commissions y rewards son manuales durante beta.
 - Confirmar que no se usaran datos QA como metricas reales.
@@ -87,3 +90,10 @@ Execution v1 completed in `docs/PRIVATE-BETA-LAUNCH-CHECKLIST-EXECUTION.md`.
 ## 9. Owner onboarding
 
 Owner Onboarding Checklist v1: `docs/OWNER-ONBOARDING-CHECKLIST.md`.
+
+## 10. CRM/email automation
+
+- Foundation: `docs/CRM-EMAIL-AUTOMATION-FOUNDATION.md`.
+- Runbook: `docs/CRM-EMAIL-AUTOMATION-RUNBOOK.md`.
+- No usar FluentCRM como fuente de verdad de owners, planes, pagos o leads.
+- No prometer emails automaticos a owners hasta que la integracion este implementada y verificada.

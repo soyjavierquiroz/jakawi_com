@@ -39,6 +39,7 @@ Evitar por ahora negocios que:
 - [ ] WhatsApp comercial.
 - [ ] Responsable operativo.
 - [ ] Email owner.
+- [ ] Consentimiento/comunicacion para recibir guias de onboarding por email si aplica.
 - [ ] Ya vende por WhatsApp?
 - [ ] Tiene catalogo actual?
 - [ ] Tiene fotos?
@@ -60,6 +61,8 @@ Evitar por ahora negocios que:
 | Nombre comercial | Si | Tienda Centro | Owner | Pendiente |
 | Slug deseado | Si | tienda-centro | Owner/JAKAWI | Pendiente |
 | Pais/moneda | Si | BO / BOB | Owner/JAKAWI | Pendiente |
+| Email owner | Si | Email de acceso y comunicaciones | Owner | Pendiente |
+| Consentimiento onboarding por email | Recomendado | Acepta recibir guias de activacion | Owner/JAKAWI | Pendiente |
 | WhatsApp | Si | Numero comercial con pais | Owner | Pendiente |
 | Descripcion corta | Si | Productos seleccionados para compra por WhatsApp | Owner/JAKAWI | Pendiente |
 | Slogan comercial | Recomendado | Te ayudamos a elegir antes de comprar | Owner/JAKAWI | Pendiente |
@@ -221,6 +224,13 @@ Hola, tu espacio comercial en JAKAWI ya esta listo:
 
 No incluir password en mensajes.
 
+Si el owner entra en una secuencia de onboarding por email:
+
+- [ ] Confirmar que el email es correcto.
+- [ ] Confirmar consentimiento/comunicacion para recibir guias de onboarding.
+- [ ] Explicar que los emails automaticos estan en fase de configuracion si aun no estan activos.
+- [ ] No incluir passwords, tokens ni datos sensibles en correos o handoffs.
+
 ## 13. Seguimiento semanal
 
 Semana 1:
@@ -308,6 +318,7 @@ Next review date:
 - Pagos manuales.
 - Sin checkout automatico.
 - Sin emails transaccionales por ahora.
+- Email onboarding/automation puede existir como configuracion futura; confirmar estado real antes de prometerlo.
 - Sin dominio propio todavia.
 - Sin pixeles/ads integrations todavia.
 - Sin prometer inventario automatico.
@@ -371,6 +382,7 @@ Handoff:
 
 - [ ] Link publico enviado.
 - [ ] Usuario/email confirmado.
+- [ ] Consentimiento/comunicacion de onboarding por email confirmado si aplica.
 - [ ] Soporte acordado.
 - [ ] Proxima revision agendada.
 

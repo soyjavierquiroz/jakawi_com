@@ -62,6 +62,7 @@ Manual o limitado hoy:
 | Storage | MinIO S3 compatible, AWS SDK S3 client |
 | Cache/session support | Redis 7 disponible en stack; sesiones persistidas en PostgreSQL |
 | Media | Sharp para imagenes, ffmpeg/ffprobe para audio |
+| CRM/email automation futura | WordPress separado en `crm.jakawi.com` con FluentCRM Pro + FluentSMTP/AWS SES |
 | Infra | Docker Swarm, Traefik, overlay networks |
 | Deploy | Imagen `jakawi-com-web:latest`, stack Swarm `jakawi_com` |
 | Observabilidad actual | `/api/health`, `docker service logs`, metricas internas admin |
@@ -102,6 +103,7 @@ Dominios:
 - `jakawi.com` y `www.jakawi.com`: web Next.js
 - `media.jakawi.com`: API/public media MinIO
 - `minio.jakawi.com`: consola MinIO protegida por basic auth Traefik
+- `crm.jakawi.com`: WordPress/FluentCRM Pro separado para CRM, listas, secuencias y email automation futura; JAKAWI App sigue siendo fuente de verdad
 
 ## 6. Estructura del repositorio
 
@@ -114,6 +116,8 @@ Dominios:
 - `/app/Dockerfile`: build multi-stage con Node 22 Alpine, pnpm, Prisma, Next build y migrate deploy al iniciar.
 - `/app/.dockerignore`: excluye dependencias, builds, logs, `.git`, `.env*` salvo `.env.example`.
 - `/infra/docker-stack.yml`: stack Swarm `jakawi_com`.
+- `docs/CRM-EMAIL-AUTOMATION-FOUNDATION.md`: arquitectura propuesta JAKAWI -> FluentCRM Pro -> AWS SES.
+- `docs/CRM-EMAIL-AUTOMATION-RUNBOOK.md`: runbook operativo para configurar y operar CRM/email automation sin secretos.
 
 ## 7. Modulos implementados
 
@@ -601,6 +605,7 @@ Checklist minimo:
 - No hay webhooks de Hotmart/Stripe.
 - No hay facturacion/comprobantes automaticos.
 - No hay emails transaccionales automaticos.
+- CRM/email automation con FluentCRM Pro + AWS SES esta documentado como foundation v1, pero no implementado aun en la app.
 - No hay analytics avanzado tipo cohortes/funnels completos.
 - No hay deduplicacion fuerte de `GrowthLinkClick`; cada click se registra.
 - QR analytics avanzado no esta separado como campana propia.
@@ -621,7 +626,7 @@ Checklist minimo:
 - Observabilidad/logging estructurado.
 - Manejo de errores mas consistente en APIs y server actions.
 - Redis distributed rate limiting v2 cuando haya multiples replicas.
-- Transactional Email System v1 con AWS SES queda como prioridad pre-launch futura.
+- CRM + Email Automation Foundation v1 con FluentCRM Pro + AWS SES esta documentado; Transactional Email System nativo para mensajes criticos sigue como prioridad pre-launch futura.
 - JAKAWI First-Party Audiences v1 queda como prioridad futura para audiencias propias sin depender de marketplaces.
 - Multi-domain v1 queda como prioridad futura para soportar dominios comerciales propios por tienda/segmento.
 - Store Ads Integrations v1 queda como prioridad futura: Meta Pixel/CAPI + TikTok Pixel/Events API.
