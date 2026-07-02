@@ -1,7 +1,9 @@
 import { CommercialSnapshotChannel, JourneyEventType, LeadEventType, LeadStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { addJourneyEvent, getOrCreateCustomerJourney, updateCustomerJourney } from "@/lib/seller-ai/journey";
 import { logLeadEvent } from "@/lib/seller-ai/leads";
 import { createCommercialSnapshot } from "@/lib/seller-ai/snapshot";
@@ -20,6 +22,12 @@ const continueSchema = z.object({
 export async function POST(request: Request) {
   const parsed = continueSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
+
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.SELLER_AI_CONTINUE_WHATSAPP,
+    keyParts: [getClientIpFromHeaders(request.headers), parsed.data.leadId, parsed.data.journeyId],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
 
   const lead = await getPrisma().lead.findUnique({
     where: { id: parsed.data.leadId },

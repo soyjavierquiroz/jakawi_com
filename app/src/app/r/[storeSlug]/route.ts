@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { siteConfig } from "@/config/site";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { acquisitionCookieNames, getReferralCookieOptions } from "@/lib/acquisition/cookies";
 import { getRequestTrackingMetadata, recordGrowthLinkClick } from "@/lib/growth-link-clicks";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 
 function registrationRedirect(request: NextRequest) {
   return NextResponse.redirect(new URL(siteConfig.routes.register, siteConfig.appUrl || request.url));
@@ -10,6 +12,12 @@ function registrationRedirect(request: NextRequest) {
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ storeSlug: string }> }) {
   const { storeSlug } = await params;
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.GROWTH_REDIRECT,
+    keyParts: [getClientIpFromHeaders(request.headers), "store-referral", storeSlug],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
+
   const store = await getPrisma().store.findUnique({
     where: { slug: storeSlug },
     select: { id: true, slug: true },

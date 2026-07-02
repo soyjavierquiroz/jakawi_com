@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { ensureSellerLead } from "@/lib/seller-ai/leads";
 
 const leadSchema = z.object({
@@ -16,6 +18,12 @@ const leadSchema = z.object({
 export async function POST(request: Request) {
   const parsed = leadSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
+
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.SELLER_AI_LEAD,
+    keyParts: [getClientIpFromHeaders(request.headers), parsed.data.storeSlug, parsed.data.visitorId, parsed.data.sessionId],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
 
   const store = await getPrisma().store.findUnique({ where: { slug: parsed.data.storeSlug } });
   if (!store || !store.isPublished) return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });

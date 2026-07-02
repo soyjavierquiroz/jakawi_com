@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { normalizePhone } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/analytics";
 
 export async function GET(request: NextRequest) {
@@ -16,6 +18,12 @@ export async function GET(request: NextRequest) {
   if (!product || !product.isVisible || !product.store.isPublished) {
     return NextResponse.redirect(new URL("/", request.url));
   }
+
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.WHATSAPP_CLICK,
+    keyParts: [getClientIpFromHeaders(request.headers), product.store.slug],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
 
   await trackEvent("WHATSAPP_CLICK", product.storeId, product.id);
 

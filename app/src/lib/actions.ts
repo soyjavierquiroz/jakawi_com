@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getCountryCommerceConfig, normalizeCountryCode, normalizeCurrency } from "@/config/countries";
 import { COMMERCIAL_SPACE_TEMPLATES, normalizeCommercialTemplate } from "@/config/commercial-templates";
+import { rateLimitPolicies, userFacingRateLimitMessage } from "@/config/rate-limits";
 import { registrationConfig } from "@/config/registration";
 import { storePlans } from "@/config/plans";
 import { createAttributionForStore } from "@/lib/acquisition/attribution";
@@ -20,6 +21,7 @@ import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
 import { isPartnerCommissionStatus, parseCommissionAmountToCents } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders } from "@/lib/rate-limit";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { allowedImageDeletePrefixes, deleteJakawiMediaObjectIfOwned, deleteSellerVoiceObjectIfOwned, isJakawiMediaUrlOwnedByStore, uploadOptimizedImage } from "@/lib/storage";
 import { buildRewardValueLabel, isStoreReferralRewardStatus, isStoreReferralRewardType, parseOptionalDate, parseOptionalPositiveInt, parseRewardAmountToCents } from "@/lib/store-referral-rewards";
@@ -127,6 +129,15 @@ export async function registerAction(formData: FormData) {
   }
 
   const requestHeaders = await headers();
+  const clientIp = getClientIpFromHeaders(requestHeaders);
+  const [ipLimit, slugLimit] = await Promise.all([
+    checkRateLimit({ policy: rateLimitPolicies.REGISTER, keyParts: [clientIp] }),
+    checkRateLimit({ policy: rateLimitPolicies.REGISTER_STORE_SLUG, keyParts: [parsed.data.storeSlug] }),
+  ]);
+  if (!ipLimit.allowed || !slugLimit.allowed) {
+    redirect(`/registro?error=${encodeURIComponent(userFacingRateLimitMessage)}`);
+  }
+
   const visitor = getVisitorInfoFromHeaders(requestHeaders);
   const slug = await uniqueStoreSlug(parsed.data.storeSlug).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Ese link comercial no esta disponible.";
@@ -220,6 +231,16 @@ export async function loginAction(formData: FormData) {
     email: field(formData, "email"),
     password: field(formData, "password"),
   });
+
+  const requestHeaders = await headers();
+  const clientIp = getClientIpFromHeaders(requestHeaders);
+  const [emailLimit, ipLimit] = await Promise.all([
+    checkRateLimit({ policy: rateLimitPolicies.LOGIN, keyParts: [clientIp, parsed.email] }),
+    checkRateLimit({ policy: rateLimitPolicies.LOGIN_IP, keyParts: [clientIp] }),
+  ]);
+  if (!emailLimit.allowed || !ipLimit.allowed) {
+    redirect(`/login?error=${encodeURIComponent(userFacingRateLimitMessage)}`);
+  }
 
   const user = await getPrisma().user.findUnique({ where: { email: parsed.email } });
   if (!user || !(await verifyPassword(parsed.password, user.passwordHash))) {

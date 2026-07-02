@@ -1,7 +1,9 @@
 import { JourneyEventType, LeadEventType, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { addJourneyEvent, getOrCreateCustomerJourney } from "@/lib/seller-ai/journey";
 import { logLeadEvent } from "@/lib/seller-ai/leads";
 
@@ -37,6 +39,12 @@ export async function POST(request: Request) {
   const json = await request.json().catch(() => null);
   const parsed = eventSchema.safeParse(json);
   if (!parsed.success) return NextResponse.json({ ok: true });
+
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.SELLER_AI_EVENTS,
+    keyParts: [getClientIpFromHeaders(request.headers), parsed.data.storeSlug ?? parsed.data.storeId],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
 
   const store = parsed.data.storeId
     ? await getPrisma().store.findUnique({ where: { id: parsed.data.storeId } })

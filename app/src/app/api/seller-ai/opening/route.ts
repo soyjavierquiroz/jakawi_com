@@ -1,8 +1,10 @@
 import { JourneyEventType, LeadEventType, MessageRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { getStorePlanState } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { addJourneyEvent, updateJourneyStage } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
 import { buildQuickRepliesForMode, getCommercialTypeCopy, inferSellerAiMode } from "@/lib/seller-ai/modes";
@@ -30,6 +32,12 @@ function getDiscoveryOpening(storeName: string, categories: { name: string }[]) 
 export async function POST(request: Request) {
   const parsed = openingSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
+
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.SELLER_AI_OPENING,
+    keyParts: [getClientIpFromHeaders(request.headers), parsed.data.storeSlug ?? parsed.data.storeId],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
 
   const store = parsed.data.storeId
     ? await getPrisma().store.findUnique({ where: { id: parsed.data.storeId }, include: { categories: { orderBy: { name: "asc" } } } })

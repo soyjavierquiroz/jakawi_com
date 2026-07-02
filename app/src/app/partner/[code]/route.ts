@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { siteConfig } from "@/config/site";
 import { acquisitionCookieNames, getReferralCookieOptions } from "@/lib/acquisition/cookies";
 import { normalizePartnerCode } from "@/lib/acquisition/partners";
 import { getRequestTrackingMetadata, recordGrowthLinkClick } from "@/lib/growth-link-clicks";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 
 function redirectToTarget(targetUrl: string, request: NextRequest) {
   return NextResponse.redirect(new URL(targetUrl, siteConfig.appUrl || request.url));
@@ -12,6 +14,12 @@ function redirectToTarget(targetUrl: string, request: NextRequest) {
 export async function GET(request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const normalizedCode = normalizePartnerCode(code);
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.GROWTH_REDIRECT,
+    keyParts: [getClientIpFromHeaders(request.headers), "partner", normalizedCode ?? code],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
+
   const partner = normalizedCode
     ? await getPrisma().partner.findFirst({
         where: { code: normalizedCode, status: "ACTIVE" },

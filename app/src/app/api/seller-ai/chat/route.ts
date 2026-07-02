@@ -1,10 +1,12 @@
 import { LeadEventType, LeadStatus, MessageRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { sellerAiConfig } from "@/config/seller-ai";
 import { formatMoney } from "@/lib/money";
 import { incrementSellerAiConversationUsage, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
 import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
@@ -178,6 +180,12 @@ function buildAssistantMessage({
 export async function POST(request: Request) {
   const parsed = chatSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
+
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.SELLER_AI_CHAT,
+    keyParts: [getClientIpFromHeaders(request.headers), parsed.data.storeSlug, parsed.data.visitorId, parsed.data.sessionId, parsed.data.leadId],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
 
   let lead = parsed.data.leadId
     ? await getPrisma().lead.findUnique({

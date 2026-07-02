@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimitPolicies } from "@/config/rate-limits";
 import { siteConfig } from "@/config/site";
 import { acquisitionCookieNames, getReferralCookieOptions } from "@/lib/acquisition/cookies";
 import { normalizePartnerCode, normalizePartnerDestinationSlug } from "@/lib/acquisition/partners";
 import { getRequestTrackingMetadata, recordGrowthLinkClick } from "@/lib/growth-link-clicks";
 import { getPrisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 
 function registrationRedirect(request: NextRequest) {
   return NextResponse.redirect(new URL(siteConfig.routes.register, siteConfig.appUrl || request.url));
@@ -17,6 +19,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { code, destinationSlug } = await params;
   const normalizedCode = normalizePartnerCode(code);
   const normalizedDestinationSlug = normalizePartnerDestinationSlug(destinationSlug);
+  const rateLimit = await checkRateLimit({
+    policy: rateLimitPolicies.GROWTH_REDIRECT,
+    keyParts: [getClientIpFromHeaders(request.headers), "partner", normalizedCode ?? code, normalizedDestinationSlug ?? destinationSlug],
+  });
+  if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
 
   if (!normalizedCode || !normalizedDestinationSlug) return registrationRedirect(request);
 

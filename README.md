@@ -582,6 +582,7 @@ Checklist minimo:
 - Sesiones guardan hash del token, no token plano.
 - Cookies de sesion y attribution son HttpOnly; secure en produccion.
 - IP cruda no se persiste en usuario/growth; se usa `ipHash` SHA-256 con salt.
+- Minimal Rate Limiting v1 protege login, registro, Seller AI, uploads y tracking.
 - Metadata de click se trunca para reducir riesgo.
 - MinIO safe delete evita borrar assets globales o de otra tienda.
 - `.env.stack` no se commitea.
@@ -615,7 +616,8 @@ Checklist minimo:
 - E2E Playwright ampliado para registro, owner, public, Seller AI, partner y admin.
 - Observabilidad/logging estructurado.
 - Manejo de errores mas consistente en APIs y server actions.
-- Rate limiting para auth, Seller AI, uploads y tracking.
+- Redis distribuido para rate limiting si se escala a multiples replicas.
+- Transactional Email System v1 con AWS SES queda como prioridad pre-launch futura.
 - Deduplicacion de `GrowthLinkClick` por ventana/session/visitor.
 - Limpieza o segmentacion de QA data.
 - Typed enums para statuses operativos que hoy estan como `String` en Prisma.
