@@ -1,4 +1,5 @@
 import { type Prisma } from "@prisma/client";
+import { commercialRealStoreReferralRewardWhere } from "@/lib/data-quality";
 import { getStoreReferralConversionSummary } from "@/lib/growth-conversion-metrics";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
@@ -146,9 +147,11 @@ export async function getStoreReferralRewardStats() {
   const [statusRows, sumRows] = await Promise.all([
     prisma.storeReferralReward.groupBy({
       by: ["status"],
+      where: commercialRealStoreReferralRewardWhere(),
       _count: { _all: true },
     }),
     prisma.storeReferralReward.aggregate({
+      where: commercialRealStoreReferralRewardWhere(),
       _sum: {
         months: true,
         sellerAiCredits: true,

@@ -2,6 +2,13 @@ import { notFound } from "next/navigation";
 import { type StorePlanCode } from "@/config/plans";
 import { requireUser } from "@/lib/auth";
 import {
+  commercialRealLeadWhere,
+  commercialRealStoreWhere,
+  getDataQualityForStore,
+  isCommercialRealDataQuality,
+  nonRealGrowthClickWhere,
+} from "@/lib/data-quality";
+import {
   emptyGrowthConversionSummary,
   getAdminGrowthConversionSummary as getAdminGrowthConversionSummaryInternal,
   getGrowthConversionStatsByPartner,
@@ -133,6 +140,7 @@ export async function getSuperAdminDashboardStats() {
     storeReferralAttributions,
     partnerAttributions,
     organicAttributions,
+    excludedGrowthClicks,
     partnerCommissionStats,
     storePaymentStats,
     storeReferralRewardStats,
@@ -142,24 +150,31 @@ export async function getSuperAdminDashboardStats() {
     prisma.store.findMany({
       select: {
         id: true,
+        slug: true,
+        name: true,
+        description: true,
+        commercialTagline: true,
         plan: true,
         planStatus: true,
         createdAt: true,
         trialEndsAt: true,
+        owner: { select: { email: true, role: true } },
       },
     }),
     prisma.analyticsEvent.count({
       where: {
         type: AnalyticsEventType.WHATSAPP_CLICK,
         createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        store: commercialRealStoreWhere(),
       },
     }),
-    prisma.lead.count(),
+    prisma.lead.count({ where: commercialRealLeadWhere() }),
     prisma.partner.count({ where: { status: "ACTIVE" } }),
     prisma.partnerDestination.count({ where: { status: "ACTIVE" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "STORE_REFERRAL" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "PARTNER" } }),
     prisma.acquisitionAttribution.count({ where: { sourceType: "ORGANIC" } }),
+    prisma.growthLinkClick.count({ where: nonRealGrowthClickWhere() }),
     getPartnerCommissionStats(),
     getAdminPaymentStats(),
     getStoreReferralRewardStats(),
@@ -172,8 +187,15 @@ export async function getSuperAdminDashboardStats() {
   let activeTrials = 0;
   let expiredTrials = 0;
   let sellerAiEnabledStores = 0;
+  let commercialRealStores = 0;
+  let excludedStores = 0;
 
   for (const store of stores) {
+    const isReal = isCommercialRealDataQuality(getDataQualityForStore(store));
+    if (isReal) commercialRealStores += 1;
+    else excludedStores += 1;
+    if (!isReal) continue;
+
     const planState = getStorePlanState(store);
     planCounts[planState.planCode] += 1;
 
@@ -185,6 +207,8 @@ export async function getSuperAdminDashboardStats() {
 
   return {
     totalStores: stores.length,
+    commercialRealStores,
+    excludedStores,
     activeStores,
     activeTrials,
     expiredTrials,
@@ -197,6 +221,7 @@ export async function getSuperAdminDashboardStats() {
     storeReferralAttributions,
     partnerAttributions,
     organicAttributions,
+    excludedGrowthClicks,
     partnerCommissionStats,
     storePaymentStats,
     storeReferralRewardStats,

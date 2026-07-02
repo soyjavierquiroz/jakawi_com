@@ -1,9 +1,11 @@
 import { ExternalLink, Gift, HandCoins, Search } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { DataQualityBadge } from "@/components/admin/DataQualityBadge";
 import { getPublicStoreUrl } from "@/config/site";
 import { updateAttributionStatusAction } from "@/lib/actions";
 import { adminAttributionFilters, getAdminAttributionFilter, getAdminAttributionRows, getAdminGrowthConversionSummary, requireSuperAdmin } from "@/lib/admin";
+import { getDataQualityForAttribution } from "@/lib/data-quality";
 import { formatConversionContext, formatConversionRate } from "@/lib/growth-conversion-metrics";
 import { formatRevenueTotals, getAdminRevenueAttributionSummary, type RevenueCurrencyTotal } from "@/lib/revenue-attribution-metrics";
 import { getSuggestedActionsForAttributions, type SuggestedGrowthAction } from "@/lib/suggested-growth-actions";
@@ -163,17 +165,17 @@ export default async function AdminReferralsPage({
       {params.error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{params.error}</p> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Clicks totales" value={conversionSummary.all.total.clicks} detail="Links de partners y tiendas" />
-        <MetricCard label="Registros atribuidos" value={conversionSummary.all.total.signups} detail="No incluye orgánico" />
-        <MetricCard label="Conversión total" value={formatConversionRate(conversionSummary.all.total.conversionRate)} detail={formatConversionContext(conversionSummary.all.total)} />
-        <MetricCard label="Conversión 30 días" value={formatConversionRate(conversionSummary.all.last30Days.conversionRate)} detail={formatConversionContext(conversionSummary.all.last30Days)} />
+        <MetricCard label="Clicks reales totales" value={conversionSummary.all.total.clicks} detail="Links de partners y tiendas" />
+        <MetricCard label="Registros reales atribuidos" value={conversionSummary.all.total.signups} detail="No incluye orgánico ni demo/QA/internal" />
+        <MetricCard label="Conversión real total" value={formatConversionRate(conversionSummary.all.total.conversionRate)} detail={formatConversionContext(conversionSummary.all.total)} />
+        <MetricCard label="Conversión real 30 días" value={formatConversionRate(conversionSummary.all.last30Days.conversionRate)} detail={formatConversionContext(conversionSummary.all.last30Days)} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Revenue atribuido total" value={formatRevenueTotals(revenueSummary.attributedFunnel.total.revenue)} detail="Partners y tiendas referidoras" />
-        <MetricCard label="Revenue partners" value={formatRevenueTotals(revenueSummary.partnerRevenue)} detail="Atribuido a partner" />
-        <MetricCard label="Revenue tiendas referidoras" value={formatRevenueTotals(revenueSummary.storeReferralRevenue)} detail="Atribuido a tienda referidora" />
-        <MetricCard label="Revenue orgánico" value={formatRevenueTotals(revenueSummary.organicRevenue)} detail="Orgánico / sin atribución" />
+        <MetricCard label="Revenue real atribuido" value={formatRevenueTotals(revenueSummary.attributedFunnel.total.revenue)} detail="Partners y tiendas referidoras" />
+        <MetricCard label="Revenue real partners" value={formatRevenueTotals(revenueSummary.partnerRevenue)} detail="Atribuido a partner" />
+        <MetricCard label="Revenue real referidoras" value={formatRevenueTotals(revenueSummary.storeReferralRevenue)} detail="Atribuido a tienda referidora" />
+        <MetricCard label="Revenue real orgánico" value={formatRevenueTotals(revenueSummary.organicRevenue)} detail="Orgánico / sin atribución" />
       </div>
 
       <form action="/app/admin/referrals" className="rounded-lg border border-brand-border bg-brand-paper p-3 shadow-sm">
@@ -215,6 +217,7 @@ export default async function AdminReferralsPage({
             const confirmedRevenue = paymentRevenueTotals(row.store.payments);
             const hasConfirmedPayment = row.store.payments.length > 0;
             const suggestedAction = suggestedActions.get(row.id);
+            const dataQuality = getDataQualityForAttribution(row);
             const revenueLabel =
               row.sourceType === "PARTNER"
                 ? "Pago confirmado atribuido a partner"
@@ -228,6 +231,7 @@ export default async function AdminReferralsPage({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-start gap-2">
                       <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{row.store.name}</h2>
+                      <DataQualityBadge label={dataQuality} />
                       <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", sourceClass(row.sourceType))}>{sourceLabel(row.sourceType)}</span>
                     </div>
                     <p className="mt-2 text-sm font-black text-neutral-600">{sourceDescription(row.sourceType)}</p>

@@ -1,4 +1,5 @@
 import { type Prisma } from "@prisma/client";
+import { commercialRealStorePaymentWhere, excludedStorePaymentWhere } from "@/lib/data-quality";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 
@@ -21,6 +22,8 @@ export type StorePaymentStatusStats = {
 export type StorePaymentStats = Record<StorePaymentStatus, StorePaymentStatusStats> & {
   confirmedLast30DaysCents: number;
   confirmedStoreCount: number;
+  excludedConfirmedCount: number;
+  excludedConfirmedAmountCents: number;
 };
 
 const statusSet = new Set<string>(storePaymentStatuses);
@@ -57,6 +60,8 @@ export function emptyStorePaymentStats(): StorePaymentStats {
     REFUNDED: { count: 0, amountCents: 0 },
     confirmedLast30DaysCents: 0,
     confirmedStoreCount: 0,
+    excludedConfirmedCount: 0,
+    excludedConfirmedAmountCents: 0,
   };
 }
 
@@ -139,19 +144,25 @@ function buildPaymentSearchWhere(q: string): Prisma.StorePaymentWhereInput {
 export async function getAdminPaymentStats() {
   const prisma = getPrisma();
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [statusRows, last30, confirmedStores] = await Promise.all([
+  const [statusRows, last30, confirmedStores, excludedConfirmed] = await Promise.all([
     prisma.storePayment.groupBy({
       by: ["status"],
+      where: commercialRealStorePaymentWhere(),
       _count: { _all: true },
       _sum: { amountCents: true },
     }),
     prisma.storePayment.aggregate({
-      where: { status: "CONFIRMED", confirmedAt: { gte: since } },
+      where: commercialRealStorePaymentWhere({ status: "CONFIRMED", confirmedAt: { gte: since } }),
       _sum: { amountCents: true },
     }),
     prisma.storePayment.groupBy({
       by: ["storeId"],
-      where: { status: "CONFIRMED" },
+      where: commercialRealStorePaymentWhere({ status: "CONFIRMED" }),
+    }),
+    prisma.storePayment.aggregate({
+      where: excludedStorePaymentWhere({ status: "CONFIRMED", amountCents: { gt: 0 } }),
+      _count: { _all: true },
+      _sum: { amountCents: true },
     }),
   ]);
 
@@ -165,6 +176,8 @@ export async function getAdminPaymentStats() {
   }
   stats.confirmedLast30DaysCents = last30._sum.amountCents ?? 0;
   stats.confirmedStoreCount = confirmedStores.length;
+  stats.excludedConfirmedCount = excludedConfirmed._count._all;
+  stats.excludedConfirmedAmountCents = excludedConfirmed._sum.amountCents ?? 0;
   return stats;
 }
 

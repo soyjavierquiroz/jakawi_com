@@ -1,4 +1,5 @@
 import { calculateSuggestedCommission } from "@/lib/partner-commissions";
+import { commercialRealStorePaymentWhere, getDataQualityForStorePayment, isCommercialRealDataQuality } from "@/lib/data-quality";
 import { getPrisma } from "@/lib/prisma";
 import { formatStorePaymentMoney } from "@/lib/store-payments";
 
@@ -44,8 +45,15 @@ type PaymentForSuggestion = {
   currency: string;
   status: string;
   externalReference: string | null;
+  description: string | null;
+  notes: string | null;
   store: {
     name: string;
+    slug?: string | null;
+    owner?: {
+      email: string;
+      role?: string | null;
+    } | null;
     acquisitionAttribution: {
       id: string;
       sourceType: string;
@@ -166,6 +174,10 @@ function buildActionForPayment(
     rewards: { referrerStoreId: string; referredStoreId: string | null; attributionId: string | null }[];
   },
 ): SuggestedGrowthAction {
+  if (!isCommercialRealDataQuality(getDataQualityForStorePayment(payment))) {
+    return emptyAction(payment, "Excluido de métricas reales", "Dato demo, QA o interno. No genera sugerencia comercial.");
+  }
+
   if (payment.status !== "CONFIRMED" || payment.amountCents <= 0) {
     return emptyAction(payment, "Esperando pago confirmado", "La sugerencia se habilita cuando el pago está confirmado y tiene monto positivo.");
   }
@@ -337,6 +349,8 @@ async function getPaymentsByIds(paymentIds: string[]) {
       store: {
         select: {
           name: true,
+          slug: true,
+          owner: { select: { email: true, role: true } },
           acquisitionAttribution: {
             select: {
               id: true,
@@ -369,6 +383,8 @@ export async function getStoreSuggestedGrowthActions(storeId: string) {
       store: {
         select: {
           name: true,
+          slug: true,
+          owner: { select: { email: true, role: true } },
           acquisitionAttribution: {
             select: {
               id: true,
@@ -397,6 +413,7 @@ export async function getSuggestedActionsForAttributions(attributionIds: string[
     include: {
       store: {
         include: {
+          owner: { select: { email: true, role: true } },
           payments: {
             where: { status: "CONFIRMED", amountCents: { gt: 0 } },
             orderBy: [{ confirmedAt: "desc" }, { paidAt: "desc" }, { createdAt: "desc" }],
@@ -417,6 +434,8 @@ export async function getSuggestedActionsForAttributions(attributionIds: string[
         ...payment,
         store: {
           name: attribution.store.name,
+          slug: attribution.store.slug,
+          owner: attribution.store.owner,
           acquisitionAttribution: {
             id: attribution.id,
             sourceType: attribution.sourceType,
@@ -459,11 +478,13 @@ export async function getSuggestedActionsForAttributions(attributionIds: string[
 
 export async function getAdminSuggestedGrowthActionsSummary(): Promise<SuggestedGrowthActionsSummary> {
   const payments = await getPrisma().storePayment.findMany({
-    where: { status: "CONFIRMED", amountCents: { gt: 0 } },
+    where: commercialRealStorePaymentWhere({ status: "CONFIRMED", amountCents: { gt: 0 } }),
     include: {
       store: {
         select: {
           name: true,
+          slug: true,
+          owner: { select: { email: true, role: true } },
           acquisitionAttribution: {
             select: {
               id: true,

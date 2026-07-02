@@ -1,6 +1,7 @@
 import { CheckCircle2, ExternalLink, HandCoins, Plus, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { DataQualityBadge } from "@/components/admin/DataQualityBadge";
 import { CopyButton } from "@/components/CopyButton";
 import { ShareKitCard } from "@/components/growth/ShareKitCard";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/lib/actions";
 import { getAdminPartnerRows, requireSuperAdmin } from "@/lib/admin";
 import { getPartnerDestinationReferralLink, getPartnerReferralLink } from "@/lib/acquisition/partners";
+import { getDataQualityForPartner, getDataQualityForPartnerDestination } from "@/lib/data-quality";
 import { formatConversionContext, formatConversionRate, type GrowthConversionPeriod } from "@/lib/growth-conversion-metrics";
 import { buildGrowthQrFileName, buildPartnerDestinationShareText, buildPartnerShareText } from "@/lib/growth-share-copy";
 import { formatCommissionMoney } from "@/lib/partner-commissions";
@@ -181,6 +183,7 @@ export default async function AdminPartnersPage({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-start gap-2">
                       <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{partner.name}</h2>
+                      <DataQualityBadge label={getDataQualityForPartner(partner)} />
                       <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", statusClass(partner.status))}>{statusLabel(partner.status)}</span>
                     </div>
                     <p className="mt-1 font-mono text-xs text-neutral-500">{partner.code}</p>
@@ -201,7 +204,7 @@ export default async function AdminPartnersPage({
 
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
                     <div className="rounded-md bg-brand-muted px-3 py-2">
-                      <p className="text-[11px] font-black uppercase text-neutral-500">Performance</p>
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Performance real</p>
                       <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-semibold text-neutral-600">
                         <p>
                           <span className="block text-[10px] uppercase">Clicks</span>
@@ -219,7 +222,7 @@ export default async function AdminPartnersPage({
                       <p className="mt-2 text-xs font-semibold text-neutral-600">Clicks → registros · {performanceEmptyText(partner.conversionStats.total)}</p>
                     </div>
                     <div className="rounded-md bg-brand-muted px-3 py-2">
-                      <p className="text-[11px] font-black uppercase text-neutral-500">Performance 30 días</p>
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Performance real 30 días</p>
                       <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-semibold text-neutral-600">
                         <p>
                           <span className="block text-[10px] uppercase">Clicks</span>
@@ -244,7 +247,7 @@ export default async function AdminPartnersPage({
                       </p>
                     </div>
                     <div className="rounded-md bg-brand-muted px-3 py-2">
-                      <p className="text-[11px] font-black uppercase text-neutral-500">Revenue atribuido</p>
+                      <p className="text-[11px] font-black uppercase text-neutral-500">Revenue real atribuido</p>
                       <p className="mt-1 text-sm font-black text-brand-dark">{formatRevenueTotals(partner.revenueMetrics?.total.revenue)}</p>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-semibold text-neutral-600">
                         <p>
@@ -371,6 +374,7 @@ export default async function AdminPartnersPage({
                               downloadFileName={buildGrowthQrFileName("jakawi-partner", partner.code, destination.slug)}
                             >
                               <div className="flex flex-wrap items-center gap-2">
+                                <DataQualityBadge label={getDataQualityForPartnerDestination({ ...destination, partner })} />
                                 {destination.isDefault ? <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-black text-brand-dark">Default</span> : null}
                                 <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-black", statusClass(destination.status))}>{statusLabel(destination.status)}</span>
                               </div>
@@ -406,6 +410,7 @@ export default async function AdminPartnersPage({
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="break-words text-sm font-black text-brand-dark">{destination.label}</p>
+                                <DataQualityBadge label={getDataQualityForPartnerDestination({ ...destination, partner })} />
                                 {destination.isDefault ? (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-black text-brand-dark">
                                     <CheckCircle2 className="size-3" />
@@ -426,7 +431,7 @@ export default async function AdminPartnersPage({
                               {destination.notes ? <p className="mt-2 break-words text-xs font-semibold text-neutral-500">{destination.notes}</p> : null}
                             </div>
                             <div className="rounded-md bg-brand-muted px-3 py-2">
-                              <p className="text-[11px] font-black uppercase text-neutral-500">Performance</p>
+                              <p className="text-[11px] font-black uppercase text-neutral-500">Performance real</p>
                               <p className="mt-1 text-sm font-black text-brand-dark">{formatConversionRate(destination.conversionStats.total.conversionRate)}</p>
                               <p className="mt-1 text-xs font-semibold text-neutral-600">{destination.conversionStats.total.clicks} clicks · {destination.conversionStats.total.signups} registros</p>
                               <p className="mt-1 text-xs font-semibold text-neutral-600">30 días: {destination.conversionStats.last30Days.clicks} clicks · {destination.conversionStats.last30Days.signups} registros · {formatConversionRate(destination.conversionStats.last30Days.conversionRate)}</p>

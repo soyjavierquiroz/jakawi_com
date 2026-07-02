@@ -105,10 +105,10 @@ export default async function AdminPage() {
           <h2 className="mt-1 text-2xl font-black text-brand-dark">Tiendas, planes y señales</h2>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Total de tiendas" value={stats.totalStores} detail="Espacios comerciales creados" />
-          <StatCard label="Tiendas activas" value={stats.activeStores} detail="Sin trial vencido" />
-          <StatCard label="Trials activos" value={stats.activeTrials} detail="Pruebas en curso" />
-          <StatCard label="Trials vencidos" value={stats.expiredTrials} detail="Requieren seguimiento" />
+          <StatCard label="Total de tiendas" value={stats.totalStores} detail="Incluye real, demo, QA e interno" />
+          <StatCard label="Tiendas reales" value={stats.commercialRealStores} detail="Base de métricas comerciales" />
+          <StatCard label="Datos excluidos" value={stats.excludedStores} detail="Demo/QA/interno sin borrar" />
+          <StatCard label="Tiendas reales activas" value={stats.activeStores} detail="Sin trial vencido" />
         </div>
       </section>
 
@@ -133,11 +133,22 @@ export default async function AdminPage() {
         </section>
 
         <div className="grid gap-3">
-          <StatCard label="Seller AI habilitado" value={stats.sellerAiEnabledStores} detail="Tiendas con plan operativo" />
-          <StatCard label="Clientes/señales" value={stats.leadSignals} detail="Señales acumuladas" />
-          <StatCard label="Clicks WhatsApp" value={stats.whatsappClicksLast7Days} detail="Últimos 7 días" />
+          <StatCard label="Seller AI habilitado" value={stats.sellerAiEnabledStores} detail="Solo tiendas reales" />
+          <StatCard label="Clientes/señales reales" value={stats.leadSignals} detail="Excluye demo/QA/internal" />
+          <StatCard label="Clicks WhatsApp reales" value={stats.whatsappClicksLast7Days} detail="Últimos 7 días" />
         </div>
       </div>
+
+      <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <p className="text-sm font-black text-brand-dark">Data Quality v1</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">Los datos demo, QA e internos siguen visibles con badge, pero no alimentan métricas comerciales headline.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Stores demo/QA detectadas" value={stats.excludedStores} detail="Sin borrar ni ocultar" />
+          <StatCard label="Pagos excluidos" value={stats.storePaymentStats.excludedConfirmedCount} detail="Confirmados demo/QA/internal" />
+          <StatCard label="Revenue excluido" value={formatRevenueTotals(stats.revenueAttributionSummary.excludedDemoQaRevenue)} detail="Fuera del headline real" />
+          <StatCard label="Clicks excluidos" value={stats.excludedGrowthClicks} detail="Partner/referral demo/QA/internal" />
+        </div>
+      </section>
 
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
@@ -148,8 +159,8 @@ export default async function AdminPage() {
           <span className="rounded-full border border-brand-border bg-brand-paper px-3 py-1 text-xs font-black uppercase text-neutral-500">No implica cobro automático</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Revenue confirmado" value={formatRevenueTotals(stats.revenueAttributionSummary.totalRevenue)} detail={`${stats.revenueAttributionSummary.confirmedPayments} pagos confirmados`} />
-          <StatCard label="Revenue 30 días" value={formatRevenueTotals(stats.revenueAttributionSummary.last30DaysRevenue)} detail="Revenue manual reciente" />
+          <StatCard label="Revenue real confirmado" value={formatRevenueTotals(stats.revenueAttributionSummary.totalRevenue)} detail={`${stats.revenueAttributionSummary.confirmedPayments} pagos reales confirmados`} />
+          <StatCard label="Revenue real 30 días" value={formatRevenueTotals(stats.revenueAttributionSummary.last30DaysRevenue)} detail="Excluye demo/QA/internal" />
           <StatCard label="Atribuido a partners" value={formatRevenueTotals(stats.revenueAttributionSummary.partnerRevenue)} detail="Desde stores atribuidas a partners" />
           <StatCard label="Atribuido a referidoras" value={formatRevenueTotals(stats.revenueAttributionSummary.storeReferralRevenue)} detail="Desde stores referidas por tiendas" />
         </div>

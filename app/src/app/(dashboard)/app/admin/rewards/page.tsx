@@ -1,8 +1,10 @@
 import { Ban, CheckCircle2, Clock, Gift, Pencil, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { DataQualityBadge } from "@/components/admin/DataQualityBadge";
 import { createStoreReferralRewardAction, updateStoreReferralRewardNotesAction, updateStoreReferralRewardStatusAction } from "@/lib/actions";
 import { requireSuperAdmin } from "@/lib/admin";
+import { getDataQualityForStore, getDataQualityForStoreReferralReward } from "@/lib/data-quality";
 import {
   getAdminStoreReferralRewardFilter,
   getAdminStoreReferralRewardFormOptions,
@@ -177,12 +179,12 @@ export default async function AdminRewardsPage({
       {params.error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{params.error}</p> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <StatCard label="Pendientes" value={stats.PENDING.count} />
-        <StatCard label="Aprobadas" value={stats.APPROVED.count} />
-        <StatCard label="Aplicadas" value={stats.APPLIED.count} />
-        <StatCard label="Canceladas/expiradas" value={stats.CANCELLED.count + stats.EXPIRED.count} />
-        <StatCard label="Meses prometidos" value={stats.promisedMonths} />
-        <StatCard label="Seller AI prometido" value={stats.promisedSellerAiCredits} detail="Conversaciones" />
+        <StatCard label="Pendientes reales" value={stats.PENDING.count} />
+        <StatCard label="Aprobadas reales" value={stats.APPROVED.count} />
+        <StatCard label="Aplicadas reales" value={stats.APPLIED.count} />
+        <StatCard label="Canceladas/expiradas reales" value={stats.CANCELLED.count + stats.EXPIRED.count} />
+        <StatCard label="Meses reales prometidos" value={stats.promisedMonths} />
+        <StatCard label="Seller AI real prometido" value={stats.promisedSellerAiCredits} detail="Conversaciones" />
       </div>
 
       <form action={createStoreReferralRewardAction} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -199,14 +201,20 @@ export default async function AdminRewardsPage({
             {selectedReferrerStore ? (
               <div>
                 <p className="text-[11px] font-black uppercase text-neutral-500">Tienda referidora</p>
-                <p className="mt-1 text-brand-dark">{selectedReferrerStore.name} ({selectedReferrerStore.slug})</p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-brand-dark">
+                  {selectedReferrerStore.name} ({selectedReferrerStore.slug})
+                  <DataQualityBadge label={getDataQualityForStore(selectedReferrerStore)} />
+                </p>
                 <p className="text-xs text-neutral-500">{selectedReferrerStore.owner.email}</p>
               </div>
             ) : null}
             {selectedReferredStore ? (
               <div>
                 <p className="text-[11px] font-black uppercase text-neutral-500">Tienda referida</p>
-                <p className="mt-1 text-brand-dark">{selectedReferredStore.name} ({selectedReferredStore.slug})</p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-brand-dark">
+                  {selectedReferredStore.name} ({selectedReferredStore.slug})
+                  <DataQualityBadge label={getDataQualityForStore(selectedReferredStore)} />
+                </p>
                 <p className="text-xs text-neutral-500">{selectedReferredStore.owner.email}</p>
               </div>
             ) : null}
@@ -347,12 +355,15 @@ export default async function AdminRewardsPage({
         {rows.length === 0 ? (
           <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay recompensas para esta búsqueda. Crea un beneficio manual desde una atribución de tienda referidora.</div>
         ) : (
-          rows.map((reward) => (
+          rows.map((reward) => {
+            const dataQuality = getDataQualityForStoreReferralReward(reward);
+            return (
             <article key={reward.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(240px,0.75fr)_minmax(260px,0.7fr)]">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-start gap-2">
                     <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{reward.referrerStore.name}</h2>
+                    <DataQualityBadge label={dataQuality} />
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", statusClass(reward.status))}>{storeReferralRewardStatusLabel(reward.status)}</span>
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", rewardTypeClass(reward.rewardType))}>{storeReferralRewardTypeLabel(reward.rewardType)}</span>
                   </div>
@@ -433,7 +444,8 @@ export default async function AdminRewardsPage({
                 </div>
               </div>
             </article>
-          ))
+            );
+          })
         )}
       </div>
     </section>

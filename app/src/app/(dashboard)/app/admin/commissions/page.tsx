@@ -1,8 +1,10 @@
 import { Ban, CheckCircle2, CreditCard, HandCoins, Pencil, RotateCcw, Search } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { DataQualityBadge } from "@/components/admin/DataQualityBadge";
 import { createPartnerCommissionAction, updatePartnerCommissionNotesAction, updatePartnerCommissionStatusAction } from "@/lib/actions";
 import { requireSuperAdmin } from "@/lib/admin";
+import { getDataQualityForPartnerCommission, getDataQualityForStore } from "@/lib/data-quality";
 import {
   formatCommissionMoney,
   getAdminCommissionFormOptions,
@@ -161,13 +163,13 @@ export default async function AdminCommissionsPage({
       {params.error ? <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{params.error}</p> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-        <StatCard label="Pendientes" value={stats.PENDING.count} />
-        <StatCard label="Aprobadas" value={stats.APPROVED.count} />
-        <StatCard label="Pagadas" value={stats.PAID.count} />
-        <StatCard label="Canceladas/Reversadas" value={stats.CANCELLED.count + stats.REVERSED.count} />
-        <StatCard label="Total pendiente" value={formatCommissionMoney(stats.PENDING.amountCents)} />
-        <StatCard label="Total aprobado" value={formatCommissionMoney(stats.APPROVED.amountCents)} />
-        <StatCard label="Total pagado" value={formatCommissionMoney(stats.PAID.amountCents)} />
+        <StatCard label="Pendientes reales" value={stats.PENDING.count} />
+        <StatCard label="Aprobadas reales" value={stats.APPROVED.count} />
+        <StatCard label="Pagadas reales" value={stats.PAID.count} />
+        <StatCard label="Canceladas/Reversadas reales" value={stats.CANCELLED.count + stats.REVERSED.count} />
+        <StatCard label="Total pendiente real" value={formatCommissionMoney(stats.PENDING.amountCents)} />
+        <StatCard label="Total aprobado real" value={formatCommissionMoney(stats.APPROVED.amountCents)} />
+        <StatCard label="Total pagado real" value={formatCommissionMoney(stats.PAID.amountCents)} />
       </div>
 
       <form action={createPartnerCommissionAction} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -190,7 +192,10 @@ export default async function AdminCommissionsPage({
             {selectedStore ? (
               <div>
                 <p className="text-[11px] font-black uppercase text-neutral-500">Tienda asociada</p>
-                <p className="mt-1 text-brand-dark">{selectedStore.name} ({selectedStore.slug})</p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-brand-dark">
+                  {selectedStore.name} ({selectedStore.slug})
+                  <DataQualityBadge label={getDataQualityForStore(selectedStore)} />
+                </p>
                 <p className="text-xs text-neutral-500">{selectedStore.owner.email}</p>
               </div>
             ) : null}
@@ -321,12 +326,15 @@ export default async function AdminCommissionsPage({
         {rows.length === 0 ? (
           <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay comisiones para esta búsqueda. Crea una comisión manual desde un partner o una atribución partner.</div>
         ) : (
-          rows.map((commission) => (
+          rows.map((commission) => {
+            const dataQuality = getDataQualityForPartnerCommission(commission);
+            return (
             <article key={commission.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(240px,0.75fr)_minmax(260px,0.7fr)]">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-start gap-2">
                     <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{commission.partner.name}</h2>
+                    <DataQualityBadge label={dataQuality} />
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", statusClass(commission.status))}>{partnerCommissionStatusLabel(commission.status)}</span>
                   </div>
                   <p className="mt-1 font-mono text-xs text-neutral-500">{commission.partner.code}</p>
@@ -396,7 +404,8 @@ export default async function AdminCommissionsPage({
                 </div>
               </div>
             </article>
-          ))
+            );
+          })
         )}
       </div>
     </section>

@@ -1,4 +1,13 @@
 import { type Prisma } from "@prisma/client";
+import {
+  commercialRealAttributionWhere,
+  commercialRealGrowthClickWhere,
+  commercialRealPartnerDestinationWhere,
+  commercialRealPartnerWhere,
+  commercialRealStoreWhere,
+  commercialRealStorePaymentWhere,
+  excludedStorePaymentWhere,
+} from "@/lib/data-quality";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 
@@ -49,6 +58,9 @@ export type AdminRevenueAttributionSummary = {
   totalRevenue: RevenueCurrencyTotal[];
   last30DaysRevenue: RevenueCurrencyTotal[];
   last7DaysRevenue: RevenueCurrencyTotal[];
+  excludedDemoQaRevenue: RevenueCurrencyTotal[];
+  excludedDemoQaPayments: number;
+  excludedDemoQaStores: number;
   confirmedStores: number;
   confirmedPayments: number;
   partnerRevenue: RevenueCurrencyTotal[];
@@ -324,10 +336,10 @@ export function formatRevenueRate(totals: RevenueCurrencyTotal[] | null | undefi
 }
 
 export function getConfirmedPaymentDateWhere(rangeDays?: number): Prisma.StorePaymentWhereInput {
-  const base = {
+  const base = commercialRealStorePaymentWhere({
     status: "CONFIRMED",
     amountCents: { gt: 0 },
-  } satisfies Prisma.StorePaymentWhereInput;
+  });
 
   if (!rangeDays) return base;
 
@@ -374,15 +386,43 @@ async function getConfirmedPayments(rangeDays?: number): Promise<PaymentRef[]> {
   });
 }
 
+async function getExcludedConfirmedPayments(): Promise<PaymentRef[]> {
+  return getPrisma().storePayment.findMany({
+    where: excludedStorePaymentWhere({ status: "CONFIRMED", amountCents: { gt: 0 } }),
+    select: {
+      id: true,
+      storeId: true,
+      amountCents: true,
+      currency: true,
+      confirmedAt: true,
+      paidAt: true,
+      createdAt: true,
+      store: {
+        select: {
+          acquisitionAttribution: {
+            select: {
+              sourceType: true,
+              partnerId: true,
+              partnerDestinationId: true,
+              partnerDestinationSlug: true,
+              referrerStoreId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 async function countClicks(where: Prisma.GrowthLinkClickWhereInput, rangeDays?: number) {
   return getPrisma().growthLinkClick.count({
-    where: rangeDays ? { AND: [where, { clickedAt: { gte: statsWindow(rangeDays) } }] } : where,
+    where: commercialRealGrowthClickWhere(rangeDays ? { AND: [where, { clickedAt: { gte: statsWindow(rangeDays) } }] } : where),
   });
 }
 
 async function countSignups(where: Prisma.AcquisitionAttributionWhereInput, rangeDays?: number) {
   return getPrisma().acquisitionAttribution.count({
-    where: rangeDays ? { AND: [where, { signedUpAt: { gte: statsWindow(rangeDays) } }] } : where,
+    where: commercialRealAttributionWhere(rangeDays ? { AND: [where, { signedUpAt: { gte: statsWindow(rangeDays) } }] } : where),
   });
 }
 
@@ -412,7 +452,7 @@ async function getRevenueMetricSummary(params: {
   attributionWhere: Prisma.AcquisitionAttributionWhereInput;
 }): Promise<RevenueMetricSummary> {
   const attributions = await getPrisma().acquisitionAttribution.findMany({
-    where: params.attributionWhere,
+    where: commercialRealAttributionWhere(params.attributionWhere),
     select: { storeId: true },
   });
   const storeIds = attributions.map((attribution) => attribution.storeId);
@@ -497,19 +537,22 @@ export async function getRevenueBySourceBreakdown(): Promise<RevenueSourceBreakd
 }
 
 export async function getAdminRevenueAttributionSummary(): Promise<AdminRevenueAttributionSummary> {
-  const [payments, last30Payments, last7Payments, sourceBreakdown] = await Promise.all([
+  const [payments, last30Payments, last7Payments, excludedPayments, sourceBreakdown] = await Promise.all([
     getConfirmedPayments(),
     getConfirmedPayments(30),
     getConfirmedPayments(7),
+    getExcludedConfirmedPayments(),
     getRevenueBySourceBreakdown(),
   ]);
 
   const totalBucket = emptyRevenueBucket();
   const last30Bucket = emptyRevenueBucket();
   const last7Bucket = emptyRevenueBucket();
+  const excludedBucket = emptyRevenueBucket();
   payments.forEach((payment) => addPaymentToBucket(totalBucket, payment));
   last30Payments.forEach((payment) => addPaymentToBucket(last30Bucket, payment));
   last7Payments.forEach((payment) => addPaymentToBucket(last7Bucket, payment));
+  excludedPayments.forEach((payment) => addPaymentToBucket(excludedBucket, payment));
 
   const emptySourceSummary = {
     total: emptyRevenueMetricPeriod(),
@@ -554,6 +597,9 @@ export async function getAdminRevenueAttributionSummary(): Promise<AdminRevenueA
     totalRevenue: bucketToRevenueOnly(totalBucket).revenue,
     last30DaysRevenue: bucketToRevenueOnly(last30Bucket).revenue,
     last7DaysRevenue: bucketToRevenueOnly(last7Bucket).revenue,
+    excludedDemoQaRevenue: bucketToRevenueOnly(excludedBucket).revenue,
+    excludedDemoQaPayments: excludedBucket.paymentIds.size,
+    excludedDemoQaStores: excludedBucket.storeIds.size,
     confirmedStores: totalBucket.storeIds.size,
     confirmedPayments: totalBucket.paymentIds.size,
     partnerRevenue: partner.total.revenue,
@@ -672,7 +718,7 @@ export async function getRevenueOnlyByPartnerIds(partnerIds: string[]) {
   if (ids.length === 0) return new Map<string, RevenueOnlySummary>();
 
   const attributions = await getPrisma().acquisitionAttribution.findMany({
-    where: { sourceType: "PARTNER", partnerId: { in: ids } },
+    where: commercialRealAttributionWhere({ sourceType: "PARTNER", partnerId: { in: ids } }),
     select: { storeId: true, partnerId: true },
   });
 
@@ -687,7 +733,7 @@ export async function getRevenueOnlyByReferrerStoreIds(storeIds: string[]) {
   if (ids.length === 0) return new Map<string, RevenueOnlySummary>();
 
   const attributions = await getPrisma().acquisitionAttribution.findMany({
-    where: { sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids } },
+    where: commercialRealAttributionWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids } }),
     select: { storeId: true, referrerStoreId: true },
   });
 
@@ -707,7 +753,7 @@ export async function getRevenueOnlyByPartnerDestinationRefs(destinations: Desti
   const fallbackKeyByPartnerSlug = new Map(refs.map((destination) => [destinationKey(destination), destination.id]));
 
   const attributions = await getPrisma().acquisitionAttribution.findMany({
-    where: {
+    where: commercialRealAttributionWhere({
       sourceType: "PARTNER",
       OR: [
         { partnerDestinationId: { in: ids } },
@@ -717,7 +763,7 @@ export async function getRevenueOnlyByPartnerDestinationRefs(destinations: Desti
           partnerDestinationSlug: { in: slugs },
         },
       ],
-    },
+    }),
     select: {
       storeId: true,
       partnerId: true,
@@ -743,12 +789,12 @@ export async function getRevenueMetricsByPartnerIds(partnerIds: string[]) {
 
   const [revenueByPartner, clickRows, click30Rows, click7Rows, signupRows, signup30Rows, signup7Rows] = await Promise.all([
     getRevenueOnlyByPartnerIds(ids),
-    getPrisma().growthLinkClick.groupBy({ by: ["partnerId"], where: { sourceType: "PARTNER", partnerId: { in: ids } }, _count: { _all: true } }),
-    getPrisma().growthLinkClick.groupBy({ by: ["partnerId"], where: { sourceType: "PARTNER", partnerId: { in: ids }, clickedAt: { gte: statsWindow(30) } }, _count: { _all: true } }),
-    getPrisma().growthLinkClick.groupBy({ by: ["partnerId"], where: { sourceType: "PARTNER", partnerId: { in: ids }, clickedAt: { gte: statsWindow(7) } }, _count: { _all: true } }),
-    getPrisma().acquisitionAttribution.groupBy({ by: ["partnerId"], where: { sourceType: "PARTNER", partnerId: { in: ids } }, _count: { _all: true } }),
-    getPrisma().acquisitionAttribution.groupBy({ by: ["partnerId"], where: { sourceType: "PARTNER", partnerId: { in: ids }, signedUpAt: { gte: statsWindow(30) } }, _count: { _all: true } }),
-    getPrisma().acquisitionAttribution.groupBy({ by: ["partnerId"], where: { sourceType: "PARTNER", partnerId: { in: ids }, signedUpAt: { gte: statsWindow(7) } }, _count: { _all: true } }),
+    getPrisma().growthLinkClick.groupBy({ by: ["partnerId"], where: commercialRealGrowthClickWhere({ sourceType: "PARTNER", partnerId: { in: ids } }), _count: { _all: true } }),
+    getPrisma().growthLinkClick.groupBy({ by: ["partnerId"], where: commercialRealGrowthClickWhere({ sourceType: "PARTNER", partnerId: { in: ids }, clickedAt: { gte: statsWindow(30) } }), _count: { _all: true } }),
+    getPrisma().growthLinkClick.groupBy({ by: ["partnerId"], where: commercialRealGrowthClickWhere({ sourceType: "PARTNER", partnerId: { in: ids }, clickedAt: { gte: statsWindow(7) } }), _count: { _all: true } }),
+    getPrisma().acquisitionAttribution.groupBy({ by: ["partnerId"], where: commercialRealAttributionWhere({ sourceType: "PARTNER", partnerId: { in: ids } }), _count: { _all: true } }),
+    getPrisma().acquisitionAttribution.groupBy({ by: ["partnerId"], where: commercialRealAttributionWhere({ sourceType: "PARTNER", partnerId: { in: ids }, signedUpAt: { gte: statsWindow(30) } }), _count: { _all: true } }),
+    getPrisma().acquisitionAttribution.groupBy({ by: ["partnerId"], where: commercialRealAttributionWhere({ sourceType: "PARTNER", partnerId: { in: ids }, signedUpAt: { gte: statsWindow(7) } }), _count: { _all: true } }),
   ]);
 
   const countByPartner = (rows: typeof clickRows) => new Map(rows.flatMap((row) => (row.partnerId ? [[row.partnerId, row._count._all] as const] : [])));
@@ -778,12 +824,12 @@ export async function getRevenueMetricsByReferrerStoreIds(storeIds: string[]) {
 
   const [revenueByStore, clickRows, click30Rows, click7Rows, signupRows, signup30Rows, signup7Rows] = await Promise.all([
     getRevenueOnlyByReferrerStoreIds(ids),
-    getPrisma().growthLinkClick.groupBy({ by: ["referrerStoreId"], where: { sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids } }, _count: { _all: true } }),
-    getPrisma().growthLinkClick.groupBy({ by: ["referrerStoreId"], where: { sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids }, clickedAt: { gte: statsWindow(30) } }, _count: { _all: true } }),
-    getPrisma().growthLinkClick.groupBy({ by: ["referrerStoreId"], where: { sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids }, clickedAt: { gte: statsWindow(7) } }, _count: { _all: true } }),
-    getPrisma().acquisitionAttribution.groupBy({ by: ["referrerStoreId"], where: { sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids } }, _count: { _all: true } }),
-    getPrisma().acquisitionAttribution.groupBy({ by: ["referrerStoreId"], where: { sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids }, signedUpAt: { gte: statsWindow(30) } }, _count: { _all: true } }),
-    getPrisma().acquisitionAttribution.groupBy({ by: ["referrerStoreId"], where: { sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids }, signedUpAt: { gte: statsWindow(7) } }, _count: { _all: true } }),
+    getPrisma().growthLinkClick.groupBy({ by: ["referrerStoreId"], where: commercialRealGrowthClickWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids } }), _count: { _all: true } }),
+    getPrisma().growthLinkClick.groupBy({ by: ["referrerStoreId"], where: commercialRealGrowthClickWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids }, clickedAt: { gte: statsWindow(30) } }), _count: { _all: true } }),
+    getPrisma().growthLinkClick.groupBy({ by: ["referrerStoreId"], where: commercialRealGrowthClickWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids }, clickedAt: { gte: statsWindow(7) } }), _count: { _all: true } }),
+    getPrisma().acquisitionAttribution.groupBy({ by: ["referrerStoreId"], where: commercialRealAttributionWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids } }), _count: { _all: true } }),
+    getPrisma().acquisitionAttribution.groupBy({ by: ["referrerStoreId"], where: commercialRealAttributionWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids }, signedUpAt: { gte: statsWindow(30) } }), _count: { _all: true } }),
+    getPrisma().acquisitionAttribution.groupBy({ by: ["referrerStoreId"], where: commercialRealAttributionWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids }, signedUpAt: { gte: statsWindow(7) } }), _count: { _all: true } }),
   ]);
 
   const countByStore = (rows: typeof clickRows) => new Map(rows.flatMap((row) => (row.referrerStoreId ? [[row.referrerStoreId, row._count._all] as const] : [])));
@@ -839,6 +885,7 @@ export async function getRevenueMetricsByPartnerDestinationIds(destinations: Des
 
 export async function getTopRevenuePartners({ rangeDays, limit }: { rangeDays: number; limit: number }): Promise<TopRevenuePartner[]> {
   const partners = await getPrisma().partner.findMany({
+    where: commercialRealPartnerWhere(),
     select: { id: true, name: true, code: true },
     orderBy: { createdAt: "desc" },
     take: 250,
@@ -856,7 +903,12 @@ export async function getTopRevenuePartners({ rangeDays, limit }: { rangeDays: n
 
 export async function getTopRevenueStoreReferrers({ rangeDays, limit }: { rangeDays: number; limit: number }): Promise<TopRevenueStoreReferrer[]> {
   const stores = await getPrisma().store.findMany({
-    where: { referredStoreAttributions: { some: { sourceType: "STORE_REFERRAL" } } },
+    where: {
+      AND: [
+        commercialRealStoreWhere(),
+        { referredStoreAttributions: { some: commercialRealAttributionWhere({ sourceType: "STORE_REFERRAL" }) } },
+      ],
+    },
     select: {
       id: true,
       name: true,
@@ -889,6 +941,7 @@ export async function getTopRevenueStoreReferrers({ rangeDays, limit }: { rangeD
 
 export async function getTopRevenuePartnerDestinations({ rangeDays, limit }: { rangeDays: number; limit: number }): Promise<TopRevenuePartnerDestination[]> {
   const destinations = await getPrisma().partnerDestination.findMany({
+    where: commercialRealPartnerDestinationWhere(),
     select: {
       id: true,
       label: true,

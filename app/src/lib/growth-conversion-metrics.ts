@@ -7,6 +7,7 @@ import {
   getGrowthClickStatsByReferrerStore,
   type GrowthClickStats,
 } from "@/lib/growth-link-clicks";
+import { commercialRealAttributionWhere, commercialRealGrowthClickWhere } from "@/lib/data-quality";
 import { getPrisma } from "@/lib/prisma";
 
 export type GrowthConversionPeriod = {
@@ -128,12 +129,13 @@ export function emptyGrowthConversionSummary(): GrowthConversionSummary {
 
 async function getGrowthSignupStats(where: Prisma.AcquisitionAttributionWhereInput = {}): Promise<SignupStats> {
   const prisma = getPrisma();
+  const realWhere = commercialRealAttributionWhere(where);
   const last7Days = statsWindow(7);
   const last30Days = statsWindow(30);
   const [total, last7, last30] = await Promise.all([
-    prisma.acquisitionAttribution.count({ where }),
-    prisma.acquisitionAttribution.count({ where: withSignedUpAt(where, last7Days) }),
-    prisma.acquisitionAttribution.count({ where: withSignedUpAt(where, last30Days) }),
+    prisma.acquisitionAttribution.count({ where: realWhere }),
+    prisma.acquisitionAttribution.count({ where: withSignedUpAt(realWhere, last7Days) }),
+    prisma.acquisitionAttribution.count({ where: withSignedUpAt(realWhere, last30Days) }),
   ]);
 
   return {
@@ -151,7 +153,7 @@ async function getGrowthSignupStatsByPartner(partnerIds: string[]) {
   const prisma = getPrisma();
   const last7Days = statsWindow(7);
   const last30Days = statsWindow(30);
-  const baseWhere = { sourceType: "PARTNER", partnerId: { in: ids } } satisfies Prisma.AcquisitionAttributionWhereInput;
+  const baseWhere = commercialRealAttributionWhere({ sourceType: "PARTNER", partnerId: { in: ids } });
   const [totalRows, last7Rows, last30Rows] = await Promise.all([
     prisma.acquisitionAttribution.groupBy({
       by: ["partnerId"],
@@ -184,7 +186,7 @@ async function getGrowthSignupStatsByReferrerStore(storeIds: string[]) {
   const prisma = getPrisma();
   const last7Days = statsWindow(7);
   const last30Days = statsWindow(30);
-  const baseWhere = { sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids } } satisfies Prisma.AcquisitionAttributionWhereInput;
+  const baseWhere = commercialRealAttributionWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: ids } });
   const [totalRows, last7Rows, last30Rows] = await Promise.all([
     prisma.acquisitionAttribution.groupBy({
       by: ["referrerStoreId"],
@@ -221,13 +223,13 @@ async function getGrowthSignupStatsByPartnerDestination(destinations: PartnerDes
   const prisma = getPrisma();
   const last7Days = statsWindow(7);
   const last30Days = statsWindow(30);
-  const idWhere = { sourceType: "PARTNER", partnerDestinationId: { in: ids } } satisfies Prisma.AcquisitionAttributionWhereInput;
-  const slugWhere = {
+  const idWhere = commercialRealAttributionWhere({ sourceType: "PARTNER", partnerDestinationId: { in: ids } });
+  const slugWhere = commercialRealAttributionWhere({
     sourceType: "PARTNER",
     partnerDestinationId: null,
     partnerId: { in: partnerIds },
     partnerDestinationSlug: { in: slugs },
-  } satisfies Prisma.AcquisitionAttributionWhereInput;
+  });
 
   const [
     totalIdRows,
@@ -395,21 +397,21 @@ export async function getTopGrowthConverters({ rangeDays, limit }: { rangeDays: 
   const [partnerSignupRows, storeSignupRows, destinationSignupRows] = await Promise.all([
     prisma.acquisitionAttribution.groupBy({
       by: ["partnerId"],
-      where: { sourceType: "PARTNER", partnerId: { not: null }, signedUpAt: signupRangeFilter },
+      where: commercialRealAttributionWhere({ sourceType: "PARTNER", partnerId: { not: null }, signedUpAt: signupRangeFilter }),
       _count: { _all: true },
       orderBy: { _count: { partnerId: "desc" } },
       take,
     }),
     prisma.acquisitionAttribution.groupBy({
       by: ["referrerStoreId"],
-      where: { sourceType: "STORE_REFERRAL", referrerStoreId: { not: null }, signedUpAt: signupRangeFilter },
+      where: commercialRealAttributionWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { not: null }, signedUpAt: signupRangeFilter }),
       _count: { _all: true },
       orderBy: { _count: { referrerStoreId: "desc" } },
       take,
     }),
     prisma.acquisitionAttribution.groupBy({
       by: ["partnerDestinationId"],
-      where: { sourceType: "PARTNER", partnerDestinationId: { not: null }, signedUpAt: signupRangeFilter },
+      where: commercialRealAttributionWhere({ sourceType: "PARTNER", partnerDestinationId: { not: null }, signedUpAt: signupRangeFilter }),
       _count: { _all: true },
       orderBy: { _count: { partnerDestinationId: "desc" } },
       take,
@@ -435,17 +437,17 @@ export async function getTopGrowthConverters({ rangeDays, limit }: { rangeDays: 
     }),
     prisma.growthLinkClick.groupBy({
       by: ["partnerId"],
-      where: { sourceType: "PARTNER", partnerId: { in: partnerIds }, ...clickRangeWhere },
+      where: commercialRealGrowthClickWhere({ sourceType: "PARTNER", partnerId: { in: partnerIds }, ...clickRangeWhere }),
       _count: { _all: true },
     }),
     prisma.growthLinkClick.groupBy({
       by: ["referrerStoreId"],
-      where: { sourceType: "STORE_REFERRAL", referrerStoreId: { in: storeIds }, ...clickRangeWhere },
+      where: commercialRealGrowthClickWhere({ sourceType: "STORE_REFERRAL", referrerStoreId: { in: storeIds }, ...clickRangeWhere }),
       _count: { _all: true },
     }),
     prisma.growthLinkClick.groupBy({
       by: ["partnerDestinationId"],
-      where: { sourceType: "PARTNER", partnerDestinationId: { in: destinationIds }, ...clickRangeWhere },
+      where: commercialRealGrowthClickWhere({ sourceType: "PARTNER", partnerDestinationId: { in: destinationIds }, ...clickRangeWhere }),
       _count: { _all: true },
     }),
   ]);

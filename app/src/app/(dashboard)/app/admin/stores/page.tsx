@@ -2,11 +2,13 @@ import { Bot, CreditCard, ExternalLink, Search, Store } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CopyButton } from "@/components/CopyButton";
+import { DataQualityBadge } from "@/components/admin/DataQualityBadge";
 import { getCountryCommerceConfig } from "@/config/countries";
 import { storePlans } from "@/config/plans";
 import { getPublicStoreUrl } from "@/config/site";
 import { extendStoreTrialAction, updateStorePlanAction } from "@/lib/actions";
 import { adminStoreFilters, getAdminStoreFilter, getAdminStoreRows, requireSuperAdmin } from "@/lib/admin";
+import { getDataQualityForStore } from "@/lib/data-quality";
 import { getPlanLimitLabel } from "@/lib/plan-limits";
 import { formatStorePaymentMoney, storePaymentStatusLabel } from "@/lib/store-payments";
 import { cn } from "@/lib/ui";
@@ -150,6 +152,7 @@ export default async function AdminStoresPage({
             const country = getCountryCommerceConfig(store.countryCode);
             const publicUrl = getPublicStoreUrl(store.slug);
             const status = planStatusLabel(planState.planStatus, planState.trialExpired);
+            const dataQuality = getDataQualityForStore(store);
 
             return (
               <article key={store.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -160,7 +163,10 @@ export default async function AdminStoresPage({
                         <Store className="size-4" />
                       </div>
                       <div className="min-w-0">
-                        <h2 className="break-words text-xl font-black leading-6 text-brand-dark">{store.name}</h2>
+                        <div className="flex flex-wrap items-start gap-2">
+                          <h2 className="break-words text-xl font-black leading-6 text-brand-dark">{store.name}</h2>
+                          <DataQualityBadge label={dataQuality} />
+                        </div>
                         <p className="mt-1 font-mono text-xs text-neutral-500">{store.slug}</p>
                         <a href={publicUrl} target="_blank" className="mt-2 block break-all text-xs font-bold text-brand-dark hover:text-brand">
                           {publicUrl}

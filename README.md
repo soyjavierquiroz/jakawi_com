@@ -42,6 +42,7 @@ Listo hoy:
 - Partner/referral attribution con cookies, tracking de clicks y metricas de conversion.
 - Ledger manual de pagos, comisiones y rewards.
 - Suggested commission/reward actions cuando un pago confirmado tiene atribucion comercial.
+- QA Data Labeling/Cleanup v1 para separar datos `REAL`, `DEMO`, `QA`, `INTERNAL` y `NEEDS_REVIEW` sin borrar produccion.
 
 Manual o limitado hoy:
 
@@ -240,6 +241,7 @@ Capacidades:
 - Estados operativos definidos en helpers, guardados como `String` en Prisma.
 - No hay auto-payout.
 - Suggested actions sugieren comision/reward cuando un `StorePayment` confirmado tiene atribucion partner/store referral y aun no esta cubierto.
+- Las sugerencias comerciales excluyen datos demo, QA e internos.
 
 ### K. Revenue Ops
 
@@ -421,6 +423,7 @@ APIs relevantes:
 ### J. Superadmin opera growth/revenue
 
 - Admin revisa stores, partners, referrals, clicks, conversion, payments, revenue y acciones sugeridas.
+- Las metricas ejecutivas separan datos comerciales reales de demo/QA/internal mediante badges y filtros centralizados.
 - Operacion sigue manual para evitar automatizar pagos antes de control y QA.
 
 ## 11. Variables de entorno
@@ -583,6 +586,7 @@ Checklist minimo:
 - Cookies de sesion y attribution son HttpOnly; secure en produccion.
 - IP cruda no se persiste en usuario/growth; se usa `ipHash` SHA-256 con salt.
 - Minimal Rate Limiting v1 protege login, registro, Seller AI, uploads y tracking.
+- QA Data Labeling/Cleanup v1 evita que demo, QA, fixtures, rate-limit tests y datos internos contaminen metricas comerciales reales.
 - Metadata de click se trunca para reducir riesgo.
 - MinIO safe delete evita borrar assets globales o de otra tienda.
 - `.env.stack` no se commitea.
@@ -603,7 +607,7 @@ Checklist minimo:
 - Partner onboarding automatico no esta completo.
 - Rewards/commissions no se aplican/pagan automaticamente.
 - Plan application desde pagos confirmados no esta automatizada.
-- Puede existir data QA/demo en produccion.
+- Puede existir data QA/demo en produccion, pero debe verse con badge y quedar fuera de metricas comerciales reales.
 - Puede haber warnings preexistentes de `<img>` o deuda visual no bloqueante.
 - Falta suite automatizada fuerte si se quiere escalar self-service.
 - Redis esta desplegado, pero no toda la app depende de Redis todavia.
@@ -616,10 +620,13 @@ Checklist minimo:
 - E2E Playwright ampliado para registro, owner, public, Seller AI, partner y admin.
 - Observabilidad/logging estructurado.
 - Manejo de errores mas consistente en APIs y server actions.
-- Redis distribuido para rate limiting si se escala a multiples replicas.
+- Redis distributed rate limiting v2 cuando haya multiples replicas.
 - Transactional Email System v1 con AWS SES queda como prioridad pre-launch futura.
+- JAKAWI First-Party Audiences v1 queda como prioridad futura para audiencias propias sin depender de marketplaces.
+- Multi-domain v1 queda como prioridad futura para soportar dominios comerciales propios por tienda/segmento.
+- Store Ads Integrations v1 queda como prioridad futura: Meta Pixel/CAPI + TikTok Pixel/Events API.
 - Deduplicacion de `GrowthLinkClick` por ventana/session/visitor.
-- Limpieza o segmentacion de QA data.
+- Overrides persistidos para calidad de datos si los badges deterministicos no alcanzan.
 - Typed enums para statuses operativos que hoy estan como `String` en Prisma.
 - Mejor separacion services/actions en areas admin.
 - Performance de metricas cuando crezcan clicks, payments y attributions.
@@ -630,6 +637,9 @@ Checklist minimo:
 - Checkout/payment providers reales.
 - Aplicacion automatica payment-to-plan.
 - Emails/notificaciones transaccionales.
+- First-party audiences.
+- Multi-domain.
+- Meta Pixel/CAPI y TikTok Pixel/Events API por tienda cuando exista consentimiento y base legal.
 - Partner onboarding.
 - Owner reward rules configurables.
 - Commission rules configurables.
@@ -645,6 +655,7 @@ Checklist minimo:
 - Backups y restore drills para Postgres y MinIO.
 - Procedimientos superadmin para payments, commissions y rewards.
 - Politicas de limpieza/retencion de datos.
+- Procedimiento de calidad de datos para demo/QA/internal antes y durante private beta.
 - Proceso de soporte de lanzamiento.
 - Checklist comercial para pilotos.
 
@@ -654,7 +665,7 @@ Checklist minimo:
 
 - QA end-to-end: registro -> publicar space -> producto -> Seller AI -> WhatsApp.
 - Flujo de pago manual claro para owner y operador.
-- Limpieza de datos QA o etiquetado visible de datos de prueba.
+- Etiquetado visible de datos QA/demo/internal y metricas comerciales reales separadas.
 - Copy legal basico: terminos, privacidad, cookies/attribution y contacto.
 - Canal de soporte/contacto visible.
 - Monitoreo de health/logs y alerta basica.
@@ -667,7 +678,10 @@ Checklist minimo:
 ### B. Should-have
 
 - Onboarding partner.
-- Emails transaccionales basicos.
+- Transactional Email System v1 con AWS SES.
+- JAKAWI First-Party Audiences v1.
+- Multi-domain v1.
+- Store Ads Integrations v1: Meta Pixel/CAPI + TikTok Pixel/Events API.
 - Export CSV admin para payments/partners/revenue.
 - Mejores tests automatizados.
 - Rate limiting.

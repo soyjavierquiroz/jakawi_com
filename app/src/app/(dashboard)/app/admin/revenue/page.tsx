@@ -1,7 +1,9 @@
 import { ExternalLink, Gift, HandCoins, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { DataQualityBadge } from "@/components/admin/DataQualityBadge";
 import { requireSuperAdmin } from "@/lib/admin";
+import { getDataQualityForPartner, getDataQualityForPartnerDestination, getDataQualityForStore } from "@/lib/data-quality";
 import {
   formatRate,
   formatRevenueRate,
@@ -94,7 +96,7 @@ export default async function AdminRevenuePage() {
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Revenue</h1>
-          <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-neutral-600">Revenue confirmado registrado manualmente. No ejecuta cobros automáticos.</p>
+          <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-neutral-600">Revenue real confirmado registrado manualmente. Demo, QA e interno quedan visibles en listados, pero fuera de estas métricas.</p>
         </div>
         <Link href="/app/admin/payments" className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-brand-border bg-brand-paper px-5 font-bold text-brand-dark hover:border-brand">
           <TrendingUp className="size-4" />
@@ -105,15 +107,31 @@ export default async function AdminRevenuePage() {
       <AdminNav />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Revenue confirmado total" value={formatRevenueTotals(summary.totalRevenue)} detail={`${summary.confirmedPayments} pagos confirmados`} />
-        <StatCard label="Revenue confirmado 30 días" value={formatRevenueTotals(summary.last30DaysRevenue)} detail="Por confirmedAt, paidAt o fallback creado" />
-        <StatCard label="Tiendas con pago confirmado" value={summary.confirmedStores} detail="Stores con pagos CONFIRMED positivos" />
-        <StatCard label="Pagos confirmados" value={summary.confirmedPayments} detail="No incluye pending/cancelled/refunded" />
-        <StatCard label="Revenue atribuido a partners" value={formatRevenueTotals(summary.partnerRevenue)} detail="sourceType PARTNER" />
-        <StatCard label="Revenue atribuido a tiendas referidoras" value={formatRevenueTotals(summary.storeReferralRevenue)} detail="sourceType STORE_REFERRAL" />
-        <StatCard label="Revenue orgánico / sin atribución" value={formatRevenueTotals(summary.organicRevenue)} detail="Sin partner/store referral" />
-        <StatCard label="Revenue 7 días" value={formatRevenueTotals(summary.last7DaysRevenue)} detail="Actividad reciente" />
+        <StatCard label="Revenue real total" value={formatRevenueTotals(summary.totalRevenue)} detail={`${summary.confirmedPayments} pagos reales confirmados`} />
+        <StatCard label="Revenue real 30 días" value={formatRevenueTotals(summary.last30DaysRevenue)} detail="Por confirmedAt, paidAt o fallback creado" />
+        <StatCard label="Tiendas reales con pago" value={summary.confirmedStores} detail="Stores reales con pagos CONFIRMED positivos" />
+        <StatCard label="Pagos reales confirmados" value={summary.confirmedPayments} detail="No incluye pending/cancelled/refunded ni demo/QA/internal" />
+        <StatCard label="Revenue real partners" value={formatRevenueTotals(summary.partnerRevenue)} detail="sourceType PARTNER" />
+        <StatCard label="Revenue real referidoras" value={formatRevenueTotals(summary.storeReferralRevenue)} detail="sourceType STORE_REFERRAL" />
+        <StatCard label="Revenue real orgánico" value={formatRevenueTotals(summary.organicRevenue)} detail="Sin partner/store referral" />
+        <StatCard label="Revenue real 7 días" value={formatRevenueTotals(summary.last7DaysRevenue)} detail="Actividad reciente" />
       </div>
+
+      <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Data Quality v1</p>
+            <h2 className="mt-1 text-2xl font-black text-brand-dark">Revenue excluido de métricas comerciales</h2>
+            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-neutral-600">Excluye DEMO/QA/INTERNAL según Data Quality v1. No borra ni modifica StorePayment; solo separa el headline comercial real.</p>
+          </div>
+          <span className="rounded-full bg-brand-muted px-3 py-1 text-xs font-black uppercase text-neutral-500">Transparencia</span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <StatCard label="Revenue demo/QA excluido" value={formatRevenueTotals(summary.excludedDemoQaRevenue)} detail="No mezclado con revenue real" />
+          <StatCard label="Pagos excluidos" value={summary.excludedDemoQaPayments} detail="Confirmados positivos" />
+          <StatCard label="Tiendas excluidas" value={summary.excludedDemoQaStores} detail="Con pago confirmado excluido" />
+        </div>
+      </section>
 
       <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -181,6 +199,7 @@ export default async function AdminRevenuePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="break-words text-lg font-black text-brand-dark">{partner.name}</h3>
                     <span className="rounded-full bg-white px-2.5 py-1 font-mono text-[11px] font-black text-neutral-600">{partner.code}</span>
+                    <DataQualityBadge label={getDataQualityForPartner(partner)} />
                     <DataBadge period={partner.total} />
                   </div>
                   <p className="mt-2 text-3xl font-black text-brand-dark">{formatRevenueTotals(partner.total.revenue)}</p>
@@ -234,6 +253,7 @@ export default async function AdminRevenuePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="break-words text-lg font-black text-brand-dark">{destination.label}</h3>
                     <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-neutral-600">{destination.partnerName}</span>
+                    <DataQualityBadge label={getDataQualityForPartnerDestination({ ...destination, partner: { code: destination.partnerCode, name: destination.partnerName } })} />
                     <DataBadge period={destination.total} />
                   </div>
                   <p className="mt-1 font-mono text-xs text-neutral-500">{destination.partnerCode}/{destination.slug}</p>
@@ -264,6 +284,7 @@ export default async function AdminRevenuePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="break-words text-lg font-black text-brand-dark">{store.name}</h3>
                     <span className="rounded-full bg-white px-2.5 py-1 font-mono text-[11px] font-black text-neutral-600">{store.slug}</span>
+                    <DataQualityBadge label={getDataQualityForStore(store)} />
                     <DataBadge period={store.total} />
                   </div>
                   <p className="mt-2 text-3xl font-black text-brand-dark">{formatRevenueTotals(store.total.revenue)}</p>

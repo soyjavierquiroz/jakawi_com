@@ -1,6 +1,7 @@
 import { Ban, CheckCircle2, CreditCard, Pencil, RotateCcw, Search } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { DataQualityBadge } from "@/components/admin/DataQualityBadge";
 import { createStorePaymentAction, updateStorePaymentNotesAction, updateStorePaymentStatusAction } from "@/lib/actions";
 import { requireSuperAdmin } from "@/lib/admin";
 import {
@@ -18,6 +19,7 @@ import {
   storePaymentTypes,
 } from "@/lib/store-payments";
 import { getSuggestedActionsForPayments, type SuggestedGrowthAction } from "@/lib/suggested-growth-actions";
+import { getDataQualityForStore, getDataQualityForStorePayment } from "@/lib/data-quality";
 import { cn } from "@/lib/ui";
 
 type AdminPaymentsSearchParams = {
@@ -199,12 +201,13 @@ export default async function AdminPaymentsPage({
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
         <StatCard label="Pendientes" value={stats.PENDING.count} detail={formatStorePaymentMoney(stats.PENDING.amountCents)} />
-        <StatCard label="Confirmados" value={stats.CONFIRMED.count} detail={formatStorePaymentMoney(stats.CONFIRMED.amountCents)} />
+        <StatCard label="Confirmados reales" value={stats.CONFIRMED.count} detail={formatStorePaymentMoney(stats.CONFIRMED.amountCents)} />
+        <StatCard label="Confirmados demo/QA" value={stats.excludedConfirmedCount} detail={formatStorePaymentMoney(stats.excludedConfirmedAmountCents)} />
         <StatCard label="Cancelados" value={stats.CANCELLED.count} detail={formatStorePaymentMoney(stats.CANCELLED.amountCents)} />
         <StatCard label="Reembolsados" value={stats.REFUNDED.count} detail={formatStorePaymentMoney(stats.REFUNDED.amountCents)} />
-        <StatCard label="Total confirmado" value={formatStorePaymentMoney(stats.CONFIRMED.amountCents)} />
-        <StatCard label="Total pendiente" value={formatStorePaymentMoney(stats.PENDING.amountCents)} />
-        <StatCard label="Confirmado 30 días" value={formatStorePaymentMoney(stats.confirmedLast30DaysCents)} />
+        <StatCard label="Total confirmado real" value={formatStorePaymentMoney(stats.CONFIRMED.amountCents)} />
+        <StatCard label="Excluido de métricas" value={formatStorePaymentMoney(stats.excludedConfirmedAmountCents)} detail="Demo/QA/internal" />
+        <StatCard label="Confirmado real 30 días" value={formatStorePaymentMoney(stats.confirmedLast30DaysCents)} />
       </div>
 
       <form action={createStorePaymentAction} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -219,7 +222,10 @@ export default async function AdminPaymentsPage({
         {selectedStore ? (
           <div className="mt-4 rounded-md border border-brand-border bg-white p-3 text-sm font-semibold text-neutral-600">
             <p className="text-[11px] font-black uppercase text-neutral-500">Tienda preseleccionada</p>
-            <p className="mt-1 text-brand-dark">{selectedStore.name} ({selectedStore.slug})</p>
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-brand-dark">
+              {selectedStore.name} ({selectedStore.slug})
+              <DataQualityBadge label={getDataQualityForStore(selectedStore)} />
+            </p>
             <p className="text-xs text-neutral-500">{selectedStore.owner.email}</p>
           </div>
         ) : null}
@@ -356,6 +362,7 @@ export default async function AdminPaymentsPage({
           rows.map((payment) => {
             const attribution = payment.store.acquisitionAttribution;
             const suggestedAction = suggestedActions.get(payment.id);
+            const dataQuality = getDataQualityForStorePayment(payment);
 
             return (
               <article key={payment.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -363,6 +370,7 @@ export default async function AdminPaymentsPage({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-start gap-2">
                       <h2 className="min-w-0 break-words text-xl font-black leading-6 text-brand-dark">{payment.store.name}</h2>
+                      <DataQualityBadge label={dataQuality} />
                       <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", statusClass(payment.status))}>{storePaymentStatusLabel(payment.status)}</span>
                       <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", typeClass(payment.paymentType))}>{storePaymentTypeLabel(payment.paymentType)}</span>
                     </div>

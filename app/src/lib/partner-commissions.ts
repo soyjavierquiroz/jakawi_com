@@ -1,4 +1,5 @@
 import { type Prisma } from "@prisma/client";
+import { commercialRealPartnerCommissionWhere } from "@/lib/data-quality";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 
@@ -88,7 +89,7 @@ function buildCommissionSearchWhere(q: string): Prisma.PartnerCommissionWhereInp
 export async function getPartnerCommissionStats(partnerId?: string | null) {
   const rows = await getPrisma().partnerCommission.groupBy({
     by: ["status"],
-    where: partnerId ? { partnerId } : undefined,
+    where: commercialRealPartnerCommissionWhere(partnerId ? { partnerId } : {}),
     _count: { _all: true },
     _sum: { commissionAmountCents: true },
   });
@@ -108,6 +109,7 @@ export async function getPartnerCommissionStats(partnerId?: string | null) {
 export async function getPartnerCommissionStatsByPartner() {
   const rows = await getPrisma().partnerCommission.groupBy({
     by: ["partnerId", "status"],
+    where: commercialRealPartnerCommissionWhere(),
     _count: { _all: true },
     _sum: { commissionAmountCents: true },
   });
