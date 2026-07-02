@@ -99,3 +99,57 @@ Siguiente fase sugerida solo despues de un PASS de esta QA:
 ```text
 CRM Webhook Real Event Dry-Run Pilot v1
 ```
+
+## Retry after manual secret rotation
+
+Fecha: 2026-07-02
+Repo: `/var/opt/jakawi.com`
+Commit probado: `ad43d0b615b76a28cd274e5d7ce240ea007fd7c1`
+Fingerprint CRM Bridge: `sha256:0c1def321111`
+QA_DIR: `/var/backups/jakawi.com/qa/crm-webhook-controlled-qa-send-v1/20260702-234413`
+Resultado: `BLOCKED`
+
+El secret fue confirmado como presente en `.env.stack` sin imprimir su valor. Se aplico un reload minimo de configuracion al servicio `jakawi_com_web` para habilitar temporalmente solo el modo QA:
+
+```text
+CRM_WEBHOOK_ENABLED=true
+CRM_WEBHOOK_QA_ONLY=true
+```
+
+La llamada autenticada al endpoint protegido se intento una unica vez con una sesion superadmin temporal creada con token aleatorio y eliminada al finalizar. La sesion resolvio contra un usuario `SUPER_ADMIN`, pero el servicio respondio `404` antes de generar `event_id`.
+
+Motivo del bloqueo:
+
+```text
+La imagen en ejecucion de jakawi_com_web no contiene POST /api/admin/crm-webhook/qa-test.
+No se hizo build ni deploy de codigo por alcance explicito de la tarea.
+```
+
+Evidencia:
+
+- Summary JSON: `/var/backups/jakawi.com/qa/crm-webhook-controlled-qa-send-v1/20260702-234413/evidence/crm-webhook-controlled-qa-summary.json`
+- Preflight redacted: `/var/backups/jakawi.com/qa/crm-webhook-controlled-qa-send-v1/20260702-234413/evidence/preflight-redacted.txt`
+- Respuesta QA redacted: `/var/backups/jakawi.com/qa/crm-webhook-controlled-qa-send-v1/20260702-234413/evidence/qa-send-response-redacted.txt`
+- Estado final seguro: `/var/backups/jakawi.com/qa/crm-webhook-controlled-qa-send-v1/20260702-234413/evidence/final-safe-state-redacted.txt`
+
+Resultado de la llamada:
+
+- Evento objetivo: `qa.crm_webhook.test`
+- Eventos enviados al CRM Bridge: `0`
+- HTTP status del endpoint JAKAWI: `404`
+- HTTP status CRM Bridge: `not_applicable`
+- `event_id`: `not_created`
+- Eventos reales habilitados: `no`
+- Contactos mutados: `no`
+- Emails enviados: `0`
+- Secret expuesto: `no`
+
+Estado final seguro:
+
+```text
+CRM_WEBHOOK_ENABLED=false
+CRM_WEBHOOK_QA_ONLY=true
+CRM_WEBHOOK_SECRET=present
+```
+
+No hubo deploy, no hubo push, no se modifico Prisma y no se enviaron eventos reales.
