@@ -117,7 +117,30 @@ X-JAKAWI-Event-Id
 - [ ] No usar owners reales para pruebas destructivas.
 - [ ] No guardar payloads completos con PII en evidencia.
 
-## 7. Operación diaria/semanal
+## 7. Setup verification
+
+Reporte vigente: `docs/CRM-SETUP-VERIFICATION.md`.
+
+Antes de conectar JAKAWI con CRM, confirmar:
+
+- `crm.jakawi.com` HTTPS OK.
+- FluentCRM Pro activo.
+- FluentSMTP/AWS SES configurado o endpoint listo para prueba sin envio real.
+- Listas iniciales y tags `jakawi_*` creados o listos.
+- Secuencias iniciales en draft o desactivadas durante pruebas.
+- Endpoint/webhook definido, con URL y secret guardados fuera del repo.
+- Firma HMAC o bridge/plugin seguro si FluentCRM no valida HMAC nativamente.
+- Idempotencia por `event_id`.
+- Politica de PII aceptada para payload minimo.
+
+No hacer:
+
+- Campanas reales sin consentimiento, copy aprobado y baja clara.
+- Pegar PII innecesaria, payloads reales, URL privada de webhook, passwords, tokens, cookies, API keys o secrets en docs.
+- Activar webhooks sin secret, sin prueba fake y sin plan de fallo abierto.
+- Usar FluentCRM como fuente de verdad de auth, pagos, planes, leads o tokens.
+
+## 8. Operación diaria/semanal
 
 Diario:
 
@@ -135,7 +158,7 @@ Semanal:
 - Revisar que tags/listas no crezcan con datos QA/demo sin etiqueta.
 - Confirmar que CRM no se usa como fuente de verdad de pagos/planes.
 
-## 8. Incidentes
+## 9. Incidentes
 
 SES bounce spike:
 
@@ -180,7 +203,7 @@ Unsubscribe/legal issue:
 - Pausar campanas relacionadas.
 - Escalar a responsable legal/operativo.
 
-## 9. Backups CRM
+## 10. Backups CRM
 
 Respaldar:
 
@@ -197,7 +220,7 @@ Requisitos:
 - Restore test periodico.
 - No mezclar backups CRM con dumps de JAKAWI sin plan aprobado.
 
-## 10. Seguridad
+## 11. Seguridad
 
 - 2FA para wp-admin.
 - Updates de WordPress, plugins y temas.
@@ -209,7 +232,7 @@ Requisitos:
 - Secrets fuera del repo.
 - No exponer webhook URLs sensibles en documentos, issues o capturas.
 
-## 11. Pendientes
+## 12. Pendientes
 
 - JAKAWI CRM Event Webhook v1.
 - Password reset nativo JAKAWI.
