@@ -4,7 +4,7 @@ Fecha: 2026-07-02
 Repo: `/var/opt/jakawi.com`
 Commit probado: `734ec22c36fe4ce1ae62a679c871253a4e4e0d91`
 Endpoint efectivo: `https://crm.jakawi.com/index.php/wp-json/jakawi-crm/v1/events`
-Resultado: `BLOCKED`
+Resultado final: `PASS`
 
 ## Evidencia
 
@@ -153,3 +153,77 @@ CRM_WEBHOOK_SECRET=present
 ```
 
 No hubo deploy, no hubo push, no se modifico Prisma y no se enviaron eventos reales.
+
+## Final PASS
+
+Fecha: 2026-07-03
+Repo: `/var/opt/jakawi.com`
+Resultado final: `PASS`
+
+CRM Bridge confirmado:
+
+- Host real: `crm.jakawi.com`
+- Endpoint: `https://crm.jakawi.com/index.php/wp-json/jakawi-crm/v1/events`
+- Cambio minimo aplicado en CRM Bridge: `/home/crm.jakawi.com/public_html/wp-content/plugins/jakawi-crm-bridge/includes/class-jakawi-crm-bridge-security.php`
+- Evento agregado a allowlist: `qa.crm_webhook.test`
+- Campos permitidos: `qa`, `source_flow`
+
+Regla QA-only para `qa.crm_webhook.test`:
+
+- `qa=true`
+- `email=qa-crm-webhook-test@example.com`
+- `attribution_type=QA` o `source_flow=QA`
+
+Verificacion:
+
+| Check | Resultado |
+| --- | --- |
+| PHP lint | `PASS` |
+| Bridge Self-Test | `PASS status 200` |
+
+Settings finales del CRM Bridge:
+
+| Setting | Valor |
+| --- | --- |
+| `enabled` | `true` |
+| `dry_run` | `true` |
+| `allow_qa_events_only` | `true` |
+| `allow_contact_mutation` | `false` |
+
+Unico POST QA firmado:
+
+| Campo | Valor |
+| --- | --- |
+| `event_id` | `qa-crm-webhook-test-1783042115-bdec4931` |
+| `crm_http_status` | `200` |
+| `sent` | `true` |
+| `invalid_signature` | `no` |
+| `event_not_allowed` | `no` |
+| `contacts_mutated` | `no` |
+| `emails_sent` | `0` |
+
+Bridge response:
+
+| Campo | Valor |
+| --- | --- |
+| `ok` | `true` |
+| `dry_run` | `true` |
+| `contact_mutation` | `false` |
+| `duplicate` | `false` |
+
+Estado final JAKAWI confirmado:
+
+| Variable | Estado |
+| --- | --- |
+| `CRM_WEBHOOK_ENABLED` | `false` |
+| `CRM_WEBHOOK_QA_ONLY` | `true` |
+| `CRM_WEBHOOK_SECRET` | presente, valor no mostrado |
+
+Seguridad y alcance:
+
+- App code modificado: `no`
+- Deploy: `no`
+- Push: `no`
+- Prisma: `no`
+- Secret expuesto en docs: `no`
+- Secret expuesto en commit: `no`
