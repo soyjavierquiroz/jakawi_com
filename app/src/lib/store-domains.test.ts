@@ -1,0 +1,150 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createStoreDomainManual, setPrimaryStoreDomain, setStoreDomainStatus } from "./store-domains";
+
+type Store = {
+  id: string;
+  slug: string;
+};
+
+type Domain = {
+  id: string;
+  storeId: string;
+  hostname: string;
+  type: "CUSTOM_DOMAIN" | "JAKAWI_SUBDOMAIN";
+  status: "PENDING" | "VERIFYING" | "ACTIVE" | "FAILED" | "DISABLED";
+  isPrimary: boolean;
+  verificationType: "NONE" | "DNS_TXT" | "DNS_CNAME" | "MANUAL";
+  verificationValue: string | null;
+  sslStatus: string | null;
+  lastCheckedAt: Date | null;
+  store?: Store;
+};
+
+class FakeDomainDb {
+  stores: Store[] = [{ id: "store-1", slug: "demo" }];
+  domains: Domain[] = [];
+  nextDomainId = 1;
+
+  store = {
+    findUnique: async (args: { where: { id: string } }) => {
+      return this.stores.find((store) => store.id === args.where.id) ?? null;
+    },
+  };
+
+  storeDomain = {
+    findUnique: async (args: { where: { id?: string; hostname?: string } }) => {
+      const domain = this.domains.find((row) => row.id === args.where.id || row.hostname === args.where.hostname);
+      if (!domain) return null;
+      return { ...domain, store: this.stores.find((store) => store.id === domain.storeId) };
+    },
+    updateMany: async (args: { where: { storeId: string; isPrimary?: boolean }; data: Partial<Domain> }) => {
+      let count = 0;
+      for (const domain of this.domains) {
+        if (domain.storeId !== args.where.storeId) continue;
+        if (typeof args.where.isPrimary === "boolean" && domain.isPrimary !== args.where.isPrimary) continue;
+        Object.assign(domain, args.data);
+        count += 1;
+      }
+      return { count };
+    },
+    create: async (args: { data: Omit<Domain, "id" | "lastCheckedAt"> & { lastCheckedAt?: Date } }) => {
+      const domain: Domain = {
+        ...args.data,
+        id: `domain-${this.nextDomainId++}`,
+        lastCheckedAt: args.data.lastCheckedAt ?? null,
+      };
+      this.domains.push(domain);
+      return domain;
+    },
+    update: async (args: { where: { id: string }; data: Partial<Domain> }) => {
+      const domain = this.domains.find((row) => row.id === args.where.id);
+      if (!domain) throw new Error("domain not found");
+      Object.assign(domain, args.data);
+      return domain;
+    },
+  };
+
+  $transaction = async <T>(queries: Array<T | Promise<T>>) => Promise.all(queries);
+}
+
+test("createStoreDomainManual normalizes valid hostname", async () => {
+  const db = new FakeDomainDb();
+  const result = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: " HTTPS://Shop.Example.COM/path ",
+    type: "CUSTOM_DOMAIN",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(db.domains[0].hostname, "shop.example.com");
+  assert.equal(db.domains[0].verificationValue, "jakawi-domain-verification=shop.example.com");
+});
+
+test("createStoreDomainManual rejects reserved domain", async () => {
+  const db = new FakeDomainDb();
+  const result = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "jakawi.com",
+    type: "CUSTOM_DOMAIN",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(db.domains.length, 0);
+});
+
+test("createStoreDomainManual rejects duplicate hostname", async () => {
+  const db = new FakeDomainDb();
+  await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "shop.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+  const duplicate = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "shop.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+
+  assert.equal(duplicate.ok, false);
+  assert.equal(db.domains.length, 1);
+});
+
+test("setPrimaryStoreDomain unsets previous primary for the store", async () => {
+  const db = new FakeDomainDb();
+  const first = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "a.example.com",
+    type: "CUSTOM_DOMAIN",
+    isPrimary: true,
+  });
+  const second = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "b.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  if (!second.ok) throw new Error("second domain not created");
+  await setPrimaryStoreDomain(db as never, second.domain.id);
+
+  assert.equal(db.domains.find((domain) => domain.hostname === "a.example.com")?.isPrimary, false);
+  assert.equal(db.domains.find((domain) => domain.hostname === "b.example.com")?.isPrimary, true);
+});
+
+test("setStoreDomainStatus marks ACTIVE and updates lastCheckedAt", async () => {
+  const db = new FakeDomainDb();
+  const created = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "status.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+  if (!created.ok) throw new Error("domain not created");
+
+  const result = await setStoreDomainStatus(db as never, created.domain.id, "ACTIVE");
+
+  assert.equal(result.ok, true);
+  assert.equal(db.domains[0].status, "ACTIVE");
+  assert.ok(db.domains[0].lastCheckedAt instanceof Date);
+});

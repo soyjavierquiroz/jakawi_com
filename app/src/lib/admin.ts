@@ -386,3 +386,40 @@ export async function getAdminStoreRows(params: { q?: string; filter?: string })
     return true;
   });
 }
+
+export async function getAdminDomainManagementData() {
+  const prisma = getPrisma();
+  const [domains, stores] = await Promise.all([
+    prisma.storeDomain.findMany({
+      include: {
+        store: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            isPublished: true,
+            owner: { select: { email: true } },
+          },
+        },
+      },
+      orderBy: [{ isPrimary: "desc" }, { status: "asc" }, { createdAt: "desc" }],
+      take: 250,
+    }),
+    prisma.store.findMany({
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isPublished: true,
+      },
+      orderBy: [{ name: "asc" }, { slug: "asc" }],
+      take: 250,
+    }),
+  ]);
+
+  return {
+    domains,
+    stores,
+    customDomainsEnabled: process.env.CUSTOM_DOMAINS_ENABLED === "true",
+  };
+}

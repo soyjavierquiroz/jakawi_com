@@ -96,3 +96,34 @@ test("resolveStorefrontRequest maps platform /slug to platform storefront", asyn
   assert.equal(result.mode, "PLATFORM_SLUG");
   assert.equal(result.storeSlug, "slug");
 });
+
+test("ACTIVE status allows custom domain resolution", async () => {
+  const result = await resolveStorefrontRequest("shop.example.com", "/", {
+    env: baseEnv,
+    db: {
+      storeDomain: {
+        findFirst: async () => ({
+          hostname: "shop.example.com",
+          type: "CUSTOM_DOMAIN",
+          store: { id: "store-1", slug: "demo", isPublished: true },
+        }),
+      },
+    },
+  });
+
+  assert.equal(result.mode, "CUSTOM_DOMAIN");
+  assert.equal(result.storeSlug, "demo");
+});
+
+test("PENDING status does not resolve custom domain", async () => {
+  const result = await resolveStorefrontRequest("pending.example.com", "/", {
+    env: baseEnv,
+    db: {
+      storeDomain: {
+        findFirst: async () => null,
+      },
+    },
+  });
+
+  assert.equal(result.mode, "NOT_STOREFRONT");
+});

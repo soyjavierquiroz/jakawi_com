@@ -40,6 +40,22 @@ function customDomainsEnabled(env: DomainEnv = process.env) {
   return env.CUSTOM_DOMAINS_ENABLED === "true";
 }
 
+export function getStoreCanonicalBaseUrl(
+  store: { slug: string },
+  requestHost?: string | null,
+  options: { env?: DomainEnv; activeHostnames?: string[] } = {},
+) {
+  const env = options.env ?? process.env;
+  const hostname = normalizeHostname(requestHost);
+  const activeHostnames = new Set((options.activeHostnames ?? []).map((item) => normalizeHostname(item)));
+
+  if (hostname && activeHostnames.has(hostname) && !isJakawiPlatformHost(hostname, env)) {
+    return `https://${hostname}`;
+  }
+
+  return `https://${getPrimaryDomain(env)}/${store.slug}`;
+}
+
 export function normalizeHostname(input: string | null | undefined) {
   let value = String(input ?? "").trim().toLowerCase();
   if (!value) return "";
