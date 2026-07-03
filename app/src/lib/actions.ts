@@ -25,6 +25,7 @@ import {
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
 import { sendOwnerCrmEvent, sendPartnerCrmEvent } from "@/lib/crm-webhook";
+import { normalizeHostname, validateStoreDomainHostname, type StoreDomainKind } from "@/lib/domains";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
 import { isPartnerCommissionStatus, parseCommissionAmountToCents } from "@/lib/partner-commissions";
@@ -70,6 +71,25 @@ function appendQueryParam(path: string, key: string, value: string) {
 function looksLikeSensitivePaymentReference(value: string | null | undefined) {
   if (!value) return false;
   return /\d{13,19}/.test(value.replace(/[\s-]/g, ""));
+}
+
+const manualStoreDomainTypes = ["CUSTOM_DOMAIN", "JAKAWI_SUBDOMAIN"] as const;
+const manualStoreDomainStatuses = ["PENDING", "VERIFYING", "ACTIVE", "FAILED", "DISABLED"] as const;
+const manualStoreDomainVerificationTypes = ["NONE", "DNS_TXT", "DNS_CNAME", "MANUAL"] as const;
+
+function normalizeManualStoreDomainType(value: string): (typeof manualStoreDomainTypes)[number] | null {
+  const normalized = value.trim().toUpperCase();
+  return manualStoreDomainTypes.find((item) => item === normalized) ?? null;
+}
+
+function normalizeManualStoreDomainStatus(value: string): (typeof manualStoreDomainStatuses)[number] {
+  const normalized = value.trim().toUpperCase();
+  return manualStoreDomainStatuses.find((item) => item === normalized) ?? "PENDING";
+}
+
+function normalizeManualStoreDomainVerificationType(value: string): (typeof manualStoreDomainVerificationTypes)[number] {
+  const normalized = value.trim().toUpperCase();
+  return manualStoreDomainVerificationTypes.find((item) => item === normalized) ?? "NONE";
 }
 
 function uploadErrorMessage(error: unknown) {
@@ -766,6 +786,50 @@ export async function extendStoreTrialAction(formData: FormData) {
 
   revalidatePath("/app/admin/stores");
   redirect("/app/admin/stores?ok=trial");
+}
+
+export async function createStoreDomainManualAction(formData: FormData) {
+  await requireSuperAdmin();
+  const returnTo = adminReturnTo(formData, "/app/admin/stores");
+  const storeId = field(formData, "storeId");
+  const type = normalizeManualStoreDomainType(field(formData, "type"));
+  const hostnameInput = field(formData, "hostname");
+  const status = normalizeManualStoreDomainStatus(field(formData, "status"));
+  const verificationType = normalizeManualStoreDomainVerificationType(field(formData, "verificationType"));
+  const isPrimary = field(formData, "isPrimary") === "true" || field(formData, "isPrimary") === "on";
+
+  if (!type) redirect(appendQueryParam(returnTo, "error", "Tipo de dominio invalido"));
+
+  const validation = validateStoreDomainHostname(hostnameInput, { type: type as StoreDomainKind });
+  if (!validation.ok) redirect(appendQueryParam(returnTo, "error", `Dominio invalido: ${validation.reason}`));
+
+  const store = await getPrisma().store.findUnique({ where: { id: storeId }, select: { id: true, slug: true } });
+  if (!store) redirect(appendQueryParam(returnTo, "error", "Tienda no encontrada"));
+
+  const data = {
+    storeId: store.id,
+    hostname: normalizeHostname(validation.hostname),
+    type,
+    status,
+    isPrimary,
+    verificationType,
+    verificationValue: cleanOptional(field(formData, "verificationValue")),
+    cloudflareHostnameId: cleanOptional(field(formData, "cloudflareHostnameId")),
+    sslStatus: cleanOptional(field(formData, "sslStatus")),
+  };
+
+  if (isPrimary) {
+    await getPrisma().$transaction([
+      getPrisma().storeDomain.updateMany({ where: { storeId: store.id, isPrimary: true }, data: { isPrimary: false } }),
+      getPrisma().storeDomain.create({ data }),
+    ]);
+  } else {
+    await getPrisma().storeDomain.create({ data });
+  }
+
+  revalidatePath("/app/admin/stores");
+  revalidatePath(`/${store.slug}`);
+  redirect(appendQueryParam(returnTo, "ok", "domain"));
 }
 
 export async function createStorePaymentAction(formData: FormData) {

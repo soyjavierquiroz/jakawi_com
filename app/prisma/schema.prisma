@@ -91,6 +91,27 @@ enum AuthTokenType {
   EMAIL_VERIFY
 }
 
+enum StoreDomainType {
+  JAKAWI_SLUG
+  JAKAWI_SUBDOMAIN
+  CUSTOM_DOMAIN
+}
+
+enum StoreDomainStatus {
+  PENDING
+  VERIFYING
+  ACTIVE
+  FAILED
+  DISABLED
+}
+
+enum StoreDomainVerificationType {
+  NONE
+  DNS_TXT
+  DNS_CNAME
+  MANUAL
+}
+
 model User {
   id              String    @id @default(cuid())
   name            String
@@ -198,6 +219,7 @@ model Store {
   updatedAt                     DateTime  @updatedAt
 
   owner                     User                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  domains                   StoreDomain[]
   products                  Product[]
   categories                Category[]
   events                    AnalyticsEvent[]
@@ -213,6 +235,28 @@ model Store {
 
   @@index([ownerId])
   @@index([slug])
+}
+
+model StoreDomain {
+  id                   String                      @id @default(cuid())
+  storeId              String
+  hostname             String                      @unique
+  type                 StoreDomainType
+  status               StoreDomainStatus           @default(PENDING)
+  isPrimary            Boolean                     @default(false)
+  verificationType     StoreDomainVerificationType @default(NONE)
+  verificationValue    String?
+  cloudflareHostnameId String?
+  sslStatus            String?
+  lastCheckedAt        DateTime?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([storeId, isPrimary])
+  @@index([status])
 }
 
 model Partner {
