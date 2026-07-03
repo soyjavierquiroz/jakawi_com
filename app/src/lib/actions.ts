@@ -46,6 +46,8 @@ import {
   normalizeStoreDomainStatus,
   normalizeStoreDomainType,
   normalizeStoreDomainVerificationType,
+  provisionStoreDomainCloudflare,
+  refreshStoreDomainCloudflareStatus,
   setPrimaryStoreDomain,
   setStoreDomainStatus,
 } from "@/lib/store-domains";
@@ -831,6 +833,32 @@ export async function setPrimaryStoreDomainAction(formData: FormData) {
   revalidatePath("/app/admin/domains");
   if (result.store?.slug) revalidatePath(`/${result.store.slug}`);
   redirect(appendQueryParam(returnTo, "ok", "primary"));
+}
+
+export async function provisionStoreDomainCloudflareAction(formData: FormData) {
+  await requireSuperAdmin();
+  const returnTo = adminReturnTo(formData, "/app/admin/domains");
+  const domainId = field(formData, "domainId");
+
+  const result = await provisionStoreDomainCloudflare(getPrisma() as never, domainId);
+  if (!result.ok) redirect(appendQueryParam(returnTo, "error", `Cloudflare no actualizado: ${result.reason}`));
+
+  revalidatePath("/app/admin/domains");
+  if (result.store?.slug) revalidatePath(`/${result.store.slug}`);
+  redirect(appendQueryParam(returnTo, "ok", "cloudflare"));
+}
+
+export async function refreshStoreDomainCloudflareStatusAction(formData: FormData) {
+  await requireSuperAdmin();
+  const returnTo = adminReturnTo(formData, "/app/admin/domains");
+  const domainId = field(formData, "domainId");
+
+  const result = await refreshStoreDomainCloudflareStatus(getPrisma() as never, domainId);
+  if (!result.ok) redirect(appendQueryParam(returnTo, "error", `Cloudflare no actualizado: ${result.reason}`));
+
+  revalidatePath("/app/admin/domains");
+  if (result.store?.slug) revalidatePath(`/${result.store.slug}`);
+  redirect(appendQueryParam(returnTo, "ok", "cloudflare-refresh"));
 }
 
 export async function createStorePaymentAction(formData: FormData) {

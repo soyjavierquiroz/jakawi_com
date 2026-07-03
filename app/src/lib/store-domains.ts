@@ -1,3 +1,8 @@
+import {
+  createCloudflareCustomHostname,
+  getCloudflareCustomHostname,
+  type CloudflareOperationResult,
+} from "@/lib/cloudflare-custom-hostnames";
 import { normalizeHostname, validateStoreDomainHostname, type StoreDomainKind } from "@/lib/domains";
 
 export const storeDomainTypes = ["CUSTOM_DOMAIN", "JAKAWI_SUBDOMAIN"] as const;
@@ -22,7 +27,7 @@ type StoreDomainRecord = {
   isPrimary: boolean;
   verificationType: ManualStoreDomainVerificationType;
   verificationValue: string | null;
-  cloudflareHostnameId?: string | null;
+  cloudflareHostnameId: string | null;
   sslStatus: string | null;
   lastCheckedAt: Date | null;
   store?: StoreDomainStore;
@@ -56,6 +61,17 @@ export type CreateStoreDomainInput = {
 export type StoreDomainOperationResult<T = StoreDomainRecord> =
   | { ok: true; domain: T; store?: StoreDomainStore }
   | { ok: false; reason: string; hostname?: string };
+
+function cloudflareVerificationValue(result: CloudflareOperationResult) {
+  if (!result.ok) return null;
+  return (
+    result.hostname.ownership_verification?.value ??
+    result.hostname.ownership_verification_http?.http_url ??
+    result.hostname.ssl?.validation_records?.[0]?.txt_value ??
+    result.hostname.ssl?.validation_records?.[0]?.http_url ??
+    null
+  );
+}
 
 export function normalizeStoreDomainType(value: string): ManualStoreDomainType | null {
   const normalized = value.trim().toUpperCase();
@@ -160,6 +176,60 @@ export async function setPrimaryStoreDomain(
     db.storeDomain.updateMany({ where: { storeId: domain.storeId, isPrimary: true }, data: { isPrimary: false } }),
     db.storeDomain.update({ where: { id: domain.id }, data: { isPrimary: true } }),
   ])) as unknown as [unknown, StoreDomainRecord];
+
+  return { ok: true, domain: updated, store: domain.store };
+}
+
+export async function provisionStoreDomainCloudflare(
+  db: Pick<StoreDomainDb, "storeDomain">,
+  domainId: string,
+  options: { createHostname?: typeof createCloudflareCustomHostname } = {},
+): Promise<StoreDomainOperationResult> {
+  const domain = await db.storeDomain.findUnique({ where: { id: domainId }, include: { store: { select: { id: true, slug: true } } } });
+  if (!domain) return { ok: false, reason: "domain_not_found" };
+  if (domain.type !== "CUSTOM_DOMAIN") return { ok: false, reason: "custom_domain_required", hostname: domain.hostname };
+
+  const createHostname = options.createHostname ?? createCloudflareCustomHostname;
+  const result = await createHostname(domain.hostname);
+  if (!result.ok) return { ok: false, reason: result.reason, hostname: domain.hostname };
+
+  const updated = await db.storeDomain.update({
+    where: { id: domain.id },
+    data: {
+      cloudflareHostnameId: result.hostname.id,
+      status: result.mapped.storeDomainStatus,
+      sslStatus: result.mapped.sslStatus,
+      verificationType: "DNS_CNAME",
+      verificationValue: cloudflareVerificationValue(result),
+      lastCheckedAt: new Date(),
+    },
+  });
+
+  return { ok: true, domain: updated, store: domain.store };
+}
+
+export async function refreshStoreDomainCloudflareStatus(
+  db: Pick<StoreDomainDb, "storeDomain">,
+  domainId: string,
+  options: { getHostname?: typeof getCloudflareCustomHostname } = {},
+): Promise<StoreDomainOperationResult> {
+  const domain = await db.storeDomain.findUnique({ where: { id: domainId }, include: { store: { select: { id: true, slug: true } } } });
+  if (!domain) return { ok: false, reason: "domain_not_found" };
+  if (!domain.cloudflareHostnameId) return { ok: false, reason: "missing_cloudflare_hostname_id", hostname: domain.hostname };
+
+  const getHostname = options.getHostname ?? getCloudflareCustomHostname;
+  const result = await getHostname(domain.cloudflareHostnameId);
+  if (!result.ok) return { ok: false, reason: result.reason, hostname: domain.hostname };
+
+  const updated = await db.storeDomain.update({
+    where: { id: domain.id },
+    data: {
+      status: result.mapped.storeDomainStatus,
+      sslStatus: result.mapped.sslStatus,
+      verificationValue: cloudflareVerificationValue(result) ?? domain.verificationValue,
+      lastCheckedAt: new Date(),
+    },
+  });
 
   return { ok: true, domain: updated, store: domain.store };
 }

@@ -1,7 +1,13 @@
 import { AlertTriangle, CheckCircle2, Globe2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { createStoreDomainManualAction, setPrimaryStoreDomainAction, updateStoreDomainStatusAction } from "@/lib/actions";
+import {
+  createStoreDomainManualAction,
+  provisionStoreDomainCloudflareAction,
+  refreshStoreDomainCloudflareStatusAction,
+  setPrimaryStoreDomainAction,
+  updateStoreDomainStatusAction,
+} from "@/lib/actions";
 import { getAdminDomainManagementData, requireSuperAdmin } from "@/lib/admin";
 import { getStoreCanonicalBaseUrl } from "@/lib/domains";
 import { storeDomainStatuses, storeDomainTypes, storeDomainVerificationTypes } from "@/lib/store-domains";
@@ -44,20 +50,20 @@ function dnsInstructions(domain: {
   type: string;
   verificationType: string;
   verificationValue: string | null;
-}) {
+}, fallbackOrigin: string) {
   if (domain.type === "JAKAWI_SUBDOMAIN") {
     return {
       title: "DNS JAKAWI",
-      lines: ["Requiere control/wildcard DNS de JAKAWI.", "No usar como CUSTOM_DOMAIN.", "Cloudflare Custom Hostnames v1 sigue pendiente."],
+      lines: ["Requiere control/wildcard DNS de JAKAWI.", "No usar como CUSTOM_DOMAIN.", "Cloudflare Custom Hostnames solo aplica a dominios propios de tiendas."],
     };
   }
 
   return {
-    title: "DNS manual sugerido",
+    title: "DNS para cliente",
     lines: [
-      `CNAME: ${domain.hostname} -> custom-hostname.jakawi.com`,
-      domain.verificationType === "DNS_TXT" ? `TXT: ${domain.hostname} -> ${domain.verificationValue ?? "jakawi-domain-verification=<hostname>"}` : "TXT: no requerido si la verificación es manual.",
-      "No se llama Cloudflare API desde esta UI.",
+      `CNAME: ${domain.hostname} -> ${fallbackOrigin}`,
+      domain.verificationType === "DNS_TXT" ? `TXT: ${domain.hostname} -> ${domain.verificationValue ?? "jakawi-domain-verification=<hostname>"}` : "TXT: no requerido si Cloudflare usa validación HTTP/CNAME.",
+      "Cloudflare API queda gated por env y solo disponible para superadmin.",
     ],
   };
 }
@@ -69,7 +75,7 @@ export default async function AdminDomainsPage({
 }) {
   await requireSuperAdmin();
   const params = await searchParams;
-  const { domains, stores, customDomainsEnabled } = await getAdminDomainManagementData();
+  const { domains, stores, customDomainsEnabled, cloudflareCustomHostnames } = await getAdminDomainManagementData();
 
   return (
     <section className="space-y-4 md:space-y-6">
@@ -77,7 +83,7 @@ export default async function AdminDomainsPage({
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Dominios de tiendas</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Gestión manual de StoreDomain, verificación DNS y activación operativa sin Cloudflare API.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Gestión manual de StoreDomain, verificación DNS y provisioning Cloudflare gated por env.</p>
         </div>
         <Link href="/app/admin" className="inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-brand-paper px-5 font-bold text-brand-dark hover:border-brand">
           Volver al panel
@@ -95,6 +101,23 @@ export default async function AdminDomainsPage({
           <div>
             <p className="font-black">CUSTOM_DOMAINS_ENABLED={customDomainsEnabled ? "true" : "false"}</p>
             <p className="mt-1 leading-6">{customDomainsEnabled ? "Los dominios ACTIVE pueden resolver storefront por Host." : "Default seguro activo: los dominios se pueden administrar, pero no resuelven storefront hasta habilitar la variable."}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className={cn("rounded-lg border p-4 text-sm font-semibold shadow-sm", cloudflareCustomHostnames.ready ? "border-green-200 bg-green-50 text-green-800" : "border-neutral-200 bg-neutral-50 text-neutral-700")}>
+        <div className="flex items-start gap-3">
+          {cloudflareCustomHostnames.ready ? <CheckCircle2 className="mt-0.5 size-5 shrink-0" /> : <AlertTriangle className="mt-0.5 size-5 shrink-0" />}
+          <div>
+            <p className="font-black">CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED={cloudflareCustomHostnames.enabled ? "true" : "false"}</p>
+            <p className="mt-1 leading-6">
+              {cloudflareCustomHostnames.ready
+                ? "Provisioning Cloudflare disponible para superadmin."
+                : cloudflareCustomHostnames.reason === "missing_config"
+                  ? "Cloudflare está habilitado, pero falta token o zone id en servidor."
+                  : "Cloudflare API deshabilitada por default seguro."}
+            </p>
+            <p className="mt-1 break-all font-mono text-xs">Fallback origin: {cloudflareCustomHostnames.fallbackOrigin}</p>
           </div>
         </div>
       </div>
@@ -186,7 +209,7 @@ export default async function AdminDomainsPage({
           <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay dominios registrados todavía.</div>
         ) : (
           domains.map((domain) => {
-            const instructions = dnsInstructions(domain);
+            const instructions = dnsInstructions(domain, cloudflareCustomHostnames.fallbackOrigin);
             const canonicalUrl = getStoreCanonicalBaseUrl(domain.store, domain.hostname, {
               activeHostnames: domain.status === "ACTIVE" ? [domain.hostname] : [],
             });
@@ -226,6 +249,7 @@ export default async function AdminDomainsPage({
                       <p className="break-all font-mono text-xs">{canonicalUrl}</p>
                       <p className="mt-1 text-xs text-neutral-500">Última revisión: {formatDateTime(domain.lastCheckedAt)}</p>
                       <p className="text-xs text-neutral-500">SSL: {domain.sslStatus ?? "Sin estado"}</p>
+                      <p className="break-all text-xs text-neutral-500">Cloudflare ID: {domain.cloudflareHostnameId ?? "Sin provisioning"}</p>
                     </div>
 
                     <form action={updateStoreDomainStatusAction} className="grid grid-cols-[1fr_auto] gap-2">
@@ -248,6 +272,26 @@ export default async function AdminDomainsPage({
                         {domain.isPrimary ? "Ya es primary" : "Marcar primary"}
                       </button>
                     </form>
+
+                    {domain.type === "CUSTOM_DOMAIN" && !domain.cloudflareHostnameId ? (
+                      <form action={provisionStoreDomainCloudflareAction}>
+                        <input type="hidden" name="returnTo" value="/app/admin/domains" />
+                        <input type="hidden" name="domainId" value={domain.id} />
+                        <button className="h-10 w-full rounded-md bg-brand-dark px-3 text-xs font-black text-white hover:bg-brand" disabled={!cloudflareCustomHostnames.ready}>
+                          Provisionar Cloudflare
+                        </button>
+                      </form>
+                    ) : null}
+
+                    {domain.cloudflareHostnameId ? (
+                      <form action={refreshStoreDomainCloudflareStatusAction}>
+                        <input type="hidden" name="returnTo" value="/app/admin/domains" />
+                        <input type="hidden" name="domainId" value={domain.id} />
+                        <button className="h-10 w-full rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand" disabled={!cloudflareCustomHostnames.ready}>
+                          Refrescar Cloudflare
+                        </button>
+                      </form>
+                    ) : null}
                   </div>
 
                   <div className="rounded-md bg-brand-muted px-3 py-2 text-sm font-semibold leading-6 text-neutral-700">

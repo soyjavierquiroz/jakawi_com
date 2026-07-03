@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getCloudflareCustomHostnamesConfig, getCloudflareCustomHostnamesReadiness } from "@/config/cloudflare";
 import { type StorePlanCode } from "@/config/plans";
 import { requireUser } from "@/lib/auth";
 import {
@@ -389,6 +390,8 @@ export async function getAdminStoreRows(params: { q?: string; filter?: string })
 
 export async function getAdminDomainManagementData() {
   const prisma = getPrisma();
+  const cloudflareConfig = getCloudflareCustomHostnamesConfig();
+  const cloudflareReadiness = getCloudflareCustomHostnamesReadiness(cloudflareConfig);
   const [domains, stores] = await Promise.all([
     prisma.storeDomain.findMany({
       include: {
@@ -421,5 +424,11 @@ export async function getAdminDomainManagementData() {
     domains,
     stores,
     customDomainsEnabled: process.env.CUSTOM_DOMAINS_ENABLED === "true",
+    cloudflareCustomHostnames: {
+      enabled: cloudflareConfig.enabled,
+      ready: cloudflareReadiness.ok,
+      reason: cloudflareReadiness.ok ? null : cloudflareReadiness.reason,
+      fallbackOrigin: cloudflareConfig.fallbackOrigin,
+    },
   };
 }

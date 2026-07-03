@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createStoreDomainManual, setPrimaryStoreDomain, setStoreDomainStatus } from "./store-domains";
+import { createStoreDomainManual, provisionStoreDomainCloudflare, refreshStoreDomainCloudflareStatus, setPrimaryStoreDomain, setStoreDomainStatus } from "./store-domains";
 
 type Store = {
   id: string;
@@ -16,6 +16,7 @@ type Domain = {
   isPrimary: boolean;
   verificationType: "NONE" | "DNS_TXT" | "DNS_CNAME" | "MANUAL";
   verificationValue: string | null;
+  cloudflareHostnameId: string | null;
   sslStatus: string | null;
   lastCheckedAt: Date | null;
   store?: Store;
@@ -52,6 +53,7 @@ class FakeDomainDb {
       const domain: Domain = {
         ...args.data,
         id: `domain-${this.nextDomainId++}`,
+        cloudflareHostnameId: args.data.cloudflareHostnameId ?? null,
         lastCheckedAt: args.data.lastCheckedAt ?? null,
       };
       this.domains.push(domain);
@@ -146,5 +148,48 @@ test("setStoreDomainStatus marks ACTIVE and updates lastCheckedAt", async () => 
 
   assert.equal(result.ok, true);
   assert.equal(db.domains[0].status, "ACTIVE");
+  assert.ok(db.domains[0].lastCheckedAt instanceof Date);
+});
+
+test("provisionStoreDomainCloudflare requires CUSTOM_DOMAIN", async () => {
+  const db = new FakeDomainDb();
+  const created = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "tienda.jakawi.com",
+    type: "JAKAWI_SUBDOMAIN",
+  });
+  if (!created.ok) throw new Error("domain not created");
+
+  const result = await provisionStoreDomainCloudflare(db as never, created.domain.id, {
+    createHostname: async () => {
+      throw new Error("should not call Cloudflare for JAKAWI_SUBDOMAIN");
+    },
+  });
+
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.reason, "custom_domain_required");
+});
+
+test("refreshStoreDomainCloudflareStatus updates sslStatus and status", async () => {
+  const db = new FakeDomainDb();
+  const created = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "refresh.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+  if (!created.ok) throw new Error("domain not created");
+  db.domains[0].cloudflareHostnameId = "cf-hostname-1";
+
+  const result = await refreshStoreDomainCloudflareStatus(db as never, created.domain.id, {
+    getHostname: async () => ({
+      ok: true,
+      hostname: { id: "cf-hostname-1", hostname: "refresh.example.com", ssl: { status: "active" } },
+      mapped: { storeDomainStatus: "ACTIVE", sslStatus: "active" },
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(db.domains[0].status, "ACTIVE");
+  assert.equal(db.domains[0].sslStatus, "active");
   assert.ok(db.domains[0].lastCheckedAt instanceof Date);
 });
