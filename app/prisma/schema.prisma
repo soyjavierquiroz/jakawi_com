@@ -86,25 +86,32 @@ enum CommercialSnapshotChannel {
   MANUAL
 }
 
+enum AuthTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFY
+}
+
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  firstName    String?
-  lastName     String?
-  email        String   @unique
-  passwordHash String
-  phone        String?
-  countryCode  String?
-  countryName  String?
-  currency     String?
-  role         String   @default("OWNER")
-  city         String?
-  region       String?
-  ipHash       String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(cuid())
+  name            String
+  firstName       String?
+  lastName        String?
+  email           String    @unique
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  phone           String?
+  countryCode     String?
+  countryName     String?
+  currency        String?
+  role            String    @default("OWNER")
+  city            String?
+  region          String?
+  ipHash          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   sessions                Session[]
+  authTokens              AuthToken[]
   stores                  Store[]
   acquisitionAttributions AcquisitionAttribution[]
   partnerPortal           Partner?
@@ -120,6 +127,21 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
   @@index([expiresAt])
 }
 
@@ -418,7 +440,7 @@ model StorePayment {
 
   status String @default("PENDING")
 
-  paymentMethod    String?
+  paymentMethod     String?
   externalReference String?
   description       String?
   notes             String?

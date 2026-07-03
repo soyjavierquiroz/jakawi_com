@@ -11,6 +11,21 @@ export const rateLimitPolicies = {
     limit: 50,
     windowSeconds: 10 * 60,
   },
+  PASSWORD_RESET: {
+    id: "password-reset",
+    limit: 5,
+    windowSeconds: 60 * 60,
+  },
+  PASSWORD_RESET_IP: {
+    id: "password-reset-ip",
+    limit: 20,
+    windowSeconds: 60 * 60,
+  },
+  EMAIL_VERIFICATION: {
+    id: "email-verification",
+    limit: 5,
+    windowSeconds: 60 * 60,
+  },
   REGISTER: {
     id: "register",
     limit: 5,

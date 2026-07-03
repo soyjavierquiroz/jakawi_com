@@ -15,6 +15,13 @@ import { createAttributionForStore } from "@/lib/acquisition/attribution";
 import { clearAcquisitionCookies } from "@/lib/acquisition/cookies";
 import { normalizePartnerCode, normalizePartnerDestinationSlug, validatePartnerDestinationTargetUrl } from "@/lib/acquisition/partners";
 import { requireSuperAdmin } from "@/lib/admin";
+import {
+  passwordResetRequestedMessage,
+  requestEmailVerificationForUser,
+  requestPasswordReset,
+  resetPasswordWithToken,
+  verifyEmailWithToken,
+} from "@/lib/auth-account";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
 import { sendOwnerCrmEvent, sendPartnerCrmEvent } from "@/lib/crm-webhook";
@@ -232,6 +239,12 @@ export async function registerAction(formData: FormData) {
       });
     }
 
+    try {
+      await requestEmailVerificationForUser(user.id);
+    } catch (verificationError) {
+      console.warn("Could not prepare email verification token", verificationError instanceof Error ? verificationError.message : "unknown error");
+    }
+
     await createSession(user.id);
     await clearAcquisitionCookies();
   } catch (error) {
@@ -272,6 +285,65 @@ export async function loginAction(formData: FormData) {
 export async function logoutAction() {
   await destroySession();
   redirect("/");
+}
+
+export async function requestPasswordResetAction(formData: FormData) {
+  const email = field(formData, "email").toLowerCase();
+  const requestHeaders = await headers();
+  const clientIp = getClientIpFromHeaders(requestHeaders);
+  const [emailLimit, ipLimit] = await Promise.all([
+    checkRateLimit({ policy: rateLimitPolicies.PASSWORD_RESET, keyParts: [clientIp, email] }),
+    checkRateLimit({ policy: rateLimitPolicies.PASSWORD_RESET_IP, keyParts: [clientIp] }),
+  ]);
+
+  if (!emailLimit.allowed || !ipLimit.allowed) {
+    redirect(`/forgot-password?error=${encodeURIComponent(userFacingRateLimitMessage)}`);
+  }
+
+  await requestPasswordReset(email);
+  redirect(`/forgot-password?sent=${encodeURIComponent(passwordResetRequestedMessage)}`);
+}
+
+export async function resetPasswordAction(formData: FormData) {
+  const token = field(formData, "token");
+  const password = field(formData, "password");
+  const confirmPassword = field(formData, "confirmPassword");
+
+  if (password !== confirmPassword) {
+    redirect(`/reset-password?token=${encodeURIComponent(token)}&error=${encodeURIComponent("Los passwords no coinciden.")}`);
+  }
+
+  const result = await resetPasswordWithToken(token, password);
+  if (!result.ok) {
+    redirect(`/reset-password?token=${encodeURIComponent(token)}&error=${encodeURIComponent(result.error)}`);
+  }
+
+  redirect("/login?message=Password actualizado. Entra con tu nuevo password.");
+}
+
+export async function requestEmailVerificationAction() {
+  const user = await requireUser();
+  const requestHeaders = await headers();
+  const clientIp = getClientIpFromHeaders(requestHeaders);
+  const limit = await checkRateLimit({ policy: rateLimitPolicies.EMAIL_VERIFICATION, keyParts: [clientIp, user.id] });
+
+  if (!limit.allowed) {
+    redirect(`/app?error=${encodeURIComponent(userFacingRateLimitMessage)}`);
+  }
+
+  await requestEmailVerificationForUser(user.id);
+  redirect("/app");
+}
+
+export async function verifyEmailAction(formData: FormData) {
+  const token = field(formData, "token");
+  const result = await verifyEmailWithToken(token);
+
+  if (!result.ok) {
+    redirect(`/verify-email?token=${encodeURIComponent(token)}&error=${encodeURIComponent(result.error)}`);
+  }
+
+  redirect("/verify-email?status=ok");
 }
 
 export async function updateStoreAction(formData: FormData) {

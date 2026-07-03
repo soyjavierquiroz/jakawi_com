@@ -5,7 +5,7 @@ import { loginAction } from "@/lib/actions";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; message?: string }>;
 }) {
   const params = await searchParams;
 
@@ -16,6 +16,7 @@ export default async function LoginPage({
         <h1 className="mt-8 text-3xl font-black">Entrar</h1>
         <p className="mt-2 text-neutral-600">Gestiona tu link, productos y consultas.</p>
         {params.error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{params.error}</p> : null}
+        {params.message ? <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm font-semibold text-green-800">{params.message}</p> : null}
 
         <form action={loginAction} className="mt-6 space-y-4">
           <label className="block space-y-2">
@@ -26,6 +27,11 @@ export default async function LoginPage({
             <span className="text-sm font-semibold">Password</span>
             <input name="password" type="password" required className="h-11 w-full rounded-md border border-neutral-200 px-3 outline-none focus:border-brand" />
           </label>
+          <div className="text-right">
+            <Link href="/forgot-password" className="text-sm font-bold text-brand-dark">
+              Olvide mi password
+            </Link>
+          </div>
           <button className="h-11 w-full rounded-md bg-brand font-bold text-white transition hover:bg-brand-dark">Entrar</button>
         </form>
 
