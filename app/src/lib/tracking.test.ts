@@ -1,0 +1,114 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { canTrackMarketing, defaultTrackingConsent, parseConsent } from "@/lib/tracking/consent";
+import { analyticsEventNameForLegacyType, isEventAllowedForScope } from "@/lib/tracking/events";
+import { createTrackingEventId, createVisitorId, getOrCreateJourneyId, getOrCreateVisitorId, trackingCookieNames } from "@/lib/tracking/ids";
+import { trackInternalEvent } from "@/lib/tracking/track";
+
+function createMockDb(options: { duplicate?: boolean } = {}) {
+  const writes: unknown[] = [];
+  return {
+    writes,
+    db: {
+      trackingEvent: {
+        async create(args: { data: unknown }) {
+          writes.push(args.data);
+          if (options.duplicate) throw { code: "P2002" };
+          return args.data;
+        },
+      },
+    },
+  };
+}
+
+test("tracking event id is generated with an internal prefix", () => {
+  const eventId = createTrackingEventId();
+  assert.match(eventId, /^jkw_evt_[a-z0-9]+_[a-f0-9]{32}$/);
+});
+
+test("visitor and journey ids are stable when cookies already exist", () => {
+  const visitorId = createVisitorId();
+  const cookieStore = new Map<string, string>([[trackingCookieNames.visitorId, visitorId]]);
+  const writes: Array<{ name: string; value: string }> = [];
+  const store = {
+    get: (name: string) => cookieStore.get(name),
+    set: (name: string, value: string) => writes.push({ name, value }),
+  };
+
+  assert.equal(getOrCreateVisitorId(store), visitorId);
+  assert.equal(writes[0]?.name, trackingCookieNames.visitorId);
+  assert.equal(writes[0]?.value, visitorId);
+
+  const journeyId = getOrCreateJourneyId(store);
+  assert.match(journeyId, /^jkw_journey_/);
+});
+
+test("marketing consent is false by default", () => {
+  assert.equal(defaultTrackingConsent.necessary, true);
+  assert.equal(defaultTrackingConsent.analytics, true);
+  assert.equal(defaultTrackingConsent.marketing, false);
+  assert.equal(canTrackMarketing(), false);
+  assert.deepEqual(parseConsent('{"necessary":true,"analytics":true,"marketing":true}'), {
+    necessary: true,
+    analytics: true,
+    marketing: true,
+  });
+});
+
+test("STORE scope does not allow platform events", () => {
+  assert.equal(isEventAllowedForScope("STORE", "store_view"), true);
+  assert.equal(isEventAllowedForScope("STORE", "jakawi_landing_view"), false);
+  assert.equal(isEventAllowedForScope("PLATFORM", "jakawi_landing_view"), true);
+});
+
+test("trackInternalEvent writes STORE events without external APIs", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    throw new Error("external fetch should not be called");
+  }) as typeof fetch;
+  const { db, writes } = createMockDb();
+
+  try {
+    const result = await trackInternalEvent(
+      {
+        scope: "STORE",
+        eventName: "store_view",
+        storeId: "store_1",
+        visitorId: "jkw_visitor_mabc123456_abcdefabcdef",
+        journeyId: "jkw_journey_mabc123456_abcdefabcdef",
+        path: "/demo",
+        consent: { marketing: false },
+      },
+      { db },
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(writes.length, 1);
+    assert.equal((writes[0] as { scope: string }).scope, "STORE");
+    assert.equal((writes[0] as { eventName: string }).eventName, "store_view");
+    assert.equal((writes[0] as { consentMarketing: boolean }).consentMarketing, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("legacy store and product analytics map to STORE tracking events", () => {
+  assert.equal(analyticsEventNameForLegacyType("STORE_VIEW"), "store_view");
+  assert.equal(analyticsEventNameForLegacyType("PRODUCT_VIEW"), "product_view");
+});
+
+test("duplicate tracking event ids are handled safely", async () => {
+  const { db } = createMockDb({ duplicate: true });
+  const result = await trackInternalEvent(
+    {
+      eventId: "jkw_evt_duplicate",
+      scope: "STORE",
+      eventName: "product_view",
+      storeId: "store_1",
+      productId: "product_1",
+    },
+    { db },
+  );
+
+  assert.deepEqual(result, { ok: true, eventId: "jkw_evt_duplicate", duplicate: true });
+});

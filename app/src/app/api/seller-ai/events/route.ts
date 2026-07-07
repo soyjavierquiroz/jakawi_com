@@ -6,6 +6,8 @@ import { getPrisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { addJourneyEvent, getOrCreateCustomerJourney } from "@/lib/seller-ai/journey";
 import { logLeadEvent } from "@/lib/seller-ai/leads";
+import { trackInternalEvent } from "@/lib/tracking/track";
+import type { StoreTrackingEventName } from "@/lib/tracking/events";
 
 const eventSchema = z.object({
   sessionId: z.string().min(6).max(160),
@@ -33,6 +35,19 @@ function mapJourneyEvent(eventType: LeadEventType) {
     LEAD_STATUS_CHANGED: JourneyEventType.STATUS_CHANGED,
   };
   return mapping[eventType];
+}
+
+function mapInternalTrackingEvent(eventType: LeadEventType): StoreTrackingEventName | null {
+  const mapping: Partial<Record<LeadEventType, StoreTrackingEventName>> = {
+    STORE_VIEW: "store_view",
+    PRODUCT_VIEW: "product_view",
+    CHAT_OPENED: "seller_ai_opened",
+    AI_MESSAGE_SENT: "seller_ai_message",
+    CUSTOMER_MESSAGE_SENT: "seller_ai_message",
+    WHATSAPP_CLICKED: "whatsapp_click",
+    LEAD_CREATED: "lead_created",
+  };
+  return mapping[eventType] ?? null;
 }
 
 export async function POST(request: Request) {
@@ -95,6 +110,27 @@ export async function POST(request: Request) {
     metadata: parsed.data.metadata as Prisma.InputJsonObject | undefined,
     writeJourneyEvent: false,
   });
+
+  const internalEventName = mapInternalTrackingEvent(parsed.data.eventType);
+  if (internalEventName) {
+    await trackInternalEvent({
+      scope: "STORE",
+      eventName: internalEventName,
+      storeId: store.id,
+      productId: parsed.data.productId,
+      visitorId: parsed.data.visitorId,
+      journeyId: journey.id,
+      source: "seller_ai_event",
+      path: new URL(request.url).pathname,
+      userAgent: request.headers.get("user-agent"),
+      ip: getClientIpFromHeaders(request.headers),
+      metadata: {
+        leadEventType: parsed.data.eventType,
+        categoryId: parsed.data.categoryId ?? null,
+        metadata: parsed.data.metadata ?? null,
+      } as Prisma.InputJsonObject,
+    });
+  }
 
   return NextResponse.json({ ok: true, journeyId: journey.id, journeyCode: journey.journeyCode });
 }

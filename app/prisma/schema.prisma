@@ -13,6 +13,11 @@ enum AnalyticsEventType {
   WHATSAPP_CLICK
 }
 
+enum TrackingScope {
+  PLATFORM
+  STORE
+}
+
 enum LeadStatus {
   BROWSING
   ENGAGED
@@ -579,6 +584,38 @@ model AnalyticsEvent {
   @@index([storeId, createdAt])
   @@index([productId, createdAt])
   @@index([type, createdAt])
+}
+
+model TrackingEvent {
+  id                String        @id @default(cuid())
+  eventId           String        @unique
+  scope             TrackingScope
+  eventName         String
+  storeId           String?
+  productId         String?
+  userId            String?
+  leadId            String?
+  visitorId         String?
+  journeyId         String?
+  source            String?
+  path              String?
+  referrer          String?
+  userAgent         String?
+  ipHash            String?
+  consentNecessary  Boolean       @default(true)
+  consentAnalytics  Boolean       @default(true)
+  consentMarketing  Boolean       @default(false)
+  metadata          Json?
+  occurredAt        DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+
+  @@index([scope, eventName, occurredAt])
+  @@index([storeId, occurredAt])
+  @@index([productId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([leadId, occurredAt])
+  @@index([visitorId])
+  @@index([journeyId])
 }
 
 model Lead {

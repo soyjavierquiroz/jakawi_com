@@ -4,6 +4,7 @@ import { rateLimitPolicies } from "@/config/rate-limits";
 import { getPrisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { ensureSellerLead } from "@/lib/seller-ai/leads";
+import { trackInternalEvent } from "@/lib/tracking/track";
 
 const leadSchema = z.object({
   sessionId: z.string().min(6).max(160),
@@ -36,6 +37,21 @@ export async function POST(request: Request) {
     categoryId: parsed.data.categoryId,
     source: parsed.data.source,
     journeyId: parsed.data.journeyId,
+  });
+
+  await trackInternalEvent({
+    scope: "STORE",
+    eventName: "lead_created",
+    storeId: store.id,
+    productId: parsed.data.currentProductId,
+    leadId: lead.id,
+    visitorId: parsed.data.visitorId,
+    journeyId: journey.id,
+    source: parsed.data.source ?? "seller_ai_lead",
+    path: new URL(request.url).pathname,
+    userAgent: request.headers.get("user-agent"),
+    ip: getClientIpFromHeaders(request.headers),
+    metadata: { status: lead.status, intentScore: lead.intentScore },
   });
 
   return NextResponse.json({
