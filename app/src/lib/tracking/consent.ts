@@ -10,6 +10,8 @@ export const defaultTrackingConsent: TrackingConsent = {
   marketing: false,
 };
 
+export const trackingConsentCookieName = "jakawi_tracking_consent";
+
 function parseBoolean(value: unknown, fallback: boolean) {
   if (typeof value === "boolean") return value;
   if (typeof value !== "string") return fallback;

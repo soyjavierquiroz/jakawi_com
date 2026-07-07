@@ -42,7 +42,7 @@ export async function trackEvent(type: AnalyticsEventType, storeId: string, prod
     },
   });
 
-  await trackInternalEvent({
+  const trackingResult = await trackInternalEvent({
     scope: "STORE",
     eventName: analyticsEventNameForLegacyType(type),
     storeId,
@@ -56,4 +56,5 @@ export async function trackEvent(type: AnalyticsEventType, storeId: string, prod
     ip: forwarded,
     metadata: { legacyType: type },
   });
+  return trackingResult.eventId;
 }

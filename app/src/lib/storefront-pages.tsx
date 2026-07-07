@@ -1,16 +1,29 @@
 import type { CSSProperties } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { CommercialSpaceRenderer } from "@/components/storefront/templates/CommercialSpaceRenderer";
+import { MetaPixel } from "@/components/tracking/MetaPixel";
 import { VisitorProvider } from "@/context/VisitorContext";
 import { trackEvent } from "@/lib/analytics";
 import { buildCommercialSpaceTheme, commercialThemeToCssVariables } from "@/lib/commercial-theme";
 import { formatMoney } from "@/lib/money";
+import { buildMetaPixelPageViewEvent, buildMetaPixelViewContentEvent, getActiveMetaPixelForStore } from "@/lib/pixels/meta-pixel";
 import { getPrisma } from "@/lib/prisma";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
+import { parseConsent, trackingConsentCookieName } from "@/lib/tracking/consent";
+
+async function getRequestTrackingConsent() {
+  try {
+    const cookieStore = await cookies();
+    return parseConsent(cookieStore.get(trackingConsentCookieName)?.value);
+  } catch {
+    return parseConsent();
+  }
+}
 
 export async function renderStorefrontBySlug(storeSlug: string) {
   const store = await getPrisma().store.findUnique({
@@ -26,12 +39,15 @@ export async function renderStorefrontBySlug(storeSlug: string) {
   });
 
   if (!store || !store.isPublished) notFound();
-  await trackEvent("STORE_VIEW", store.id);
+  const eventId = await trackEvent("STORE_VIEW", store.id);
+  const consent = await getRequestTrackingConsent();
+  const metaPixel = await getActiveMetaPixelForStore(store.id, { consent });
   const theme = buildCommercialSpaceTheme(store);
   const themeStyle = commercialThemeToCssVariables(theme) as CSSProperties;
 
   return (
     <div style={themeStyle}>
+      {metaPixel ? <MetaPixel pixelId={metaPixel.pixelId} event={buildMetaPixelPageViewEvent(eventId)} /> : null}
       <CommercialSpaceRenderer store={store} categories={store.categories} products={store.products} />
     </div>
   );
@@ -47,7 +63,9 @@ export async function renderProductBySlug(storeSlug: string, productSlug: string
   });
   if (!product || !product.isVisible) notFound();
 
-  await trackEvent("PRODUCT_VIEW", store.id, product.id);
+  const eventId = await trackEvent("PRODUCT_VIEW", store.id, product.id);
+  const consent = await getRequestTrackingConsent();
+  const metaPixel = await getActiveMetaPixelForStore(store.id, { consent });
   const flow = getStorefrontFlow(store.plan);
   const theme = buildCommercialSpaceTheme(store);
   const themeStyle = commercialThemeToCssVariables(theme) as CSSProperties;
@@ -61,6 +79,18 @@ export async function renderProductBySlug(storeSlug: string, productSlug: string
 
   return (
     <main style={themeStyle} className="min-h-dvh bg-[var(--space-background)] pb-[calc(8.5rem+env(safe-area-inset-bottom))] text-[var(--space-background-contrast)] md:pb-12">
+      {metaPixel ? (
+        <MetaPixel
+          pixelId={metaPixel.pixelId}
+          event={buildMetaPixelViewContentEvent({
+            eventId,
+            productId: product.id,
+            productName: product.name,
+            currency: store.currency ?? product.currency,
+            valueCents: product.priceCents,
+          })}
+        />
+      ) : null}
       <header className="px-4 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-6 lg:px-8">
         <div className="mx-auto flex min-h-12 max-w-5xl items-center justify-between gap-3">
           <Link href={storefrontHref} className="inline-flex h-10 items-center gap-2 rounded-full bg-[var(--space-surface)] px-3 text-sm font-black text-[var(--space-surface-contrast)] ring-1 ring-[var(--space-border)] transition hover:bg-[var(--space-muted)]">
