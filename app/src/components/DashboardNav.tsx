@@ -16,7 +16,7 @@ export function DashboardNav({ publicUrl, hasPartnerPortal = false }: { publicUr
   const partnerItem = { href: "/app/partner", label: "Partner", icon: Handshake };
   const desktopItems = hasPartnerPortal ? [...navigationConfig.dashboard, partnerItem] : navigationConfig.dashboard;
   const mainItems = navigationConfig.dashboard.filter((item) => ["Inicio", "Mi espacio", "Productos", "Seller AI"].includes(item.label));
-  const ownerMoreItems = navigationConfig.dashboard.filter((item) => ["Categorías", "WhatsApp", "Clientes", "Referidos", "Plan"].includes(item.label));
+  const ownerMoreItems = navigationConfig.dashboard.filter((item) => ["Categorías", "WhatsApp", "Integraciones", "Clientes", "Referidos", "Plan"].includes(item.label));
   const moreItems = hasPartnerPortal ? [...ownerMoreItems, partnerItem] : ownerMoreItems;
   const isActive = (href: string) => (href === "/app" ? pathname === href : pathname.startsWith(href));
 

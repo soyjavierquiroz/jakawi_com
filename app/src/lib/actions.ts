@@ -14,7 +14,7 @@ import { storePlans } from "@/config/plans";
 import { createAttributionForStore } from "@/lib/acquisition/attribution";
 import { clearAcquisitionCookies } from "@/lib/acquisition/cookies";
 import { normalizePartnerCode, normalizePartnerDestinationSlug, validatePartnerDestinationTargetUrl } from "@/lib/acquisition/partners";
-import { requireSuperAdmin } from "@/lib/admin";
+import { isSuperAdmin, requireSuperAdmin } from "@/lib/admin";
 import {
   passwordResetRequestedMessage,
   requestEmailVerificationForUser,
@@ -51,6 +51,11 @@ import {
   setPrimaryStoreDomain,
   setStoreDomainStatus,
 } from "@/lib/store-domains";
+import {
+  deleteStorePixelIntegration,
+  disableStorePixelIntegration,
+  upsertStorePixelIntegration,
+} from "@/lib/store-pixel-integrations";
 import { getVisitorInfoFromHeaders, hashIp } from "@/lib/visitor";
 import { normalizeStorePlanCode } from "@/lib/storefront-flow";
 
@@ -71,6 +76,11 @@ function cleanOptional(value?: string | null) {
 function adminReturnTo(formData: FormData, fallback: string) {
   const returnTo = field(formData, "returnTo");
   return returnTo.startsWith("/app/admin") ? returnTo : fallback;
+}
+
+function appReturnTo(formData: FormData, fallback: string) {
+  const returnTo = field(formData, "returnTo");
+  return returnTo.startsWith("/app/") ? returnTo : fallback;
 }
 
 function appendQueryParam(path: string, key: string, value: string) {
@@ -456,6 +466,56 @@ export async function updateStoreCommercialTemplateAction(formData: FormData) {
   revalidatePath("/app/tienda");
   revalidatePath(`/${store.slug}`);
   redirect("/app/tienda?ok=template");
+}
+
+export async function upsertStorePixelIntegrationAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = appReturnTo(formData, "/app/integraciones");
+
+  const result = await upsertStorePixelIntegration(getPrisma() as never, { userId: user.id, isSuperAdmin: isSuperAdmin(user) }, {
+    storeId: cleanOptional(field(formData, "storeId")),
+    platform: field(formData, "platform"),
+    pixelId: cleanOptional(field(formData, "pixelId")),
+    accessToken: cleanOptional(field(formData, "accessToken")),
+    clearToken: formData.get("clearToken") === "on",
+    capiEnabled: formData.get("capiEnabled") === "on",
+    browserPixelEnabled: formData.get("browserPixelEnabled") === "on",
+    testEventCode: cleanOptional(field(formData, "testEventCode")),
+    status: field(formData, "status"),
+  });
+
+  if (!result.ok) redirect(appendQueryParam(returnTo, "error", `Integracion no guardada: ${result.reason}`));
+
+  revalidatePath("/app/integraciones");
+  redirect(appendQueryParam(returnTo, "ok", result.integration.platform.toLowerCase()));
+}
+
+export async function disableStorePixelIntegrationAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = appReturnTo(formData, "/app/integraciones");
+  const result = await disableStorePixelIntegration(getPrisma() as never, { userId: user.id, isSuperAdmin: isSuperAdmin(user) }, {
+    storeId: cleanOptional(field(formData, "storeId")),
+    platform: field(formData, "platform"),
+  });
+
+  if (!result.ok) redirect(appendQueryParam(returnTo, "error", `Integracion no deshabilitada: ${result.reason}`));
+
+  revalidatePath("/app/integraciones");
+  redirect(appendQueryParam(returnTo, "ok", "disabled"));
+}
+
+export async function deleteStorePixelIntegrationAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = appReturnTo(formData, "/app/integraciones");
+  const result = await deleteStorePixelIntegration(getPrisma() as never, { userId: user.id, isSuperAdmin: isSuperAdmin(user) }, {
+    storeId: cleanOptional(field(formData, "storeId")),
+    platform: field(formData, "platform"),
+  });
+
+  if (!result.ok) redirect(appendQueryParam(returnTo, "error", `Integracion no eliminada: ${result.reason}`));
+
+  revalidatePath("/app/integraciones");
+  redirect(appendQueryParam(returnTo, "ok", "deleted"));
 }
 
 export async function createCategoryAction(formData: FormData) {

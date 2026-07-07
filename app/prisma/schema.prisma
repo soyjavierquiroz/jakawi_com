@@ -18,6 +18,19 @@ enum TrackingScope {
   STORE
 }
 
+enum StorePixelPlatform {
+  META
+  TIKTOK
+  GOOGLE
+}
+
+enum StorePixelStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+  ERROR
+}
+
 enum LeadStatus {
   BROWSING
   ENGAGED
@@ -234,6 +247,7 @@ model Store {
   referredStoreAttributions AcquisitionAttribution[] @relation("StoreReferrer")
   partnerCommissions        PartnerCommission[]
   payments                  StorePayment[]
+  pixelIntegrations         StorePixelIntegration[]
   referralRewardsEarned     StoreReferralReward[]    @relation("ReferralRewardReferrer")
   referralRewardsGenerated  StoreReferralReward[]    @relation("ReferralRewardReferred")
   referralGrowthClicks      GrowthLinkClick[]        @relation("GrowthClickReferrerStore")
@@ -518,6 +532,28 @@ model StorePayment {
   @@index([createdAt])
   @@index([storeId, createdAt])
   @@index([status, createdAt])
+}
+
+model StorePixelIntegration {
+  id                  String             @id @default(cuid())
+  storeId             String
+  platform            StorePixelPlatform
+  pixelId             String?
+  accessTokenEncrypted String?
+  capiEnabled         Boolean            @default(false)
+  browserPixelEnabled Boolean            @default(false)
+  testEventCode       String?
+  status              StorePixelStatus   @default(DRAFT)
+  lastTestedAt        DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, platform])
+  @@index([storeId])
+  @@index([platform])
+  @@index([status])
 }
 
 model Category {
