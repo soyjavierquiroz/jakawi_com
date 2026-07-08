@@ -82,8 +82,9 @@ export default async function StoreSettingsPage({
             <input name="name" required defaultValue={store.name} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
           </label>
           <label className="space-y-2">
-            <span className="text-sm font-semibold text-neutral-700">Slug</span>
+            <span className="text-sm font-semibold text-neutral-700">Slug público</span>
             <input name="slug" required defaultValue={store.slug} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">Es la parte final de tu link. Usa algo corto, fácil de dictar y sin espacios.</span>
           </label>
         </div>
         <label className="block space-y-2">
@@ -98,12 +99,14 @@ export default async function StoreSettingsPage({
         </label>
         <label className="block space-y-2">
           <span className="text-sm font-semibold text-neutral-700">Descripción corta</span>
-          <textarea name="description" rows={3} defaultValue={store.description ?? ""} className="w-full rounded-md border border-brand-border px-3 py-2 outline-none focus:border-brand" />
+          <textarea name="description" rows={3} defaultValue={store.description ?? ""} placeholder="Cuenta qué vendes, para quién es y por qué comprar contigo." className="w-full rounded-md border border-brand-border px-3 py-2 outline-none focus:border-brand" />
+          <span className="block text-xs font-semibold leading-5 text-neutral-500">Aparece en tu espacio público. Evita texto técnico; piensa en una respuesta rápida para un cliente nuevo.</span>
         </label>
         <div className="grid gap-4 md:grid-cols-3">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">WhatsApp</span>
             <input name="whatsapp" required defaultValue={store.whatsapp} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
+            <span className="block text-xs font-semibold leading-5 text-neutral-500">Usa el número que atiende ventas, idealmente con código de país. Este canal recibe los clientes listos para hablar.</span>
           </label>
           <label className="space-y-2">
             <span className="text-sm font-semibold text-neutral-700">Instagram</span>
@@ -120,11 +123,11 @@ export default async function StoreSettingsPage({
             <span className="text-lg leading-none group-open:rotate-45">+</span>
           </summary>
           <div className="px-4 pb-4">
-            <p className="text-sm font-semibold text-neutral-600">Esto define cómo se muestran los precios en tu espacio comercial.</p>
+            <p className="text-sm font-semibold text-neutral-600">El país ayuda a mostrar formatos locales. La moneda define cómo tus clientes leen los precios en tienda y productos.</p>
             <div className="mt-4">
               <CountryCurrencyFields initialCountryCode={store.countryCode} initialCurrency={store.currency} compact />
             </div>
-            <p className="mt-3 text-xs font-semibold text-amber-700">Si cambias la moneda, revisa que tus precios sigan teniendo sentido.</p>
+            <p className="mt-3 text-xs font-semibold text-amber-700">Si cambias la moneda, revisa después cada precio del catálogo para evitar confusiones.</p>
           </div>
         </details>
         <StoreImageInputs currentCoverUrl={store.coverUrl} currentLogoUrl={store.logoUrl} />

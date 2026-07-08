@@ -65,6 +65,7 @@ export default async function ProductsPage({
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Productos</p>
           <h1 className="mt-1 text-3xl font-black md:text-4xl">Catálogo</h1>
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">Organiza lo que el cliente puede ver hoy. Los destacados aparecen primero en tu tienda y ayudan a Seller AI a recomendar mejor.</p>
         </div>
         {productUsage.isLimitReached || productUsage.trialExpired ? (
           <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand-dark px-5 font-bold text-white hover:bg-brand">
@@ -80,6 +81,7 @@ export default async function ProductsPage({
 
       <div className="rounded-lg border border-brand-border bg-brand-paper px-3 py-2.5 shadow-sm md:px-4 md:py-3">
         <p className="text-sm font-black text-brand-dark">{productUsage.used} de {productUsage.limit} productos</p>
+        <p className="mt-1 text-sm font-semibold text-neutral-600">Visible publica el producto en la tienda. Destacado lo sube al inicio del catálogo.</p>
         {productUsage.isNearLimit && !productUsage.isLimitReached ? <p className="mt-1 text-sm font-semibold text-amber-700">Estás cerca del límite de tu plan.</p> : null}
         {productUsage.isLimitReached ? <p className="mt-1 text-sm font-semibold text-red-700">Llegaste al límite de productos de tu plan. Actualiza tu plan para agregar más.</p> : null}
         {productUsage.trialExpired ? <p className="mt-1 text-sm font-semibold text-red-700">Tu prueba gratuita terminó. Puedes elegir un plan para seguir agregando productos.</p> : null}
@@ -110,7 +112,28 @@ export default async function ProductsPage({
 
       <div className="overflow-hidden rounded-lg border border-brand-border bg-brand-paper shadow-sm">
         {products.length === 0 ? (
-          <div className="p-6 text-center text-sm font-semibold text-neutral-600 md:p-8">No hay productos para esta búsqueda.</div>
+          <div className="p-6 text-center md:p-8">
+            <p className="text-lg font-black text-brand-dark">{productUsage.used === 0 && !q && activeFilter === "all" ? "Tu catálogo todavía está vacío." : "No hay productos con estos filtros."}</p>
+            <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-neutral-600">
+              {productUsage.used === 0 && !q && activeFilter === "all"
+                ? "Agrega tu primer producto con una imagen clara, precio y descripción simple para que tu tienda pública tenga algo listo para vender."
+                : "Prueba limpiar la búsqueda o cambiar el filtro para volver a ver tu catálogo."}
+            </p>
+            {productUsage.isLimitReached || productUsage.trialExpired ? (
+              <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="mt-4 inline-flex h-11 items-center justify-center rounded-md bg-brand-dark px-5 font-bold text-white hover:bg-brand">
+                Solicitar upgrade
+              </a>
+            ) : productUsage.used === 0 && !q && activeFilter === "all" ? (
+              <Link href="/app/productos/nuevo" className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+                <Plus className="size-4" />
+                Crear producto
+              </Link>
+            ) : (
+              <Link href="/app/productos" className="mt-4 inline-flex h-11 items-center justify-center rounded-md border border-brand-border px-5 font-bold text-brand-dark hover:border-brand">
+                Ver todos
+              </Link>
+            )}
+          </div>
         ) : (
           <div className="divide-y divide-neutral-100">
             {products.map((product) => (

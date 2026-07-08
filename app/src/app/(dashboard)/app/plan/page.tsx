@@ -39,10 +39,10 @@ export default async function PlanPage() {
         <div>
           <p className="text-sm font-bold text-brand-dark">Plan</p>
           <h1 className="text-3xl font-black md:text-4xl">Plan y límites</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Consulta tu uso actual sin configurar cobros ni checkout desde aquí.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Consulta tu uso actual, el estado de tu prueba y los pagos registrados manualmente por JAKAWI.</p>
         </div>
         <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
-          Solicitar upgrade
+          Solicitar upgrade manual
         </a>
       </div>
 
@@ -51,6 +51,13 @@ export default async function PlanPage() {
         <p className="mt-4 text-sm font-black text-white/60">Plan actual</p>
         <h2 className="mt-1 text-2xl font-black md:text-3xl">{planState.planName}</h2>
         <p className="mt-2 text-sm font-semibold text-white/70">{price.priceLabel} · {status}</p>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-white/70">
+          {planState.trialExpired
+            ? "Tu prueba ya terminó. Solicita un upgrade manual para continuar ampliando catálogo y capacidades."
+            : planState.planCode === "TRIAL"
+              ? "Tu prueba permite validar el espacio comercial antes de pasar a un plan pago."
+              : "Tu plan está activo. Revisa abajo los límites y pagos registrados."}
+        </p>
       </section>
 
       <PlanUsageCompactCard productUsageLabel={productUsageLabel} sellerAiUsageLabel={sellerAiUsageLabel} voiceNotesLabel={voiceNotesLabel} />
@@ -65,7 +72,10 @@ export default async function PlanPage() {
         </div>
 
         {payments.length === 0 ? (
-          <p className="mt-4 rounded-md bg-brand-muted px-3 py-3 text-sm font-semibold text-neutral-600">Todavía no hay pagos registrados para tu negocio.</p>
+          <div className="mt-4 rounded-md bg-brand-muted px-3 py-3">
+            <p className="text-sm font-semibold text-neutral-600">Todavía no hay pagos registrados para tu negocio.</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-neutral-500">Cuando JAKAWI confirme un pago manual, aparecerá aquí con su estado y periodo.</p>
+          </div>
         ) : (
           <div className="mt-4 space-y-2">
             {payments.map((payment) => (
@@ -92,6 +102,9 @@ export default async function PlanPage() {
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 md:p-5">
           <p className="font-black text-amber-900">Seller AI y notas de voz están disponibles en Pro/Premium.</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">Puedes seguir vendiendo con link público y WhatsApp directo mientras evalúas el upgrade.</p>
+          <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="mt-4 inline-flex h-11 items-center rounded-md bg-brand-dark px-5 font-bold text-white hover:bg-brand">
+            Pedir upgrade manual
+          </a>
         </section>
       ) : (
         <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">

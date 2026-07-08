@@ -1,4 +1,4 @@
-import { ExternalLink, MessageCircle, UsersRound } from "lucide-react";
+import { Boxes, CheckCircle2, CreditCard, ExternalLink, LayoutDashboard, MessageCircle, Plug, Store, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { CopyButton } from "@/components/CopyButton";
 import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCard";
@@ -16,7 +16,7 @@ export default async function DashboardPage() {
   const { user, store } = await requireStore();
   // eslint-disable-next-line react-hooks/purity
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [whatsappClicks, leadRows, productUsage, sellerAiUsage] = await Promise.all([
+  const [whatsappClicks, leadRows, productUsage, sellerAiUsage, integrationCount] = await Promise.all([
     getPrisma().analyticsEvent.count({ where: { storeId: store.id, type: "WHATSAPP_CLICK", createdAt: { gte: since } } }),
     getPrisma().lead.findMany({
       where: visibleLeadWhere(store.id),
@@ -41,6 +41,7 @@ export default async function DashboardPage() {
     }),
     getProductUsage(store.id),
     getSellerAiUsage(store.id),
+    getPrisma().storePixelIntegration.count({ where: { storeId: store.id } }),
   ]);
   const leadClassifications = leadRows.map((lead) => classifyLead(lead));
   const contactableCount = leadClassifications.filter((lead) => lead.isContactable).length;
@@ -59,6 +60,20 @@ export default async function DashboardPage() {
   const productUsageLabel = `${productUsage.used} / ${productUsage.limit}`;
   const sellerAiUsageLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido";
   const voiceNotesLabel = planState.sellerAiEnabled ? "Disponible" : "Pro/Premium";
+  const setupItems = [
+    { label: "Tienda creada", done: true, hint: store.name, href: siteConfig.routes.storeSettings },
+    { label: "Producto creado", done: productUsage.used > 0, hint: productUsage.used > 0 ? `${productUsage.used} en catálogo` : "Agrega el primero", href: siteConfig.routes.products },
+    { label: "Integración revisada", done: integrationCount > 0, hint: integrationCount > 0 ? `${integrationCount} configurada(s)` : "Pendiente, sin activar APIs", href: siteConfig.routes.integrations },
+    { label: "Storefront publicado", done: store.isPublished, hint: store.isPublished ? "Link público activo" : "Pendiente de publicar", href: publicUrl, external: true },
+  ];
+  const setupDoneCount = setupItems.filter((item) => item.done).length;
+  const ownerCards = [
+    { title: "Tienda", text: "Edita nombre, WhatsApp, país, moneda y apariencia pública.", href: siteConfig.routes.storeSettings, icon: Store, value: store.isPublished ? "Publicada" : "Pendiente" },
+    { title: "Productos", text: "Mantén visible lo que se puede vender hoy y destaca lo principal.", href: siteConfig.routes.products, icon: Boxes, value: productUsageLabel },
+    { title: "Leads", text: "Revisa clientes contactables, handoffs e intención anónima.", href: siteConfig.routes.leads, icon: UsersRound, value: `${leadCount}` },
+    { title: "Integraciones", text: "Comprueba pixels por tienda sin activar eventos externos.", href: siteConfig.routes.integrations, icon: Plug, value: integrationCount > 0 ? "Configuradas" : "Pendiente" },
+    { title: "Plan", text: "Consulta límites, trial y solicitudes de upgrade manual.", href: siteConfig.routes.plan, icon: CreditCard, value: planState.planName },
+  ];
 
   const nextStep = (() => {
     if (!planState.sellerAiEnabled) {
@@ -179,7 +194,43 @@ export default async function DashboardPage() {
         {flow.planCode === "TRIAL" && !planState.trialExpired && trialDateLabel ? <p className="mt-4 rounded-md bg-brand-muted px-3 py-2 text-sm font-bold text-brand-dark">Tu prueba termina el {trialDateLabel}.</p> : null}
       </div>
 
+      <div className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-black text-brand-dark">Progreso de setup</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-600">Lo esencial para vender con un link claro y medible.</p>
+          </div>
+          <span className="inline-flex w-fit rounded-full bg-brand-muted px-3 py-1 text-xs font-black text-brand-dark">{setupDoneCount} de {setupItems.length} listo</span>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {setupItems.map((item) => (
+            <Link key={item.label} href={item.href} target={item.external ? "_blank" : undefined} className="rounded-md border border-brand-border bg-white px-3 py-3 hover:border-brand">
+              <div className="flex items-start gap-2">
+                {item.done ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-700" /> : <LayoutDashboard className="mt-0.5 size-4 shrink-0 text-amber-700" />}
+                <div className="min-w-0">
+                  <p className="text-sm font-black leading-5 text-brand-dark">{item.label}</p>
+                  <p className="mt-0.5 text-xs font-semibold leading-5 text-neutral-500">{item.hint}</p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       <PlanUsageCompactCard productUsageLabel={productUsageLabel} sellerAiUsageLabel={sellerAiUsageLabel} voiceNotesLabel={voiceNotesLabel} />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {ownerCards.map((card) => (
+          <Link key={card.title} href={card.href} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm transition hover:border-brand hover:shadow-md">
+            <div className="flex items-start justify-between gap-3">
+              <card.icon className="size-5 shrink-0 text-brand" />
+              <span className="max-w-[9rem] truncate rounded-full bg-brand-muted px-2.5 py-1 text-xs font-black text-brand-dark">{card.value}</span>
+            </div>
+            <p className="mt-3 text-sm font-black text-brand-dark">{card.title}</p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-neutral-500">{card.text}</p>
+          </Link>
+        ))}
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2 md:gap-4">
         <Link href={siteConfig.routes.leads} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm transition hover:border-brand hover:shadow-md md:p-5">

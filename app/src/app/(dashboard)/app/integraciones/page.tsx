@@ -24,14 +24,14 @@ import {
 import { cn } from "@/lib/ui";
 
 const platformHints: Record<StorePixelPlatform, string> = {
-  META: "Meta Pixel ID, Browser Pixel y CAPI por tienda. CAPI se enviará solo cuando META_CAPI_ENABLED=true y exista consentimiento marketing.",
-  TIKTOK: "TikTok Pixel ID y Browser Pixel por tienda. Events API queda preparado para un hito futuro con credenciales controladas.",
-  GOOGLE: "Preparado para Google Ads/Analytics futuro. No se envían eventos a Google.",
+  META: "Guarda el Pixel ID y revisa el estado por tienda. CAPI permanece apagado si la bandera global está en modo seguro o si falta consentimiento marketing.",
+  TIKTOK: "Guarda el Pixel ID y deja el Browser Pixel preparado por tienda. Events API queda reservado para un hito futuro.",
+  GOOGLE: "Preparado para Google Ads/Analytics futuro. En este hito no se envían eventos a Google.",
 };
 
 const platformCapiNotes: Record<StorePixelPlatform, string> = {
-  META: "CAPI requiere Meta ACTIVE, Pixel ID, token cifrado, APP_ENCRYPTION_KEY, META_CAPI_ENABLED=true y consentimiento marketing.",
-  TIKTOK: "TikTok Events API queda solo preparado: requiere Pixel ID, token cifrado y APP_ENCRYPTION_KEY; no hay TikTok API server-side ni envio externo server-side en este hito.",
+  META: "Para operar CAPI se necesita integración activa, Pixel ID, token guardado, llave de cifrado, consentimiento marketing y la bandera global encendida.",
+  TIKTOK: "TikTok Events API queda solo preparado; no hay TikTok API server-side ni envio externo server-side en este hito.",
   GOOGLE: "Google no permite CAPI en este hito. Solo queda preparado el ID futuro.",
 };
 
@@ -56,6 +56,13 @@ function quickStatusClass(status: IntegrationQuickStatus) {
   return "bg-red-50 text-red-700";
 }
 
+function quickStatusText(status: IntegrationQuickStatus) {
+  if (status === "ready") return "La integración tiene la configuración mínima para operar cuando el visitante acepta marketing.";
+  if (status === "configured_off") return "Hay datos guardados, pero alguna parte está apagada o protegida por seguridad.";
+  if (status === "not_implemented") return "Esta plataforma queda visible como preparación; no envía eventos externos desde JAKAWI.";
+  return "Falta un dato clave antes de que la integración pueda quedar lista.";
+}
+
 function yesNo(value: boolean) {
   return value ? "Sí" : "No";
 }
@@ -70,14 +77,26 @@ function serverLabel(platform: StorePixelPlatform) {
   return "CAPI";
 }
 
-function ReasonList({ title, reasons }: { title: string; reasons: string[] }) {
+function ownerReasonLabel(platform: StorePixelPlatform, reason: string) {
+  if (reason === "provider not implemented") return "Proveedor preparado para un hito futuro; no envía eventos externos desde servidor.";
+  if (reason === "integration missing") return "Aún no guardaste esta integración.";
+  if (reason === "status not ACTIVE") return "Configurado pero apagado: el estado no está en Activo.";
+  if (reason === "pixelId missing") return "Falta Pixel ID.";
+  if (reason === "browserPixelEnabled false") return "Browser Pixel apagado.";
+  if (reason === "capiEnabled false") return `${serverLabel(platform)} apagado.`;
+  if (reason === "access token missing") return "Falta token de acceso guardado.";
+  if (reason === "global META_CAPI_ENABLED false") return "CAPI global apagado por seguridad.";
+  return reason;
+}
+
+function ReasonList({ title, platform, reasons }: { title: string; platform: StorePixelPlatform; reasons: string[] }) {
   return (
     <div className="rounded-md bg-white px-3 py-2">
       <p className="text-xs font-black uppercase text-neutral-500">{title}</p>
       {reasons.length > 0 ? (
         <ul className="mt-2 grid gap-1 text-xs font-semibold text-neutral-700">
           {reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
+            <li key={reason}>{ownerReasonLabel(platform, reason)}</li>
           ))}
         </ul>
       ) : (
@@ -96,21 +115,22 @@ function IntegrationStatusPanel({ status }: { status: IntegrationStatusSnapshot 
         <p className="text-sm font-black text-brand-dark">Estado operativo</p>
         <span className={cn("inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-black", quickStatusClass(quickStatus))}>{quickStatusLabel(quickStatus)}</span>
       </div>
+      <p className="mt-2 text-xs font-semibold leading-5 text-neutral-600">{quickStatusText(quickStatus)}</p>
 
       <div className="mt-3 grid gap-2 text-xs font-semibold text-neutral-600 sm:grid-cols-2 lg:grid-cols-4">
-        <p className="rounded-md bg-white px-3 py-2">Pixel ID presente: <span className={statusLineClass(status.pixelIdPresent)}>{yesNo(status.pixelIdPresent)}</span></p>
-        <p className="rounded-md bg-white px-3 py-2">Browser Pixel enabled: <span className={statusLineClass(status.browserEnabled)}>{yesNo(status.browserEnabled)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Pixel ID: <span className={statusLineClass(status.pixelIdPresent)}>{status.pixelIdPresent ? "Presente" : "Falta Pixel ID"}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Browser Pixel: <span className={statusLineClass(status.browserEnabled)}>{status.browserEnabled ? "Preparado" : "Apagado"}</span></p>
         <p className="rounded-md bg-white px-3 py-2">Browser Pixel operativo: <span className={statusLineClass(status.browserOperational)}>{yesNo(status.browserOperational)}</span></p>
-        <p className="rounded-md bg-white px-3 py-2">{serverLabel(status.platform)} enabled/preparado: <span className={statusLineClass(status.serverEnabled)}>{yesNo(status.serverEnabled)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">{serverLabel(status.platform)}: <span className={statusLineClass(status.serverEnabled)}>{status.serverEnabled ? "Preparado" : "Apagado"}</span></p>
         <p className="rounded-md bg-white px-3 py-2">{serverLabel(status.platform)} operativo: <span className={statusLineClass(status.serverOperational)}>{yesNo(status.serverOperational)}</span></p>
-        <p className="rounded-md bg-white px-3 py-2">Token presente: <span className={statusLineClass(status.tokenPresent)}>{yesNo(status.tokenPresent)}</span></p>
-        <p className="rounded-md bg-white px-3 py-2">Test Event Code presente: <span className={statusLineClass(status.testEventCodePresent)}>{yesNo(status.testEventCodePresent)}</span></p>
-        <p className="rounded-md bg-white px-3 py-2">Consentimiento marketing requerido: <span className="text-green-700">{yesNo(status.requiresMarketingConsent)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Token: <span className={statusLineClass(status.tokenPresent)}>{status.tokenPresent ? "Guardado" : "No guardado"}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Test Event Code: <span className={statusLineClass(status.testEventCodePresent)}>{status.testEventCodePresent ? "Presente" : "Opcional"}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Consentimiento marketing: <span className="text-green-700">{status.requiresMarketingConsent ? "Requiere consentimiento marketing" : "No requerido en este hito"}</span></p>
       </div>
 
       <div className="mt-3 grid gap-2 md:grid-cols-2">
-        <ReasonList title="Razones Browser Pixel" reasons={status.browserBlockedReasons} />
-        <ReasonList title={`Razones ${serverLabel(status.platform)}`} reasons={status.serverBlockedReasons} />
+        <ReasonList title="Browser Pixel" platform={status.platform} reasons={status.browserBlockedReasons} />
+        <ReasonList title={serverLabel(status.platform)} platform={status.platform} reasons={status.serverBlockedReasons} />
       </div>
     </div>
   );
