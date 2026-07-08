@@ -186,7 +186,7 @@ export async function renderProductBySlug(storeSlug: string, productSlug: string
           </div>
         </div>
       </article>
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--space-border)] bg-[var(--space-surface)]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 shadow-[0_-16px_40px_rgb(0_0_0/0.16)] backdrop-blur-xl md:hidden">
+      <div className="storefront-product-mobile-sticky-cta fixed inset-x-0 bottom-0 z-40 border-t border-[var(--space-border)] bg-[var(--space-surface)]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 shadow-[0_-16px_40px_rgb(0_0_0/0.16)] backdrop-blur-xl md:hidden">
         <div className="mx-auto max-w-md">
           <ProductConversionCta
             storeSlug={store.slug}

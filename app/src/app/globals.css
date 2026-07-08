@@ -104,6 +104,12 @@ button {
   animation: showcase-assisted-cta-breathe 3.6s ease-in-out infinite;
 }
 
+@media (max-width: 767px) {
+  body:has(.storefront-product-mobile-sticky-cta) .privacy-floating-preferences-button {
+    bottom: calc(env(safe-area-inset-bottom) + 5.75rem);
+  }
+}
+
 @keyframes showcase-assisted-cta-breathe {
   0%,
   58%,

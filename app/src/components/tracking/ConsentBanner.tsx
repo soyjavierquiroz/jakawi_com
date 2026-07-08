@@ -99,7 +99,7 @@ export function ConsentBanner() {
         <button
           type="button"
           onClick={() => setState((current) => ({ ...current, isOpen: true }))}
-          className="fixed bottom-3 left-3 z-50 inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white/95 px-3 text-xs font-black text-neutral-900 shadow-lg backdrop-blur transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-brand/20"
+          className="privacy-floating-preferences-button fixed bottom-3 left-3 z-50 inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white/95 px-3 text-xs font-black text-neutral-900 shadow-lg backdrop-blur transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-brand/20"
           aria-label="Cambiar preferencias de privacidad"
         >
           <Settings2 className="size-4" aria-hidden="true" />
