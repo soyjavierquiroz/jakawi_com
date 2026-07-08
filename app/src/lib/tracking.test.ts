@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canTrackMarketing, defaultTrackingConsent, parseConsent } from "@/lib/tracking/consent";
+import {
+  canTrackAnalytics,
+  canTrackMarketing,
+  defaultTrackingConsent,
+  necessaryOnlyTrackingConsent,
+  parseConsent,
+  parseTrackingConsentCookie,
+  serializeTrackingConsent,
+} from "@/lib/tracking/consent";
 import { analyticsEventNameForLegacyType, isEventAllowedForScope } from "@/lib/tracking/events";
 import { createTrackingEventId, createVisitorId, getOrCreateJourneyId, getOrCreateVisitorId, trackingCookieNames } from "@/lib/tracking/ids";
 import { trackInternalEvent } from "@/lib/tracking/track";
@@ -52,6 +60,39 @@ test("marketing consent is false by default", () => {
     necessary: true,
     analytics: true,
     marketing: true,
+  });
+});
+
+test("invalid consent cookie falls back to default consent", () => {
+  assert.equal(parseTrackingConsentCookie("not-json"), null);
+  assert.equal(parseTrackingConsentCookie('{"necessary":false,"analytics":true,"marketing":true}'), null);
+  assert.deepEqual(parseConsent("not-json"), defaultTrackingConsent);
+  assert.equal(canTrackAnalytics(parseConsent("not-json")), true);
+  assert.equal(canTrackMarketing(parseConsent("not-json")), false);
+});
+
+test("accept all consent serializes marketing=true", () => {
+  const value = serializeTrackingConsent(
+    { necessary: true, analytics: true, marketing: true },
+    new Date("2026-07-08T00:00:00.000Z"),
+  );
+
+  assert.deepEqual(parseTrackingConsentCookie(value), {
+    necessary: true,
+    analytics: true,
+    marketing: true,
+    updatedAt: "2026-07-08T00:00:00.000Z",
+  });
+});
+
+test("necessary-only consent serializes analytics=false and marketing=false", () => {
+  const value = serializeTrackingConsent(necessaryOnlyTrackingConsent, new Date("2026-07-08T00:00:00.000Z"));
+
+  assert.deepEqual(parseTrackingConsentCookie(value), {
+    necessary: true,
+    analytics: false,
+    marketing: false,
+    updatedAt: "2026-07-08T00:00:00.000Z",
   });
 });
 

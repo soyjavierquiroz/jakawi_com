@@ -60,6 +60,23 @@ test("Meta Pixel is disabled without marketing consent", async () => {
   assert.equal(result, null);
 });
 
+test("Meta Pixel does not render without marketing consent even when config is active", async () => {
+  const mock = createDb(integration());
+  const result = await getActiveMetaPixelForStore("store_1", { consent: noMarketingConsent, db: mock.db });
+
+  assert.equal(isMetaPixelEnabledForStore(integration(), noMarketingConsent), false);
+  assert.equal(result, null);
+});
+
+test("Meta Pixel renders with marketing consent and active config", async () => {
+  const mock = createDb(integration());
+  const result = await getActiveMetaPixelForStore("store_1", { consent: marketingConsent, db: mock.db });
+  const element = result ? MetaPixel({ pixelId: result.pixelId, event: buildMetaPixelPageViewEvent("jkw_evt_page") }) : null;
+
+  assert.deepEqual(result, { pixelId: "1234567890" });
+  assert.notEqual(element, null);
+});
+
 test("getActiveMetaPixelForStore returns only safe client data", async () => {
   const mock = createDb(integration());
   const result = await getActiveMetaPixelForStore("store_1", { consent: marketingConsent, db: mock.db });
