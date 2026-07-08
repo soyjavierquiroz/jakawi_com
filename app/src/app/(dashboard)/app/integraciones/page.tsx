@@ -8,6 +8,13 @@ import {
 import { requireStore } from "@/lib/auth";
 import { isEncryptionConfigured } from "@/lib/crypto/encryption";
 import {
+  ownerEncryptionStatusLabel,
+  ownerEncryptionStatusText,
+  ownerIntegrationReasonLabel,
+  ownerPrivateTokenLabel,
+  ownerServerEventsLabel,
+} from "@/lib/integration-owner-copy";
+import {
   buildIntegrationStatus,
   getIntegrationQuickStatus,
   type IntegrationQuickStatus,
@@ -24,15 +31,15 @@ import {
 import { cn } from "@/lib/ui";
 
 const platformHints: Record<StorePixelPlatform, string> = {
-  META: "Guarda el Pixel ID y revisa el estado por tienda. CAPI permanece apagado si la bandera global está en modo seguro o si falta consentimiento marketing.",
-  TIKTOK: "Guarda el Pixel ID y deja el Browser Pixel preparado por tienda. Events API queda reservado para un hito futuro.",
+  META: "Browser Pixel mide desde el navegador con consentimiento marketing. Los eventos del servidor permanecen apagados hasta completar la configuración segura.",
+  TIKTOK: "Guarda el Pixel ID y deja el Browser Pixel preparado por tienda. Los eventos del servidor quedan reservados para un hito futuro.",
   GOOGLE: "Preparado para Google Ads/Analytics futuro. En este hito no se envían eventos a Google.",
 };
 
 const platformCapiNotes: Record<StorePixelPlatform, string> = {
-  META: "Para operar CAPI se necesita integración activa, Pixel ID, token guardado, llave de cifrado, consentimiento marketing y la bandera global encendida.",
-  TIKTOK: "TikTok Events API queda solo preparado; no hay TikTok API server-side ni envio externo server-side en este hito.",
-  GOOGLE: "Google no permite CAPI en este hito. Solo queda preparado el ID futuro.",
+  META: "Para operar eventos del servidor se necesita integración activa, Pixel ID, token privado guardado, cifrado seguro y consentimiento marketing.",
+  TIKTOK: "Los eventos del servidor quedan solo preparados; no hay envío externo desde servidor en este hito.",
+  GOOGLE: "Google queda preparado para un hito futuro. Solo queda listo el ID de referencia.",
 };
 
 function statusClass(status: StorePixelStatus) {
@@ -71,32 +78,14 @@ function statusLineClass(value: boolean) {
   return value ? "text-green-700" : "text-neutral-600";
 }
 
-function serverLabel(platform: StorePixelPlatform) {
-  if (platform === StorePixelPlatform.TIKTOK) return "Events API";
-  if (platform === StorePixelPlatform.GOOGLE) return "Server-side";
-  return "CAPI";
-}
-
-function ownerReasonLabel(platform: StorePixelPlatform, reason: string) {
-  if (reason === "provider not implemented") return "Proveedor preparado para un hito futuro; no envía eventos externos desde servidor.";
-  if (reason === "integration missing") return "Aún no guardaste esta integración.";
-  if (reason === "status not ACTIVE") return "Configurado pero apagado: el estado no está en Activo.";
-  if (reason === "pixelId missing") return "Falta Pixel ID.";
-  if (reason === "browserPixelEnabled false") return "Browser Pixel apagado.";
-  if (reason === "capiEnabled false") return `${serverLabel(platform)} apagado.`;
-  if (reason === "access token missing") return "Falta token de acceso guardado.";
-  if (reason === "global META_CAPI_ENABLED false") return "CAPI global apagado por seguridad.";
-  return reason;
-}
-
-function ReasonList({ title, platform, reasons }: { title: string; platform: StorePixelPlatform; reasons: string[] }) {
+function ReasonList({ title, reasons }: { title: string; reasons: string[] }) {
   return (
     <div className="rounded-md bg-white px-3 py-2">
       <p className="text-xs font-black uppercase text-neutral-500">{title}</p>
       {reasons.length > 0 ? (
         <ul className="mt-2 grid gap-1 text-xs font-semibold text-neutral-700">
           {reasons.map((reason) => (
-            <li key={reason}>{ownerReasonLabel(platform, reason)}</li>
+            <li key={reason}>{ownerIntegrationReasonLabel(reason)}</li>
           ))}
         </ul>
       ) : (
@@ -121,16 +110,16 @@ function IntegrationStatusPanel({ status }: { status: IntegrationStatusSnapshot 
         <p className="rounded-md bg-white px-3 py-2">Pixel ID: <span className={statusLineClass(status.pixelIdPresent)}>{status.pixelIdPresent ? "Presente" : "Falta Pixel ID"}</span></p>
         <p className="rounded-md bg-white px-3 py-2">Browser Pixel: <span className={statusLineClass(status.browserEnabled)}>{status.browserEnabled ? "Preparado" : "Apagado"}</span></p>
         <p className="rounded-md bg-white px-3 py-2">Browser Pixel operativo: <span className={statusLineClass(status.browserOperational)}>{yesNo(status.browserOperational)}</span></p>
-        <p className="rounded-md bg-white px-3 py-2">{serverLabel(status.platform)}: <span className={statusLineClass(status.serverEnabled)}>{status.serverEnabled ? "Preparado" : "Apagado"}</span></p>
-        <p className="rounded-md bg-white px-3 py-2">{serverLabel(status.platform)} operativo: <span className={statusLineClass(status.serverOperational)}>{yesNo(status.serverOperational)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">{ownerServerEventsLabel()}: <span className={statusLineClass(status.serverEnabled)}>{status.serverEnabled ? "Preparado" : "Apagado"}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">{ownerServerEventsLabel()} operativo: <span className={statusLineClass(status.serverOperational)}>{yesNo(status.serverOperational)}</span></p>
         <p className="rounded-md bg-white px-3 py-2">Token: <span className={statusLineClass(status.tokenPresent)}>{status.tokenPresent ? "Guardado" : "No guardado"}</span></p>
         <p className="rounded-md bg-white px-3 py-2">Test Event Code: <span className={statusLineClass(status.testEventCodePresent)}>{status.testEventCodePresent ? "Presente" : "Opcional"}</span></p>
         <p className="rounded-md bg-white px-3 py-2">Consentimiento marketing: <span className="text-green-700">{status.requiresMarketingConsent ? "Requiere consentimiento marketing" : "No requerido en este hito"}</span></p>
       </div>
 
       <div className="mt-3 grid gap-2 md:grid-cols-2">
-        <ReasonList title="Browser Pixel" platform={status.platform} reasons={status.browserBlockedReasons} />
-        <ReasonList title={serverLabel(status.platform)} platform={status.platform} reasons={status.serverBlockedReasons} />
+        <ReasonList title="Browser Pixel" reasons={status.browserBlockedReasons} />
+        <ReasonList title={ownerServerEventsLabel()} reasons={status.serverBlockedReasons} />
       </div>
     </div>
   );
@@ -178,12 +167,8 @@ export default async function StoreIntegrationsPage({
         <div className="flex items-start gap-3">
           {encryptionReady ? <CheckCircle2 className="mt-0.5 size-5 shrink-0" /> : <AlertTriangle className="mt-0.5 size-5 shrink-0" />}
           <div>
-            <p className="font-black">APP_ENCRYPTION_KEY={encryptionReady ? "configurada" : "no configurada"}</p>
-            <p className="mt-1 leading-6">
-              {encryptionReady
-                ? "Los tokens se guardan cifrados y no se muestran después de guardar."
-                : "Puedes guardar Pixel ID. Los tokens CAPI quedan bloqueados hasta configurar una key segura."}
-            </p>
+            <p className="font-black">{ownerEncryptionStatusLabel(encryptionReady)}</p>
+            <p className="mt-1 leading-6">{ownerEncryptionStatusText(encryptionReady)}</p>
           </div>
         </div>
       </section>
@@ -209,7 +194,7 @@ export default async function StoreIntegrationsPage({
                       <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">{platformHints[platform]}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-black", statusClass(status))}>{storePixelStatusLabel(status)}</span>
-                        {operationalStatus.tokenPresent ? <span className="inline-flex items-center gap-1 rounded-full bg-brand-muted px-2.5 py-1 text-xs font-black text-brand-dark"><LockKeyhole className="size-3" /> Token cifrado</span> : null}
+                        {operationalStatus.tokenPresent ? <span className="inline-flex items-center gap-1 rounded-full bg-brand-muted px-2.5 py-1 text-xs font-black text-brand-dark"><LockKeyhole className="size-3" /> Token privado guardado</span> : null}
                       </div>
                     </div>
                   </div>
@@ -218,7 +203,7 @@ export default async function StoreIntegrationsPage({
                 {integration ? (
                   <div className="grid gap-2 text-xs font-semibold text-neutral-600 sm:grid-cols-2 lg:min-w-64 lg:grid-cols-1">
                     <p className="rounded-md bg-brand-muted px-3 py-2">Browser Pixel: {integration.browserPixelEnabled ? "Preparado" : "Apagado"}</p>
-                    <p className="rounded-md bg-brand-muted px-3 py-2">CAPI: {integration.capiEnabled ? "Preparado" : "Apagado"}</p>
+                    <p className="rounded-md bg-brand-muted px-3 py-2">Eventos del servidor: {integration.capiEnabled ? "Preparado" : "Apagado"}</p>
                   </div>
                 ) : null}
               </div>
@@ -251,7 +236,7 @@ export default async function StoreIntegrationsPage({
                 </label>
 
                 <label className="space-y-2">
-                  <span className="text-sm font-semibold text-neutral-700">Access token CAPI</span>
+                  <span className="text-sm font-semibold text-neutral-700">{ownerPrivateTokenLabel()}</span>
                   <input name="accessToken" type="password" autoComplete="off" placeholder={operationalStatus.tokenPresent ? "Token guardado; dejar vacío para conservar" : "No se muestra después de guardarlo"} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
                 </label>
 
@@ -262,7 +247,7 @@ export default async function StoreIntegrationsPage({
                   </label>
                   <label className={cn("flex min-h-11 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark", !canEnableCapi && "text-neutral-400")}>
                     <input type="checkbox" name="capiEnabled" defaultChecked={integration?.capiEnabled ?? false} disabled={!canEnableCapi} className="size-4 accent-brand disabled:accent-neutral-300" />
-                    CAPI
+                    Eventos del servidor
                   </label>
                   <label className="flex min-h-11 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark">
                     <input type="checkbox" name="clearToken" className="size-4 accent-brand" />
