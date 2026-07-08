@@ -16,6 +16,8 @@ Incidente que previene: en Release Batch v4 el primer deploy corrio sin `.env.st
 
 Leccion de Release Batch v6: `docker stack deploy` puede no recrear el task si se reutiliza el tag local `jakawi-com-web:latest`. Despues del build se debe guardar el image id, verificar el task activo despues del deploy y forzar update si el contenedor activo no coincide con la imagen recien construida.
 
+Leccion de Release Batch v7: las variables runtime criticas del servicio web deben estar versionadas explicitamente en `infra/docker-stack.yml`. Si faltan del stack file, `docker stack deploy` puede removerlas de la spec y obligar a correcciones manuales con `docker service update --env-add`.
+
 ## Cargar env sin imprimir secrets
 
 Desde la maquina autorizada:
@@ -45,6 +47,18 @@ Variables criticas:
 - `EMAIL_DELIVERY_MODE`
 
 Nota de auth: el stack real usa `SESSION_SECRET`. `NEXTAUTH_SECRET` y `AUTH_SECRET` pueden aparecer en referencias historicas o compatibilidad, pero no son el nombre operativo actual del stack.
+
+Estas variables deben existir en `infra/docker-stack.yml` como referencias `${VAR}`, no como valores reales:
+
+- `DATABASE_URL`
+- `SESSION_SECRET`
+- `APP_ENCRYPTION_KEY`
+- `CRM_WEBHOOK_ENABLED`
+- `CRM_WEBHOOK_QA_ONLY`
+- `CUSTOM_DOMAINS_ENABLED`
+- `CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED`
+- `META_CAPI_ENABLED`
+- `EMAIL_DELIVERY_MODE`
 
 Comando recomendado:
 
@@ -127,7 +141,7 @@ Volver a verificar antes de declarar PASS:
 - `docker service inspect jakawi_com_web --format '{{json .UpdateStatus}}'` muestra update `completed`.
 - El image id del contenedor activo coincide con el image id guardado despues del build.
 - Smoke publico PASS.
-- Flags finales verificadas con salida redacted.
+- Flags finales verificadas con salida redacted desde la service spec.
 
 ## Post-deploy smoke
 
@@ -168,6 +182,8 @@ EMAIL_DELIVERY_MODE=disabled
 ```
 
 Verificar de forma redacted o con salida de valores no secretos aprobados. No imprimir `DATABASE_URL`, secrets, tokens ni passwords.
+
+Tambien confirmar de forma redacted que `DATABASE_URL`, `SESSION_SECRET` y `APP_ENCRYPTION_KEY` estan presentes en la service spec final.
 
 ## Rollback notes
 
