@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/ui";
 
 const platformHints: Record<StorePixelPlatform, string> = {
-  META: "Meta Pixel ID y Test Event Code. Browser Pixel se guarda como preparación; no se inyecta script todavía.",
+  META: "Meta Pixel ID, Browser Pixel y CAPI por tienda. CAPI se enviará solo cuando META_CAPI_ENABLED=true y exista consentimiento marketing.",
   TIKTOK: "Pixel ID preparado para un hito futuro. No se envían eventos a TikTok.",
   GOOGLE: "Preparado para Google Ads/Analytics futuro. No se envían eventos a Google.",
 };
@@ -74,6 +74,7 @@ export default async function StoreIntegrationsPage({
         {storePixelPlatforms.map((platform) => {
           const integration = byPlatform.get(platform);
           const status = integration?.status ?? StorePixelStatus.DRAFT;
+          const canEnableCapi = platform === StorePixelPlatform.META && encryptionReady && Boolean(integration?.pixelId) && Boolean(integration?.accessTokenEncrypted);
 
           return (
             <article key={platform} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -137,8 +138,8 @@ export default async function StoreIntegrationsPage({
                     <input type="checkbox" name="browserPixelEnabled" defaultChecked={integration?.browserPixelEnabled ?? false} className="size-4 accent-brand" />
                     Browser Pixel
                   </label>
-                  <label className="flex min-h-11 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark">
-                    <input type="checkbox" name="capiEnabled" defaultChecked={integration?.capiEnabled ?? false} className="size-4 accent-brand" />
+                  <label className={cn("flex min-h-11 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark", !canEnableCapi && "text-neutral-400")}>
+                    <input type="checkbox" name="capiEnabled" defaultChecked={integration?.capiEnabled ?? false} disabled={!canEnableCapi} className="size-4 accent-brand disabled:accent-neutral-300" />
                     CAPI
                   </label>
                   <label className="flex min-h-11 items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark">
@@ -163,7 +164,7 @@ export default async function StoreIntegrationsPage({
               </form>
 
               <p className="mt-3 rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">
-                Guardar esta configuración no instala scripts ni envía eventos. La activación de envío queda para el siguiente hito.
+                CAPI requiere Meta ACTIVE, Pixel ID, token cifrado, APP_ENCRYPTION_KEY, META_CAPI_ENABLED=true y consentimiento marketing. No se usan pixels ni tokens de JAKAWI para eventos de tiendas.
               </p>
             </article>
           );

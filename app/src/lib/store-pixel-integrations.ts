@@ -136,7 +136,10 @@ export async function upsertStorePixelIntegration(
   if (!validateStorePixelId(platform, pixelId)) return { ok: false, reason: "invalid_pixel_id" };
   if (browserPixelEnabled && !pixelId) return { ok: false, reason: "browser_pixel_requires_pixel_id" };
   if (input.clearToken) capiEnabled = false;
+  if (platform !== StorePixelPlatform.META) capiEnabled = false;
+  if (capiEnabled && !pixelId) return { ok: false, reason: "capi_requires_pixel_id" };
   if (capiEnabled && !accessToken && !existing?.accessTokenEncrypted) return { ok: false, reason: "capi_requires_access_token" };
+  if (capiEnabled && !isEncryptionConfigured()) return { ok: false, reason: "token_encryption_not_configured" };
   if (accessToken && !isEncryptionConfigured()) return { ok: false, reason: "token_encryption_not_configured" };
 
   const tokenUpdate = input.clearToken

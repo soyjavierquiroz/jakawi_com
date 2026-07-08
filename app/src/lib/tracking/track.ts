@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { Prisma, type TrackingScope as PrismaTrackingScope } from "@prisma/client";
 import { headers } from "next/headers";
 import { getPrisma } from "@/lib/prisma";
+import { sendMetaCapiEvent } from "@/lib/pixels/meta-capi";
 import { getVisitorInfoFromHeaders } from "@/lib/visitor";
 import { defaultTrackingConsent, parseConsent, type TrackingConsent } from "@/lib/tracking/consent";
 import { createTrackingEventId, normalizeTrackingId } from "@/lib/tracking/ids";
@@ -37,6 +38,8 @@ type TrackingEventDb = {
     create: (args: { data: Prisma.TrackingEventUncheckedCreateInput }) => Promise<unknown>;
   };
 };
+
+const metaCapiEligibleEvents = new Set<TrackingEventName>(["store_view", "product_view", "whatsapp_click", "lead_created", "seller_ai_handoff"]);
 
 function truncate(value: string | null | undefined, maxLength: number) {
   const clean = value?.trim();
@@ -114,6 +117,9 @@ export async function trackInternalEvent(
         occurredAt: input.occurredAt ?? new Date(),
       },
     });
+    if (!options.db && input.scope === "STORE" && metaCapiEligibleEvents.has(input.eventName)) {
+      sendMetaCapiEvent(eventId).catch(() => undefined);
+    }
     return { ok: true, eventId };
   } catch (error) {
     if (isUniqueConstraintError(error)) return { ok: true, eventId, duplicate: true };

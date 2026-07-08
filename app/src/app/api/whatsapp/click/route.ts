@@ -25,8 +25,6 @@ export async function GET(request: NextRequest) {
   });
   if (!rateLimit.allowed) return rateLimitResponse(rateLimit);
 
-  await trackEvent("WHATSAPP_CLICK", product.storeId, product.id);
-
   const phone = normalizePhone(product.store.whatsapp);
   const price = formatMoney({
     amountCents: product.priceCents,
@@ -34,6 +32,17 @@ export async function GET(request: NextRequest) {
     countryCode: product.store.countryCode ?? "BO",
     locale: product.store.locale,
   });
+  await trackEvent("WHATSAPP_CLICK", product.storeId, product.id, {
+    metadata: {
+      product: {
+        id: product.id,
+        name: product.name,
+        currency: product.store.currency ?? product.currency,
+        valueCents: product.priceCents,
+      },
+    },
+  });
+
   const message = `Hola, vi este producto en tu tienda JAKAWI: ${product.name} (${price}). Sigue disponible?`;
   return NextResponse.redirect(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
 }

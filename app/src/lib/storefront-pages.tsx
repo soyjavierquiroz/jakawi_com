@@ -63,8 +63,18 @@ export async function renderProductBySlug(storeSlug: string, productSlug: string
   });
   if (!product || !product.isVisible) notFound();
 
-  const eventId = await trackEvent("PRODUCT_VIEW", store.id, product.id);
   const consent = await getRequestTrackingConsent();
+  const eventId = await trackEvent("PRODUCT_VIEW", store.id, product.id, {
+    consent,
+    metadata: {
+      product: {
+        id: product.id,
+        name: product.name,
+        currency: store.currency ?? product.currency,
+        valueCents: product.priceCents,
+      },
+    },
+  });
   const metaPixel = await getActiveMetaPixelForStore(store.id, { consent });
   const flow = getStorefrontFlow(store.plan);
   const theme = buildCommercialSpaceTheme(store);
