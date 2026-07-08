@@ -7,6 +7,12 @@ import {
 } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
 import { isEncryptionConfigured } from "@/lib/crypto/encryption";
+import {
+  buildIntegrationStatus,
+  getIntegrationQuickStatus,
+  type IntegrationQuickStatus,
+  type IntegrationStatusSnapshot,
+} from "@/lib/integration-status";
 import { getPrisma } from "@/lib/prisma";
 import {
   canPrepareStorePixelCapi,
@@ -19,13 +25,13 @@ import { cn } from "@/lib/ui";
 
 const platformHints: Record<StorePixelPlatform, string> = {
   META: "Meta Pixel ID, Browser Pixel y CAPI por tienda. CAPI se enviará solo cuando META_CAPI_ENABLED=true y exista consentimiento marketing.",
-  TIKTOK: "TikTok Pixel ID, Browser Pixel y CAPI quedan preparados por tienda. No se inyecta script ni se envían eventos a TikTok.",
+  TIKTOK: "TikTok Pixel ID y Browser Pixel por tienda. Events API queda preparado para un hito futuro con credenciales controladas.",
   GOOGLE: "Preparado para Google Ads/Analytics futuro. No se envían eventos a Google.",
 };
 
 const platformCapiNotes: Record<StorePixelPlatform, string> = {
   META: "CAPI requiere Meta ACTIVE, Pixel ID, token cifrado, APP_ENCRYPTION_KEY, META_CAPI_ENABLED=true y consentimiento marketing.",
-  TIKTOK: "TikTok CAPI queda solo preparado: requiere Pixel ID, token cifrado y APP_ENCRYPTION_KEY; no hay TikTok Events API ni envio externo en este hito.",
+  TIKTOK: "TikTok Events API queda solo preparado: requiere Pixel ID, token cifrado y APP_ENCRYPTION_KEY; no hay TikTok API server-side ni envio externo server-side en este hito.",
   GOOGLE: "Google no permite CAPI en este hito. Solo queda preparado el ID futuro.",
 };
 
@@ -34,6 +40,80 @@ function statusClass(status: StorePixelStatus) {
   if (status === StorePixelStatus.DISABLED) return "bg-neutral-100 text-neutral-600";
   if (status === StorePixelStatus.ERROR) return "bg-red-50 text-red-700";
   return "bg-amber-50 text-amber-800";
+}
+
+function quickStatusLabel(status: IntegrationQuickStatus) {
+  if (status === "ready") return "Listo";
+  if (status === "configured_off") return "Configurado pero apagado";
+  if (status === "not_implemented") return "No implementado";
+  return "Falta configuración";
+}
+
+function quickStatusClass(status: IntegrationQuickStatus) {
+  if (status === "ready") return "bg-green-50 text-green-700";
+  if (status === "configured_off") return "bg-amber-50 text-amber-800";
+  if (status === "not_implemented") return "bg-neutral-100 text-neutral-600";
+  return "bg-red-50 text-red-700";
+}
+
+function yesNo(value: boolean) {
+  return value ? "Sí" : "No";
+}
+
+function statusLineClass(value: boolean) {
+  return value ? "text-green-700" : "text-neutral-600";
+}
+
+function serverLabel(platform: StorePixelPlatform) {
+  if (platform === StorePixelPlatform.TIKTOK) return "Events API";
+  if (platform === StorePixelPlatform.GOOGLE) return "Server-side";
+  return "CAPI";
+}
+
+function ReasonList({ title, reasons }: { title: string; reasons: string[] }) {
+  return (
+    <div className="rounded-md bg-white px-3 py-2">
+      <p className="text-xs font-black uppercase text-neutral-500">{title}</p>
+      {reasons.length > 0 ? (
+        <ul className="mt-2 grid gap-1 text-xs font-semibold text-neutral-700">
+          {reasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-xs font-semibold text-green-700">sin bloqueos de configuración</p>
+      )}
+    </div>
+  );
+}
+
+function IntegrationStatusPanel({ status }: { status: IntegrationStatusSnapshot }) {
+  const quickStatus = getIntegrationQuickStatus(status);
+
+  return (
+    <div className="mt-5 rounded-md bg-brand-muted p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-black text-brand-dark">Estado operativo</p>
+        <span className={cn("inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-black", quickStatusClass(quickStatus))}>{quickStatusLabel(quickStatus)}</span>
+      </div>
+
+      <div className="mt-3 grid gap-2 text-xs font-semibold text-neutral-600 sm:grid-cols-2 lg:grid-cols-4">
+        <p className="rounded-md bg-white px-3 py-2">Pixel ID presente: <span className={statusLineClass(status.pixelIdPresent)}>{yesNo(status.pixelIdPresent)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Browser Pixel enabled: <span className={statusLineClass(status.browserEnabled)}>{yesNo(status.browserEnabled)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Browser Pixel operativo: <span className={statusLineClass(status.browserOperational)}>{yesNo(status.browserOperational)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">{serverLabel(status.platform)} enabled/preparado: <span className={statusLineClass(status.serverEnabled)}>{yesNo(status.serverEnabled)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">{serverLabel(status.platform)} operativo: <span className={statusLineClass(status.serverOperational)}>{yesNo(status.serverOperational)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Token presente: <span className={statusLineClass(status.tokenPresent)}>{yesNo(status.tokenPresent)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Test Event Code presente: <span className={statusLineClass(status.testEventCodePresent)}>{yesNo(status.testEventCodePresent)}</span></p>
+        <p className="rounded-md bg-white px-3 py-2">Consentimiento marketing requerido: <span className="text-green-700">{yesNo(status.requiresMarketingConsent)}</span></p>
+      </div>
+
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <ReasonList title="Razones Browser Pixel" reasons={status.browserBlockedReasons} />
+        <ReasonList title={`Razones ${serverLabel(status.platform)}`} reasons={status.serverBlockedReasons} />
+      </div>
+    </div>
+  );
 }
 
 export default async function StoreIntegrationsPage({
@@ -47,6 +127,17 @@ export default async function StoreIntegrationsPage({
   const integrations = await getPrisma().storePixelIntegration.findMany({
     where: { storeId: store.id },
     orderBy: { platform: "asc" },
+    select: {
+      id: true,
+      storeId: true,
+      platform: true,
+      pixelId: true,
+      accessTokenEncrypted: true,
+      capiEnabled: true,
+      browserPixelEnabled: true,
+      testEventCode: true,
+      status: true,
+    },
   });
   const byPlatform = new Map(integrations.map((integration) => [integration.platform, integration]));
 
@@ -56,7 +147,7 @@ export default async function StoreIntegrationsPage({
         <p className="text-sm font-bold text-brand-dark">Integraciones</p>
         <h1 className="mt-1 text-3xl font-black md:text-4xl">Pixels por tienda</h1>
         <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-neutral-600">
-          Prepara IDs de marketing para tu espacio comercial. JAKAWI no envia eventos a Meta, TikTok ni Google en este hito.
+          Revisa si cada integración tiene configuración suficiente para operar. Los eventos externos solo se envían si la integración está activa y el visitante aceptó marketing.
         </p>
       </div>
 
@@ -80,6 +171,7 @@ export default async function StoreIntegrationsPage({
       <div className="grid gap-4">
         {storePixelPlatforms.map((platform) => {
           const integration = byPlatform.get(platform);
+          const operationalStatus = buildIntegrationStatus(platform, integration);
           const status = integration?.status ?? StorePixelStatus.DRAFT;
           const supportsCapi = canPrepareStorePixelCapi(platform);
           const canEnableCapi = supportsCapi && encryptionReady;
@@ -97,7 +189,7 @@ export default async function StoreIntegrationsPage({
                       <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">{platformHints[platform]}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-black", statusClass(status))}>{storePixelStatusLabel(status)}</span>
-                        {integration?.accessTokenEncrypted ? <span className="inline-flex items-center gap-1 rounded-full bg-brand-muted px-2.5 py-1 text-xs font-black text-brand-dark"><LockKeyhole className="size-3" /> Token cifrado</span> : null}
+                        {operationalStatus.tokenPresent ? <span className="inline-flex items-center gap-1 rounded-full bg-brand-muted px-2.5 py-1 text-xs font-black text-brand-dark"><LockKeyhole className="size-3" /> Token cifrado</span> : null}
                       </div>
                     </div>
                   </div>
@@ -110,6 +202,8 @@ export default async function StoreIntegrationsPage({
                   </div>
                 ) : null}
               </div>
+
+              <IntegrationStatusPanel status={operationalStatus} />
 
               <form action={upsertStorePixelIntegrationAction} className="mt-5 grid gap-4 lg:grid-cols-2">
                 <input type="hidden" name="returnTo" value="/app/integraciones" />
@@ -138,7 +232,7 @@ export default async function StoreIntegrationsPage({
 
                 <label className="space-y-2">
                   <span className="text-sm font-semibold text-neutral-700">Access token CAPI</span>
-                  <input name="accessToken" type="password" autoComplete="off" placeholder={integration?.accessTokenEncrypted ? "Token guardado; dejar vacío para conservar" : "No se muestra después de guardarlo"} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
+                  <input name="accessToken" type="password" autoComplete="off" placeholder={operationalStatus.tokenPresent ? "Token guardado; dejar vacío para conservar" : "No se muestra después de guardarlo"} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
                 </label>
 
                 <div className="grid gap-3 sm:grid-cols-3 lg:col-span-2">
