@@ -22,7 +22,7 @@ export function BoutiqueTemplate({ store, categories, products, flow }: Commerci
 
       <section id="productos" className="mx-auto mt-7 max-w-6xl px-4 sm:px-6 lg:px-8">
         <CommercialCategoryChips categories={categories} variant="boutique" />
-        {products.length === 0 ? <CommercialEmptyProducts /> : null}
+        {products.length === 0 ? <CommercialEmptyProducts store={store} /> : null}
         <CommercialProductGrid
           store={store}
           products={primaryProducts}

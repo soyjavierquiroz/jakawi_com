@@ -130,7 +130,7 @@ function AppTopBar({ store, flow, heroProduct }: Pick<CommercialTemplateProps, "
           <StoreAvatar store={store} className="size-9" />
           <div className="min-w-0">
             <p className="truncate text-sm font-black leading-5">{store.name}</p>
-            <p className="truncate text-[11px] font-bold leading-4 opacity-60">Espacio comercial</p>
+            <p className="truncate text-[11px] font-bold leading-4 opacity-60">Catalogo y consultas por WhatsApp</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -182,7 +182,7 @@ function AppHero({ store, products, featuredProduct, flow }: CommercialTemplateP
           <p className="mt-3 line-clamp-2 text-sm font-semibold leading-6 opacity-90 sm:text-base">{description}</p>
           <div className="mt-5 flex flex-wrap gap-2">
             <a href={hasProducts ? "#productos" : `https://wa.me/${store.whatsapp}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--space-accent)] px-4 text-sm font-black text-[var(--space-accent-contrast)] shadow-sm transition hover:brightness-95">
-              {hasProducts ? "Ver productos" : "Consultar"}
+              {hasProducts ? "Ver productos" : "Consultar por WhatsApp"}
               <ArrowRight className="size-4" />
             </a>
             {flow.sellerAiEnabled ? (
@@ -288,7 +288,10 @@ function FeaturedProductCard({ store, product, flow, isPrimary = false }: Pick<C
         <Link href={href}>
           <h3 className={cn("mt-3 font-black leading-tight", isPrimary ? "text-xl sm:text-2xl" : "line-clamp-2 min-h-12 text-base leading-6")}>{product.name}</h3>
         </Link>
-        <p className={cn("mt-2 font-black text-[var(--space-primary)]", isPrimary ? "text-xl sm:text-2xl" : "text-lg")}>{getPrice(store, product)}</p>
+        <div className="mt-3 rounded-xl bg-[var(--space-muted)] px-3 py-2">
+          <p className="text-[10px] font-black uppercase opacity-60">Precio</p>
+          <p className={cn("font-black text-[var(--space-primary)]", isPrimary ? "text-xl sm:text-2xl" : "text-lg")}>{getPrice(store, product)}</p>
+        </div>
         <p className="mt-2 line-clamp-2 text-sm font-semibold leading-5 opacity-68">
           {product.description ?? (flow.sellerAiEnabled ? "Preguntale a Seller AI si es para ti." : "Consulta disponibilidad por WhatsApp.")}
         </p>
@@ -352,11 +355,17 @@ function AppProductGrid({ store, products, title }: Pick<CommercialTemplateProps
                 <CommerceImageFrame imageUrl={product.imageUrl} alt={product.name} className={cn("rounded-none", isSingle ? "aspect-[4/3]" : "aspect-square")} />
               </Link>
               <div className="p-3">
-                {product.category ? <p className="truncate text-[11px] font-black text-[var(--space-primary)]">{product.category.name}</p> : null}
+                <div className="flex flex-wrap gap-1.5">
+                  {product.isFeatured ? <span className="inline-flex w-fit rounded-full bg-[var(--space-accent)] px-2 py-0.5 text-[10px] font-black text-[var(--space-accent-contrast)]">Destacado</span> : null}
+                  {product.category ? <span className="inline-flex w-fit rounded-full bg-[var(--space-muted)] px-2 py-0.5 text-[10px] font-black opacity-75">{product.category.name}</span> : null}
+                </div>
                 <Link href={href}>
                   <h3 className={cn("mt-1 font-black leading-tight", isSingle ? "text-xl" : "line-clamp-2 min-h-10 text-sm leading-5")}>{product.name}</h3>
                 </Link>
-                <p className="mt-2 text-base font-black text-[var(--space-primary)]">{getPrice(store, product)}</p>
+                <div className="mt-2 rounded-xl bg-[var(--space-muted)] px-2.5 py-2">
+                  <p className="text-[10px] font-black uppercase opacity-60">Precio</p>
+                  <p className="text-base font-black text-[var(--space-primary)]">{getPrice(store, product)}</p>
+                </div>
                 <ProductConversionCta
                   storeSlug={store.slug}
                   storePlan={store.plan}
@@ -382,9 +391,9 @@ function EmptyCommerceState({ store }: { store: CommercialTemplateStore }) {
       <div className="rounded-[1.6rem] border border-[var(--space-border)] bg-[var(--space-surface)] p-5 text-center text-[var(--space-surface-contrast)] shadow-sm">
         <ShoppingBag className="mx-auto size-9 text-[var(--space-primary)]" />
         <h2 className="mt-3 text-xl font-black">Productos en preparacion</h2>
-        <p className="mt-2 text-sm font-semibold leading-6 opacity-70">Puedes consultar disponibilidad directamente por WhatsApp.</p>
+        <p className="mt-2 text-sm font-semibold leading-6 opacity-70">Esta tienda aun esta ordenando su catalogo. Puedes consultar disponibilidad directamente por WhatsApp.</p>
         <WhatsappLink store={store} className="mt-4 inline-flex h-11 items-center justify-center rounded-full bg-[var(--space-primary)] px-5 text-sm font-black text-[var(--space-primary-contrast)]">
-          Consultar
+          Consultar por WhatsApp
         </WhatsappLink>
       </div>
     </section>

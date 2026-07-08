@@ -1,4 +1,4 @@
-import { ArrowRight, Camera, MessageCircle, Music2, Sparkles } from "lucide-react";
+import { ArrowRight, Camera, MessageCircle, Music2, ShoppingBag, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
@@ -57,7 +57,7 @@ type CommercialHeroProps = {
 };
 
 function getFallbackDescription(store: CommercialTemplateStore) {
-  return store.description ?? "Espacio comercial creado con JAKAWI.";
+  return store.description ?? store.commercialTagline ?? "Consulta productos, disponibilidad y detalles directamente por WhatsApp.";
 }
 
 function getHeroImage(store: CommercialTemplateStore, featuredProduct?: CommercialTemplateProduct) {
@@ -109,7 +109,10 @@ export function CommercialHero({ store, flow, variant, featuredProduct }: Commer
         <div className={cn("flex items-center justify-between gap-3 rounded-full px-2.5 py-2 backdrop-blur", isBoutique ? "bg-white/60 text-[var(--space-background-contrast)] ring-1 ring-white/60" : "bg-black/15 text-white ring-1 ring-white/20")}>
           <div className="flex min-w-0 items-center gap-2">
             <StoreMark store={store} variant={variant} />
-            <span className="truncate text-sm font-black">{store.name}</span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black leading-5">{store.name}</p>
+              <p className="truncate text-[11px] font-bold leading-4 opacity-75">Atencion directa por WhatsApp</p>
+            </div>
           </div>
           <a
             href={`https://wa.me/${store.whatsapp}`}
@@ -146,6 +149,18 @@ export function CommercialHero({ store, flow, variant, featuredProduct }: Commer
               {hasProducts ? "Ver productos" : "Consultar por WhatsApp"}
               <ArrowRight className="size-4" />
             </a>
+            {hasProducts ? (
+              <a
+                href={`https://wa.me/${store.whatsapp}`}
+                className={cn(
+                  "inline-flex h-12 items-center justify-center gap-2 rounded-full px-5 text-sm font-black ring-1 backdrop-blur transition hover:brightness-95",
+                  isBoutique ? "bg-white/65 text-[var(--space-background-contrast)] ring-white/70" : "bg-white/15 text-white ring-white/25",
+                )}
+              >
+                <MessageCircle className="size-4" />
+                WhatsApp
+              </a>
+            ) : null}
           </div>
         </div>
 
@@ -246,6 +261,7 @@ function CommercialProductImage({
   variant: "showcase" | "boutique";
   priority: "hero" | "single" | "card";
 }) {
+  const hasImage = Boolean(product.imageUrl);
   const imageUrl = product.imageUrl ?? "/placeholder-product.svg";
   const isBoutique = variant === "boutique";
   const shouldContain = priority !== "card";
@@ -258,9 +274,18 @@ function CommercialProductImage({
         priority === "single" ? "aspect-[4/3] md:aspect-square" : priority === "hero" ? "aspect-[4/3]" : "aspect-[4/3]",
       )}
     >
-      <Image src={imageUrl} alt="" fill sizes={priority === "hero" ? "(min-width: 1024px) 410px, 100vw" : "50vw"} unoptimized className="scale-110 object-cover opacity-20 blur-2xl" />
-      <div className={cn("absolute inset-0", isBoutique ? "bg-white/24" : "bg-black/[0.03]")} />
-      <Image src={imageUrl} alt="" fill sizes={priority === "hero" ? "(min-width: 1024px) 410px, 100vw" : "50vw"} unoptimized className={cn("z-10", shouldContain ? "object-contain p-3" : "object-cover")} />
+      {hasImage ? <Image src={imageUrl} alt="" fill sizes={priority === "hero" ? "(min-width: 1024px) 410px, 100vw" : "50vw"} unoptimized className="scale-110 object-cover opacity-20 blur-2xl" /> : null}
+      <div className={cn("absolute inset-0", hasImage ? (isBoutique ? "bg-white/24" : "bg-black/[0.03]") : "bg-[linear-gradient(135deg,color-mix(in_srgb,var(--space-primary)_14%,var(--space-muted))_0%,var(--space-surface)_58%,color-mix(in_srgb,var(--space-accent)_20%,var(--space-muted))_100%)]")} />
+      {hasImage ? (
+        <Image src={imageUrl} alt={product.name} fill sizes={priority === "hero" ? "(min-width: 1024px) 410px, 100vw" : "50vw"} unoptimized className={cn("z-10", shouldContain ? "object-contain p-3" : "object-cover")} />
+      ) : (
+        <div className="absolute inset-0 z-10 grid place-items-center p-6">
+          <div className="grid size-16 place-items-center rounded-2xl bg-white/70 text-[var(--space-primary)] shadow-sm">
+            <ShoppingBag className="size-8" />
+          </div>
+          <Image src={imageUrl} alt="" width={120} height={120} sizes="120px" unoptimized className="absolute bottom-4 right-4 h-16 w-16 object-contain opacity-45" />
+        </div>
+      )}
     </div>
   );
 }
@@ -286,7 +311,7 @@ export function CommercialProductCard({
   return (
     <article
       className={cn(
-        "overflow-hidden border border-[var(--space-border)] bg-[var(--space-surface)] text-[var(--space-surface-contrast)]",
+        "flex h-full flex-col overflow-hidden border border-[var(--space-border)] bg-[var(--space-surface)] text-[var(--space-surface-contrast)]",
         isSingle
           ? "rounded-[1.75rem] p-3 shadow-[0_18px_56px_rgb(0_0_0/0.12)] md:grid md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] md:gap-4"
           : "rounded-[1.35rem] p-2.5 shadow-sm",
@@ -296,7 +321,7 @@ export function CommercialProductCard({
       <Link href={productHref} className="block">
         <CommercialProductImage product={product} variant={variant} priority={isSingle ? "single" : "card"} />
       </Link>
-      <div className={cn(isSingle ? "flex flex-col justify-center p-2 md:p-5" : "p-2")}>
+      <div className={cn("flex flex-1 flex-col", isSingle ? "justify-center p-2 md:p-5" : "p-2")}>
         <div className="flex flex-wrap gap-2">
           {product.isFeatured ? <span className={cn("inline-flex w-fit rounded-full px-2.5 py-1 text-[11px] font-black", isBoutique ? "bg-[var(--space-primary)] text-[var(--space-primary-contrast)]" : "bg-[var(--space-accent)] text-[var(--space-accent-contrast)]")}>{isBoutique ? "Favorito" : "Destacado"}</span> : null}
           {product.category ? <span className="inline-flex w-fit rounded-full bg-[var(--space-muted)] px-2.5 py-1 text-[11px] font-black opacity-80">{product.category.name}</span> : null}
@@ -304,7 +329,10 @@ export function CommercialProductCard({
         <Link href={productHref}>
           <h3 className={cn("mt-3 font-black leading-tight", isSingle ? "text-2xl md:text-3xl" : "line-clamp-2 min-h-12 text-base leading-6")}>{product.name}</h3>
         </Link>
-        <p className={cn("mt-2 font-black text-[var(--space-primary)]", isSingle ? "text-2xl" : "text-xl")}>{price}</p>
+        <div className="mt-3 rounded-xl bg-[var(--space-muted)] px-3 py-2">
+          <p className="text-[10px] font-black uppercase opacity-60">Precio</p>
+          <p className={cn("font-black text-[var(--space-primary)]", isSingle ? "text-2xl" : "text-xl")}>{price}</p>
+        </div>
         <p className={cn("mt-2 text-sm font-semibold leading-6 opacity-70", !isSingle && "line-clamp-2")}>{microcopy}</p>
         <ProductConversionCta
           storeSlug={store.slug}
@@ -346,7 +374,7 @@ export function CommercialProductGrid({
         <p className="text-[11px] font-black uppercase text-[var(--space-primary)]">{eyebrow}</p>
         <h2 className="mt-1 text-2xl font-black leading-tight">{title}</h2>
       </div>
-      <div className={cn("mt-4 grid grid-cols-1 gap-4", isSingle ? "max-w-5xl" : "grid-cols-2 lg:grid-cols-3")}>
+      <div className={cn("mt-4 grid grid-cols-1 items-stretch gap-4", isSingle ? "max-w-5xl" : "grid-cols-2 lg:grid-cols-3")}>
         {products.map((product) => (
           <CommercialProductCard key={product.id} store={store} product={product} flow={flow} isSingle={isSingle} variant={variant} />
         ))}
@@ -359,6 +387,20 @@ export function CommercialFooter() {
   return <footer className="py-8 text-center text-xs font-black uppercase tracking-normal opacity-60">Hecho con JAKAWI</footer>;
 }
 
-export function CommercialEmptyProducts() {
-  return <p className="mt-5 rounded-2xl border border-[var(--space-border)] bg-[var(--space-surface)] px-4 py-5 text-center text-sm font-bold opacity-75">Este espacio está preparando sus productos.</p>;
+export function CommercialEmptyProducts({ store }: { store?: CommercialTemplateStore }) {
+  return (
+    <div className="mt-5 rounded-2xl border border-[var(--space-border)] bg-[var(--space-surface)] px-4 py-6 text-center text-[var(--space-surface-contrast)] shadow-sm">
+      <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[var(--space-muted)] text-[var(--space-primary)]">
+        <ShoppingBag className="size-6" />
+      </div>
+      <h2 className="mt-3 text-lg font-black">Productos en preparacion</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 opacity-70">Esta tienda aun esta ordenando su catalogo. Puedes consultar disponibilidad o hacer una pregunta directa por WhatsApp.</p>
+      {store ? (
+        <a href={`https://wa.me/${store.whatsapp}`} className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[var(--space-primary)] px-5 text-sm font-black text-[var(--space-primary-contrast)] transition hover:brightness-95">
+          <MessageCircle className="size-4" />
+          Consultar por WhatsApp
+        </a>
+      ) : null}
+    </div>
+  );
 }
