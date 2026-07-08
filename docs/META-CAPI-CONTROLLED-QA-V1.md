@@ -4,20 +4,31 @@
 
 BLOCKED.
 
-La QA controlada no se ejecuto porque el runtime publico no contiene Meta CAPI v1. `https://jakawi.com` responde 200, pero el contenedor web no expone evidencia de codigo CAPI v1 en el bundle runtime y la base runtime no tiene las tablas `TrackingEvent` ni `StorePixelIntegration`.
+La QA controlada no se ejecuto porque el runtime publico no contiene Meta CAPI v1. `https://jakawi.com` responde 200, y las rutas QA de tienda/producto responden 200, pero la imagen web en ejecucion no expone evidencia de codigo CAPI v1 y la base runtime no contiene las tablas `TrackingEvent` ni `StorePixelIntegration`.
 
 Motivo bloqueante: deploy/migracion requerida. No se hizo deploy.
 
 ## Evidencia
 
-- QA_DIR: `/var/backups/jakawi.com/qa/meta-capi-controlled-qa-v1/20260708-005130`
+- QA_DIR: `/var/backups/jakawi.com/qa/meta-capi-controlled-qa-v1/20260708-010629`
 - Repo: `/var/opt/jakawi.com`
-- HEAD local: `d13f87234e59df037d8ddc3dc0353ffba1893b38`
-- Tag local en HEAD: `meta-capi-v1`
+- HEAD local al iniciar esta corrida: `d8730240e4d3ccef791bc0dd6800e6bbf50b8db5`
+- Tags locales en HEAD al iniciar esta corrida: `meta-capi-controlled-qa-v1`
+- Commit base Meta CAPI v1 existente en repo: `d13f87234e59df037d8ddc3dc0353ffba1893b38`
+- Tag local Meta CAPI v1: `meta-capi-v1`
 - Runtime publico: `https://jakawi.com` respondio 200
 - Runtime contiene Meta CAPI v1: no
 - Runtime `TrackingEvent`: no
 - Runtime `StorePixelIntegration`: no
+
+Archivos de evidencia saneada:
+
+- `git-state.txt`
+- `runtime-status.txt`
+- `env-key-presence.txt`
+- `runtime-env-key-presence.txt`
+- `runtime-capi-presence.txt`
+- `browser-pixel-observed.txt`
 
 ## Tienda QA
 
@@ -31,7 +42,7 @@ Motivo bloqueante: deploy/migracion requerida. No se hizo deploy.
 ## Configuracion CAPI
 
 - `.env.stack` `APP_ENCRYPTION_KEY`: missing
-- `.env.stack` `META_CAPI_ENABLED`: missing; efectivo false por default del codigo local
+- `.env.stack` `META_CAPI_ENABLED`: missing; efectivo false por default del codigo local/runtime actual
 - `.env.stack` `META_CAPI_GRAPH_VERSION`: missing; default local `v20.0`
 - `.env.stack` `META_CAPI_TIMEOUT_MS`: missing; default local `5000`
 - Runtime `APP_ENCRYPTION_KEY`: missing
@@ -51,6 +62,8 @@ No se activo `META_CAPI_ENABLED=true` temporal porque el runtime no contiene Met
 - test_event_code usado: no
 - test_event_code present: no
 - Token expuesto: no
+
+BLOCKED: Meta Pixel ID / CAPI token / test_event_code required for controlled QA.
 
 ## Eventos Probados
 
