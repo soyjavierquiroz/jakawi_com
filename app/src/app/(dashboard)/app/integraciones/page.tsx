@@ -9,6 +9,7 @@ import { requireStore } from "@/lib/auth";
 import { isEncryptionConfigured } from "@/lib/crypto/encryption";
 import { getPrisma } from "@/lib/prisma";
 import {
+  canPrepareStorePixelCapi,
   storePixelPlatformLabel,
   storePixelPlatforms,
   storePixelStatusLabel,
@@ -18,8 +19,14 @@ import { cn } from "@/lib/ui";
 
 const platformHints: Record<StorePixelPlatform, string> = {
   META: "Meta Pixel ID, Browser Pixel y CAPI por tienda. CAPI se enviará solo cuando META_CAPI_ENABLED=true y exista consentimiento marketing.",
-  TIKTOK: "Pixel ID preparado para un hito futuro. No se envían eventos a TikTok.",
+  TIKTOK: "TikTok Pixel ID, Browser Pixel y CAPI quedan preparados por tienda. No se inyecta script ni se envían eventos a TikTok.",
   GOOGLE: "Preparado para Google Ads/Analytics futuro. No se envían eventos a Google.",
+};
+
+const platformCapiNotes: Record<StorePixelPlatform, string> = {
+  META: "CAPI requiere Meta ACTIVE, Pixel ID, token cifrado, APP_ENCRYPTION_KEY, META_CAPI_ENABLED=true y consentimiento marketing.",
+  TIKTOK: "TikTok CAPI queda solo preparado: requiere Pixel ID, token cifrado y APP_ENCRYPTION_KEY; no hay TikTok Events API ni envio externo en este hito.",
+  GOOGLE: "Google no permite CAPI en este hito. Solo queda preparado el ID futuro.",
 };
 
 function statusClass(status: StorePixelStatus) {
@@ -74,7 +81,8 @@ export default async function StoreIntegrationsPage({
         {storePixelPlatforms.map((platform) => {
           const integration = byPlatform.get(platform);
           const status = integration?.status ?? StorePixelStatus.DRAFT;
-          const canEnableCapi = platform === StorePixelPlatform.META && encryptionReady && Boolean(integration?.pixelId) && Boolean(integration?.accessTokenEncrypted);
+          const supportsCapi = canPrepareStorePixelCapi(platform);
+          const canEnableCapi = supportsCapi && encryptionReady;
 
           return (
             <article key={platform} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -109,7 +117,7 @@ export default async function StoreIntegrationsPage({
 
                 <label className="space-y-2">
                   <span className="text-sm font-semibold text-neutral-700">Pixel ID</span>
-                  <input name="pixelId" defaultValue={integration?.pixelId ?? ""} placeholder={platform === StorePixelPlatform.META ? "123456789012345" : "Pixel ID"} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
+                  <input name="pixelId" defaultValue={integration?.pixelId ?? ""} placeholder={platform === StorePixelPlatform.META ? "123456789012345" : platform === StorePixelPlatform.TIKTOK ? "C1234567890ABCDEFGH" : "Pixel ID"} className="h-11 w-full rounded-md border border-brand-border px-3 outline-none focus:border-brand" />
                 </label>
 
                 <label className="space-y-2">
@@ -164,7 +172,7 @@ export default async function StoreIntegrationsPage({
               </form>
 
               <p className="mt-3 rounded-md bg-brand-muted px-3 py-2 text-xs font-semibold leading-5 text-neutral-600">
-                CAPI requiere Meta ACTIVE, Pixel ID, token cifrado, APP_ENCRYPTION_KEY, META_CAPI_ENABLED=true y consentimiento marketing. No se usan pixels ni tokens de JAKAWI para eventos de tiendas.
+                {platformCapiNotes[platform]} No se usan pixels ni tokens de JAKAWI para eventos de tiendas.
               </p>
             </article>
           );

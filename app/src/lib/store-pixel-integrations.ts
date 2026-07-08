@@ -3,6 +3,7 @@ import { encryptSecret, isEncryptionConfigured } from "@/lib/crypto/encryption";
 
 export const storePixelPlatforms = [StorePixelPlatform.META, StorePixelPlatform.TIKTOK, StorePixelPlatform.GOOGLE] as const;
 export const storePixelStatuses = [StorePixelStatus.DRAFT, StorePixelStatus.ACTIVE, StorePixelStatus.DISABLED, StorePixelStatus.ERROR] as const;
+const storePixelCapiPlatforms = [StorePixelPlatform.META, StorePixelPlatform.TIKTOK] as const;
 
 export type StorePixelActor = {
   userId: string;
@@ -86,8 +87,12 @@ export function normalizeStorePixelStatus(value?: string | null): StorePixelStat
 export function validateStorePixelId(platform: StorePixelPlatform, pixelId: string | null) {
   if (!pixelId) return true;
   if (platform === StorePixelPlatform.META) return /^\d{5,30}$/.test(pixelId);
-  if (platform === StorePixelPlatform.TIKTOK) return /^[A-Za-z0-9_-]{3,80}$/.test(pixelId);
+  if (platform === StorePixelPlatform.TIKTOK) return /^[A-Za-z0-9]{10,40}$/.test(pixelId);
   return /^[A-Za-z0-9_.:-]{3,120}$/.test(pixelId);
+}
+
+export function canPrepareStorePixelCapi(platform: StorePixelPlatform) {
+  return storePixelCapiPlatforms.includes(platform as (typeof storePixelCapiPlatforms)[number]);
 }
 
 export function storePixelPlatformLabel(platform: StorePixelPlatform) {
@@ -136,7 +141,7 @@ export async function upsertStorePixelIntegration(
   if (!validateStorePixelId(platform, pixelId)) return { ok: false, reason: "invalid_pixel_id" };
   if (browserPixelEnabled && !pixelId) return { ok: false, reason: "browser_pixel_requires_pixel_id" };
   if (input.clearToken) capiEnabled = false;
-  if (platform !== StorePixelPlatform.META) capiEnabled = false;
+  if (!canPrepareStorePixelCapi(platform)) capiEnabled = false;
   if (capiEnabled && !pixelId) return { ok: false, reason: "capi_requires_pixel_id" };
   if (capiEnabled && !accessToken && !existing?.accessTokenEncrypted) return { ok: false, reason: "capi_requires_access_token" };
   if (capiEnabled && !isEncryptionConfigured()) return { ok: false, reason: "token_encryption_not_configured" };

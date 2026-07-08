@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { afterEach, test } from "node:test";
 import { StorePixelPlatform, StorePixelStatus } from "@prisma/client";
 import {
+  canPrepareStorePixelCapi,
   upsertStorePixelIntegration,
   validateStorePixelId,
 } from "@/lib/store-pixel-integrations";
@@ -153,6 +154,71 @@ test("access token is encrypted and does not contain plaintext", async () => {
   assert.equal(result.integration.capiEnabled, true);
   assert.ok(result.integration.accessTokenEncrypted);
   assert.equal(result.integration.accessTokenEncrypted.includes("plain-token"), false);
+});
+
+test("TikTok can be saved as DRAFT with a reasonable pixel id", async () => {
+  const { db } = createMockDb();
+  const result = await upsertStorePixelIntegration(db as never, { userId: "owner_1" }, {
+    platform: "TIKTOK",
+    pixelId: "C1234567890ABCDEFGH",
+    browserPixelEnabled: true,
+    status: "DRAFT",
+    testEventCode: "TEST12345",
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.integration.platform, StorePixelPlatform.TIKTOK);
+  assert.equal(result.integration.status, StorePixelStatus.DRAFT);
+  assert.equal(result.integration.browserPixelEnabled, true);
+  assert.equal(result.integration.capiEnabled, false);
+  assert.equal(result.integration.testEventCode, "TEST12345");
+});
+
+test("TikTok pixel id rejects short or punctuated values", () => {
+  assert.equal(validateStorePixelId(StorePixelPlatform.TIKTOK, "abc"), false);
+  assert.equal(validateStorePixelId(StorePixelPlatform.TIKTOK, "C12345_BAD"), false);
+  assert.equal(validateStorePixelId(StorePixelPlatform.TIKTOK, "C1234567890ABCDEFGH"), true);
+});
+
+test("TikTok CAPI can only be prepared with an encrypted token", async () => {
+  const { db } = createMockDb();
+  const missingToken = await upsertStorePixelIntegration(db as never, { userId: "owner_1" }, {
+    platform: "TIKTOK",
+    pixelId: "C1234567890ABCDEFGH",
+    capiEnabled: true,
+  });
+
+  assert.deepEqual(missingToken, { ok: false, reason: "capi_requires_access_token" });
+
+  process.env.APP_ENCRYPTION_KEY = encryptionKey();
+  const result = await upsertStorePixelIntegration(db as never, { userId: "owner_1" }, {
+    platform: "TIKTOK",
+    pixelId: "C1234567890ABCDEFGH",
+    accessToken: "tiktok-token",
+    capiEnabled: true,
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.integration.capiEnabled, true);
+  assert.ok(result.integration.accessTokenEncrypted);
+  assert.equal(result.integration.accessTokenEncrypted.includes("tiktok-token"), false);
+});
+
+test("Google CAPI is not prepareable in v1", async () => {
+  const { db } = createMockDb();
+  const result = await upsertStorePixelIntegration(db as never, { userId: "owner_1" }, {
+    platform: "GOOGLE",
+    pixelId: "AW-123456789",
+    capiEnabled: true,
+  });
+
+  assert.equal(canPrepareStorePixelCapi(StorePixelPlatform.GOOGLE), false);
+  assert.equal(canPrepareStorePixelCapi(StorePixelPlatform.TIKTOK), true);
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.integration.capiEnabled, false);
 });
 
 test("owner cannot modify another store", async () => {
