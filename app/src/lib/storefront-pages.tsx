@@ -7,11 +7,13 @@ import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { CommercialSpaceRenderer } from "@/components/storefront/templates/CommercialSpaceRenderer";
 import { MetaPixel } from "@/components/tracking/MetaPixel";
+import { TikTokPixel } from "@/components/tracking/TikTokPixel";
 import { VisitorProvider } from "@/context/VisitorContext";
 import { trackEvent } from "@/lib/analytics";
 import { buildCommercialSpaceTheme, commercialThemeToCssVariables } from "@/lib/commercial-theme";
 import { formatMoney } from "@/lib/money";
 import { buildMetaPixelPageViewEvent, buildMetaPixelViewContentEvent, getActiveMetaPixelForStore } from "@/lib/pixels/meta-pixel";
+import { buildTikTokPageViewEvent, buildTikTokViewContentEvent, getActiveTikTokPixelForStore } from "@/lib/pixels/tiktok-pixel";
 import { getPrisma } from "@/lib/prisma";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 import { parseConsent, trackingConsentCookieName } from "@/lib/tracking/consent";
@@ -42,12 +44,14 @@ export async function renderStorefrontBySlug(storeSlug: string) {
   const eventId = await trackEvent("STORE_VIEW", store.id);
   const consent = await getRequestTrackingConsent();
   const metaPixel = await getActiveMetaPixelForStore(store.id, { consent });
+  const tiktokPixel = await getActiveTikTokPixelForStore(store.id, { consent });
   const theme = buildCommercialSpaceTheme(store);
   const themeStyle = commercialThemeToCssVariables(theme) as CSSProperties;
 
   return (
     <div style={themeStyle}>
       {metaPixel ? <MetaPixel pixelId={metaPixel.pixelId} event={buildMetaPixelPageViewEvent(eventId)} /> : null}
+      {tiktokPixel ? <TikTokPixel pixelId={tiktokPixel.pixelId} event={buildTikTokPageViewEvent(eventId)} /> : null}
       <CommercialSpaceRenderer store={store} categories={store.categories} products={store.products} />
     </div>
   );
@@ -76,6 +80,7 @@ export async function renderProductBySlug(storeSlug: string, productSlug: string
     },
   });
   const metaPixel = await getActiveMetaPixelForStore(store.id, { consent });
+  const tiktokPixel = await getActiveTikTokPixelForStore(store.id, { consent });
   const flow = getStorefrontFlow(store.plan);
   const theme = buildCommercialSpaceTheme(store);
   const themeStyle = commercialThemeToCssVariables(theme) as CSSProperties;
@@ -93,6 +98,18 @@ export async function renderProductBySlug(storeSlug: string, productSlug: string
         <MetaPixel
           pixelId={metaPixel.pixelId}
           event={buildMetaPixelViewContentEvent({
+            eventId,
+            productId: product.id,
+            productName: product.name,
+            currency: store.currency ?? product.currency,
+            valueCents: product.priceCents,
+          })}
+        />
+      ) : null}
+      {tiktokPixel ? (
+        <TikTokPixel
+          pixelId={tiktokPixel.pixelId}
+          event={buildTikTokViewContentEvent({
             eventId,
             productId: product.id,
             productName: product.name,
