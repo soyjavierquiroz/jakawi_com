@@ -1,8 +1,10 @@
-# Deploy Safety Runbook v1
+# Deploy Safety Runbook v1.1
 
 ## Objetivo
 
 Evitar releases Docker Stack con variables sustituidas vacias por ejecutar `docker stack deploy` sin cargar `.env.stack`.
+
+Tambien evitar declarar un release como desplegado cuando `docker stack deploy` reutiliza el tag local `jakawi-com-web:latest` y no recrea el task activo.
 
 Este runbook es operativo y corto. No cambia runtime, no despliega por si solo y no debe imprimir secretos.
 
@@ -11,6 +13,8 @@ Este runbook es operativo y corto. No cambia runtime, no despliega por si solo y
 Nunca ejecutar `docker stack deploy` sin cargar `.env.stack` en el shell del proceso de deploy.
 
 Incidente que previene: en Release Batch v4 el primer deploy corrio sin `.env.stack`; Docker sustituyo variables vacias, `DATABASE_URL` quedo vacio, `jakawi_com_web` reinicio temporalmente y se recupero cargando `.env.stack` antes del redeploy.
+
+Leccion de Release Batch v6: `docker stack deploy` puede no recrear el task si se reutiliza el tag local `jakawi-com-web:latest`. Despues del build se debe guardar el image id, verificar el task activo despues del deploy y forzar update si el contenedor activo no coincide con la imagen recien construida.
 
 ## Cargar env sin imprimir secrets
 
@@ -78,17 +82,52 @@ Ejecutar solo despues de preflight PASS, validaciones locales PASS y ventana apr
 
 ```bash
 cd /var/opt/jakawi.com
+docker build -t jakawi-com-web:latest ./app
+docker image inspect jakawi-com-web:latest --format '{{.Id}}'
 set -a
 . .env.stack
 set +a
 docker stack deploy --resolve-image never -c infra/docker-stack.yml jakawi_com
 ```
 
-Si se construyo una imagen local nueva y Swarm no recrea el contenedor web:
+Nunca ejecutar `docker stack deploy` sin `.env.stack` cargado en ese mismo shell.
+
+Guardar el image id construido en la evidencia del release antes de desplegar:
+
+```bash
+built_image_id="$(docker image inspect jakawi-com-web:latest --format '{{.Id}}')"
+printf '%s\n' "$built_image_id"
+```
+
+Despues de `docker stack deploy`, verificar estado del servicio y tareas:
+
+```bash
+docker service inspect jakawi_com_web --format '{{json .UpdateStatus}}'
+docker service ps jakawi_com_web --no-trunc
+docker stack services jakawi_com
+```
+
+Verificar el image id del contenedor activo contra la imagen recien construida:
+
+```bash
+running_container_id="$(docker ps --filter name=jakawi_com_web -q | head -n 1)"
+docker inspect "$running_container_id" --format '{{.Image}}'
+test "$(docker inspect "$running_container_id" --format '{{.Image}}')" = "$built_image_id"
+```
+
+Si el servicio no recreo task o el contenedor activo no coincide con el image id recien construido, forzar update:
 
 ```bash
 docker service update --force jakawi_com_web
 ```
+
+Volver a verificar antes de declarar PASS:
+
+- `docker stack services jakawi_com` muestra `jakawi_com_web` en `1/1`.
+- `docker service inspect jakawi_com_web --format '{{json .UpdateStatus}}'` muestra update `completed`.
+- El image id del contenedor activo coincide con el image id guardado despues del build.
+- Smoke publico PASS.
+- Flags finales verificadas con salida redacted.
 
 ## Post-deploy smoke
 
