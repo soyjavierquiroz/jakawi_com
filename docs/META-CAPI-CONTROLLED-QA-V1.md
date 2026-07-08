@@ -4,112 +4,112 @@
 
 BLOCKED.
 
-La QA controlada no se ejecuto porque el runtime publico no contiene Meta CAPI v1. `https://jakawi.com` responde 200, y las rutas QA de tienda/producto responden 200, pero la imagen web en ejecucion no expone evidencia de codigo CAPI v1 y la base runtime no contiene las tablas `TrackingEvent` ni `StorePixelIntegration`.
+La QA controlada no se ejecuto porque faltan credenciales QA requeridas para Meta:
 
-Motivo bloqueante: deploy/migracion requerida. No se hizo deploy.
+- Meta Pixel ID QA: missing.
+- Meta CAPI access token QA: missing.
+- `test_event_code`: missing; recomendado para Events Manager.
+
+La regla de esta tarea exige detener si falta Pixel ID QA o token CAPI QA. No se activo Meta CAPI, no se creo/actualizo una integracion Meta, y no se enviaron eventos.
 
 ## Evidencia
 
-- QA_DIR: `/var/backups/jakawi.com/qa/meta-capi-controlled-qa-v1/20260708-010629`
+- QA_DIR: `/var/backups/jakawi.com/qa/meta-capi-controlled-qa-v1/20260708-013312`
 - Repo: `/var/opt/jakawi.com`
-- HEAD local al iniciar esta corrida: `d8730240e4d3ccef791bc0dd6800e6bbf50b8db5`
-- Tags locales en HEAD al iniciar esta corrida: `meta-capi-controlled-qa-v1`
-- Commit base Meta CAPI v1 existente en repo: `d13f87234e59df037d8ddc3dc0353ffba1893b38`
-- Tag local Meta CAPI v1: `meta-capi-v1`
-- Runtime publico: `https://jakawi.com` respondio 200
-- Runtime contiene Meta CAPI v1: no
-- Runtime `TrackingEvent`: no
-- Runtime `StorePixelIntegration`: no
+- Commit local al iniciar esta corrida: `f7657974febde02e8157db957ee8742246d6dd08`
+- Runtime publico: `https://jakawi.com/api/health` respondio OK con database ok.
+- Runtime `TrackingEvent`: present.
+- Runtime `StorePixelIntegration`: present.
+- Runtime `META_CAPI_ENABLED` inicial: `false`.
+- Runtime `META_CAPI_ENABLED` final: `false`.
 
 Archivos de evidencia saneada:
 
 - `git-state.txt`
-- `runtime-status.txt`
+- `git-status-short.txt`
+- `health.json`
+- `runtime-schema-tables.txt`
+- `runtime-env-redacted-before.txt`
 - `env-key-presence.txt`
-- `runtime-env-key-presence.txt`
-- `runtime-capi-presence.txt`
-- `browser-pixel-observed.txt`
+- `store-meta-integration-presence.csv`
+- `controlled-events-since-qa-start.csv`
+- `final-meta-capi-enabled.txt`
 
 ## Tienda QA
 
 - Store slug: `qa-onboarding-store`
 - Producto: `qa-producto-demo`
-- Storefront QA respondio 200
-- Producto QA respondio 200
-- Store QA publicada en runtime: yes
-- Producto QA visible en runtime: yes
+- Store QA existe en runtime: yes.
+- Integracion META para store QA: no.
+- Pixel ID present: no.
+- Access token encrypted present: no.
+- Browser Pixel enabled: no.
+- CAPI enabled: no.
+- `test_event_code` present: no.
+- Token expuesto: no.
 
 ## Configuracion CAPI
 
-- `.env.stack` `APP_ENCRYPTION_KEY`: missing
-- `.env.stack` `META_CAPI_ENABLED`: missing; efectivo false por default del codigo local/runtime actual
-- `.env.stack` `META_CAPI_GRAPH_VERSION`: missing; default local `v20.0`
-- `.env.stack` `META_CAPI_TIMEOUT_MS`: missing; default local `5000`
-- Runtime `APP_ENCRYPTION_KEY`: missing
-- Runtime `META_CAPI_ENABLED`: missing; final `META_CAPI_ENABLED=false` efectivo
-- Runtime `META_CAPI_GRAPH_VERSION`: missing
-- Runtime `META_CAPI_TIMEOUT_MS`: missing
+Runtime final redacted:
 
-No se activo `META_CAPI_ENABLED=true` temporal porque el runtime no contiene Meta CAPI v1 y la regla de QA exige bloquear con "deploy required".
+```text
+CRM_WEBHOOK_ENABLED=false
+CUSTOM_DOMAINS_ENABLED=false
+CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED=false
+META_CAPI_ENABLED=false
+META_CAPI_GRAPH_VERSION=v20.0
+META_CAPI_TIMEOUT_MS=5000
+EMAIL_DELIVERY_MODE=disabled
+APP_ENCRYPTION_KEY_present=yes
+```
 
-## Integracion Meta QA
-
-- StorePixelIntegration META en runtime: unavailable; tabla ausente
-- Pixel ID present: no
-- Access token encrypted present: no
-- CAPI enabled: no
-- Browser Pixel enabled: no
-- test_event_code usado: no
-- test_event_code present: no
-- Token expuesto: no
-
-BLOCKED: Meta Pixel ID / CAPI token / test_event_code required for controlled QA.
+No se configuro temporalmente `META_CAPI_ENABLED=true` porque faltan Pixel ID QA y token CAPI QA.
 
 ## Eventos Probados
 
-No se envio CAPI.
+No se ejecuto el flujo controlado.
 
-- `store_view` -> `PageView`: BLOCKED, runtime sin `TrackingEvent`/CAPI
-- `product_view` -> `ViewContent`: BLOCKED, runtime sin `TrackingEvent`/CAPI
+- `store_view` -> `PageView`: BLOCKED, faltan Pixel ID QA y token CAPI QA.
+- `product_view` -> `ViewContent`: BLOCKED, faltan Pixel ID QA y token CAPI QA.
 
-Se hicieron GETs controlados a las rutas QA para verificar disponibilidad:
+No se hicieron GETs controlados a:
 
 - `https://jakawi.com/qa-onboarding-store`
 - `https://jakawi.com/qa-onboarding-store/p/qa-producto-demo`
 
+Consulta desde el inicio de esta corrida:
+
+- `store_view`: 0 eventos creados.
+- `product_view`: 0 eventos creados.
+
 ## Status CAPI Por Evento
 
-- `store_view`: not executed; blocked before enabling CAPI
-- `product_view`: not executed; blocked before enabling CAPI
-- `metadata.metaCapi`: unavailable; runtime sin `TrackingEvent`
-- `event_id`: unavailable en runtime; no se pudo crear `TrackingEvent`
-
-## Browser Pixel
-
-- Browser Pixel observed en storefront HTML: no
-- Browser Pixel observed en product HTML: no
-
-Esto es consistente con runtime sin `StorePixelIntegration` y sin consentimiento marketing aplicado a una integracion Meta activa.
+- `PageView`: not executed.
+- `ViewContent`: not executed.
+- `metadata.metaCapi`: not created in this QA run.
+- `event_id`: none used in this QA run.
+- Token expuesto: no.
+- Email/phone/external_id enviados: no.
 
 ## Controles
 
-- No CRM
-- No TikTok
-- No Google
-- No Cloudflare
-- No pagos
-- No emails reales
-- No push
-- No deploy
-- No secretos en docs/evidencia
-- No se uso Pixel de JAKAWI para tienda
-- No eventos masivos
-- Final `META_CAPI_ENABLED=false` efectivo
+- No CRM.
+- No TikTok.
+- No Google.
+- No Cloudflare.
+- No pagos.
+- No emails reales.
+- No deploy.
+- No push.
+- No secretos en docs/evidencia saneada.
+- No eventos masivos.
+- No Pixel/CAPI QA enviado.
+- Final `META_CAPI_ENABLED=false`.
 
 ## Pendientes
 
-- Desplegar `meta-capi-v1` y migraciones asociadas antes de reintentar QA.
-- Configurar `APP_ENCRYPTION_KEY` en runtime sin imprimir valor.
-- Configurar temporalmente `META_CAPI_ENABLED=true`, `META_CAPI_GRAPH_VERSION=v20.0` y `META_CAPI_TIMEOUT_MS=5000` solo durante la QA.
-- Provisionar StorePixelIntegration META para `qa-onboarding-store` con Pixel ID QA, token CAPI cifrado y `test_event_code` si esta disponible.
-- Reintentar un unico flujo QA con consentimiento marketing controlado y apagar CAPI al final.
+- Proveer Meta Pixel ID QA sin imprimirlo en output.
+- Proveer Meta CAPI access token QA sin imprimirlo en output.
+- Proveer `test_event_code` de Events Manager si esta disponible.
+- Crear/actualizar `StorePixelIntegration` META para `qa-onboarding-store` con token cifrado.
+- Reintentar el flujo controlado con consentimiento marketing y apagar CAPI al final.
