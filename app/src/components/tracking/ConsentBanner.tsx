@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Settings2, ShieldCheck, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import {
   getDefaultConsent,
   necessaryOnlyTrackingConsent,
@@ -10,6 +11,7 @@ import {
   trackingConsentCookieName,
   type TrackingConsent,
 } from "@/lib/tracking/consent";
+import { shouldShowPrivacyFloatingButton } from "@/lib/tracking/privacy-button-scope";
 
 const cookieMaxAgeSeconds = 60 * 60 * 24 * 180;
 
@@ -52,6 +54,7 @@ function writeStoredConsent(consent: Partial<TrackingConsent>) {
 }
 
 export function ConsentBanner() {
+  const pathname = usePathname();
   const [state, setState] = useState<ConsentBannerState>(() => ({
     isReady: false,
     isOpen: false,
@@ -59,6 +62,7 @@ export function ConsentBanner() {
     preferences: getDefaultConsent(),
   }));
   const { isReady, isOpen, hasStoredConsent, preferences } = state;
+  const showFloatingButton = shouldShowPrivacyFloatingButton(pathname);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -95,7 +99,7 @@ export function ConsentBanner() {
 
   return (
     <>
-      {hasStoredConsent && !isOpen ? (
+      {hasStoredConsent && !isOpen && showFloatingButton ? (
         <button
           type="button"
           onClick={() => setState((current) => ({ ...current, isOpen: true }))}
