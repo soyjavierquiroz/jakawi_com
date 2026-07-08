@@ -1,6 +1,7 @@
 "use client";
 
 import { Mic, Pause, Play, X } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/ui";
 import type { SellerVoiceNoteConfig } from "@/lib/seller-ai/voice-notes";
@@ -155,8 +156,8 @@ export function SellerAiVoiceNote({ voiceNote, align = "assistant", compact = fa
                 ))}
               </div>
             </div>
-            <div className="size-9 shrink-0 overflow-hidden rounded-full bg-brand-dark ring-2 ring-white">
-              {voiceNote.avatarUrl ? <img src={voiceNote.avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-sm font-black text-white">{initials}</div>}
+            <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-brand-dark ring-2 ring-white">
+              {voiceNote.avatarUrl ? <Image src={voiceNote.avatarUrl} alt="" fill sizes="36px" unoptimized className="object-cover" /> : <div className="grid h-full place-items-center text-sm font-black text-white">{initials}</div>}
             </div>
           </div>
           <div className={cn("mt-1 flex items-center justify-between gap-2 pl-11 pr-11 text-[11px] font-bold", align === "seller" ? "text-brand-dark/60" : "text-neutral-500")}>

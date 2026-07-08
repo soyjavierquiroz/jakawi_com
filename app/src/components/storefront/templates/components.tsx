@@ -1,4 +1,5 @@
 import { ArrowRight, Camera, MessageCircle, Music2, Sparkles } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { formatMoney } from "@/lib/money";
@@ -75,7 +76,7 @@ function getProductPrice(store: CommercialTemplateStore, product: CommercialTemp
 function StoreMark({ store, variant }: { store: CommercialTemplateStore; variant: "showcase" | "boutique" }) {
   return (
     <span className={cn("grid size-9 shrink-0 place-items-center overflow-hidden text-sm font-black", variant === "boutique" ? "rounded-full bg-white/80 text-[var(--space-primary)]" : "rounded-xl bg-white/16 text-white ring-1 ring-white/20")}>
-      {store.logoUrl ? <img src={store.logoUrl} alt="" className="h-full w-full object-cover" /> : store.name.charAt(0)}
+      {store.logoUrl ? <Image src={store.logoUrl} alt="" width={36} height={36} sizes="36px" unoptimized className="h-full w-full object-cover" /> : store.name.charAt(0)}
     </span>
   );
 }
@@ -93,10 +94,13 @@ export function CommercialHero({ store, flow, variant, featuredProduct }: Commer
       )}
     >
       {heroImage ? (
-        <img
+        <Image
           src={heroImage}
           alt=""
-          className={cn("absolute inset-0 h-full w-full object-cover", isBoutique ? "opacity-28 saturate-110" : "opacity-58 saturate-110")}
+          fill
+          sizes="100vw"
+          unoptimized
+          className={cn("object-cover", isBoutique ? "opacity-28 saturate-110" : "opacity-58 saturate-110")}
         />
       ) : null}
       <div className={cn("absolute inset-0", isBoutique ? "bg-[linear-gradient(180deg,color-mix(in_srgb,var(--space-background)_92%,transparent)_0%,color-mix(in_srgb,var(--space-background)_55%,transparent)_44%,var(--space-background)_100%)]" : "bg-[linear-gradient(180deg,rgba(0,0,0,.35)_0%,rgba(0,0,0,.10)_40%,rgba(0,0,0,.72)_100%)]")} />
@@ -194,7 +198,7 @@ export function CommercialCollectionCard({
           <div className="flex -space-x-3">
             {previewProducts.map((product) => (
               <span key={product.id} className="block size-16 overflow-hidden rounded-2xl border-2 border-[var(--space-surface)] bg-[var(--space-muted)] shadow-sm">
-                <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="h-full w-full object-cover" />
+                <Image src={product.imageUrl ?? "/placeholder-product.svg"} alt="" width={64} height={64} sizes="64px" unoptimized className="h-full w-full object-cover" />
               </span>
             ))}
           </div>
@@ -254,9 +258,9 @@ function CommercialProductImage({
         priority === "single" ? "aspect-[4/3] md:aspect-square" : priority === "hero" ? "aspect-[4/3]" : "aspect-[4/3]",
       )}
     >
-      <img src={imageUrl} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-20 blur-2xl" />
+      <Image src={imageUrl} alt="" fill sizes={priority === "hero" ? "(min-width: 1024px) 410px, 100vw" : "50vw"} unoptimized className="scale-110 object-cover opacity-20 blur-2xl" />
       <div className={cn("absolute inset-0", isBoutique ? "bg-white/24" : "bg-black/[0.03]")} />
-      <img src={imageUrl} alt="" className={cn("relative z-10 h-full w-full", shouldContain ? "object-contain p-3" : "object-cover")} />
+      <Image src={imageUrl} alt="" fill sizes={priority === "hero" ? "(min-width: 1024px) 410px, 100vw" : "50vw"} unoptimized className={cn("z-10", shouldContain ? "object-contain p-3" : "object-cover")} />
     </div>
   );
 }

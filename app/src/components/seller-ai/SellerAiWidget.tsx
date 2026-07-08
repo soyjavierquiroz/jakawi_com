@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, Loader2, MessageCircle, Send, Sparkles, Volume2, VolumeX, X } from "lucide-react";
+import Image from "next/image";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SmartPhoneInput } from "@/components/forms/SmartPhoneInput";
 import { sellerAiConfig } from "@/config/seller-ai";
@@ -722,7 +723,7 @@ export function SellerAiWidget({
           <div className="shrink-0 border-b border-[var(--space-border)] bg-[var(--space-surface)] px-4 py-2 text-[var(--space-surface-contrast)]">
             {productName ? (
               <div className="flex items-center gap-2.5">
-                {productImageUrl ? <img src={productImageUrl} alt="" className="size-10 shrink-0 rounded-md object-cover" /> : null}
+                {productImageUrl ? <Image src={productImageUrl} alt="" width={40} height={40} sizes="40px" unoptimized className="size-10 shrink-0 rounded-md object-cover" /> : null}
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-normal text-neutral-500">Producto seleccionado</p>
                   <p className="truncate text-[13px] font-black leading-4">{productName}</p>
@@ -766,7 +767,7 @@ export function SellerAiWidget({
                   <div className="space-y-2">
                     {recommendedProducts.map((product) => (
                       <div key={product.id} className="grid grid-cols-[auto_1fr] gap-2 rounded-md bg-[var(--space-muted)] p-2">
-                        {product.imageUrl ? <img src={product.imageUrl} alt="" className="size-12 rounded-md object-cover" /> : null}
+                        {product.imageUrl ? <Image src={product.imageUrl} alt="" width={48} height={48} sizes="48px" unoptimized className="size-12 rounded-md object-cover" /> : null}
                         <div className="min-w-0">
                           <p className="truncate text-sm font-black text-neutral-900">{product.name}</p>
                           <p className="text-xs font-bold text-neutral-700">{product.priceLabel}</p>

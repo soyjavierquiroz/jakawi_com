@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -131,7 +132,7 @@ export async function renderProductBySlug(storeSlug: string, productSlug: string
       <article className="mx-auto mt-3 grid max-w-5xl gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1.06fr)_minmax(320px,0.94fr)] md:items-start lg:px-8">
         <div className="overflow-hidden rounded-[1.6rem] border border-[var(--space-border)] bg-[var(--space-surface)] p-2 shadow-[0_18px_50px_rgb(0_0_0/0.12)]">
           <div className="relative isolate aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-[var(--space-muted)] md:aspect-square">
-            <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="h-full w-full object-cover" />
+            <Image src={product.imageUrl ?? "/placeholder-product.svg"} alt="" fill sizes="(min-width: 768px) 50vw, 100vw" unoptimized className="object-cover" />
           </div>
         </div>
         <div className="rounded-[1.35rem] border border-[var(--space-border)] bg-[var(--space-surface)] p-4 text-[var(--space-surface-contrast)] shadow-sm md:p-5">

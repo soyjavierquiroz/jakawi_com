@@ -2,6 +2,7 @@
 
 import Cropper, { type Area } from "react-easy-crop";
 import { ImagePlus, Loader2, X } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { getCroppedImageFile } from "@/components/images/image-crop-utils";
 import type { CropAspectPreset, PixelCrop } from "@/components/images/types";
@@ -174,7 +175,7 @@ function ImageCropperDialogContent({
               />
             ) : (
               <div className="grid h-full place-items-center p-4">
-                {imageSrc ? <img src={imageSrc} alt="" className="max-h-full max-w-full rounded-md object-contain" /> : <ImagePlus className="size-8 text-white/60" />}
+                {imageSrc ? <Image src={imageSrc} alt="" width={1200} height={900} sizes="80vw" unoptimized className="max-h-full max-w-full rounded-md object-contain" /> : <ImagePlus className="size-8 text-white/60" />}
               </div>
             )}
           </div>

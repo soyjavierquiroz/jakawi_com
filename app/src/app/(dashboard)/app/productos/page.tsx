@@ -1,4 +1,5 @@
 import { Eye, EyeOff, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { deleteProductAction, toggleFeaturedProductAction, toggleProductAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
@@ -138,7 +139,7 @@ export default async function ProductsPage({
           <div className="divide-y divide-neutral-100">
             {products.map((product) => (
               <div key={product.id} className="grid grid-cols-[64px_1fr] gap-3 p-3 md:grid-cols-[72px_1fr_auto] md:items-center md:p-4">
-                <img src={product.imageUrl ?? "/placeholder-product.svg"} alt="" className="size-16 rounded-md bg-brand-muted object-cover md:size-[72px]" />
+                <Image src={product.imageUrl ?? "/placeholder-product.svg"} alt="" width={72} height={72} sizes="72px" unoptimized className="size-16 rounded-md bg-brand-muted object-cover md:size-[72px]" />
                 <div className="min-w-0">
                   <h2 className="truncate font-black leading-5 text-brand-dark">{product.name}</h2>
                   <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-neutral-500">

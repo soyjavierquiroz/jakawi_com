@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Bot, Home, MessageCircle, Search, ShoppingBag, Sparkles, Star, Tags } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { formatMoney } from "@/lib/money";
@@ -62,7 +63,7 @@ function WhatsappLink({ store, className, children }: { store: CommercialTemplat
 function StoreAvatar({ store, className }: { store: CommercialTemplateStore; className?: string }) {
   return (
     <span className={cn("grid shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--space-primary)] text-sm font-black text-[var(--space-primary-contrast)]", className)}>
-      {store.logoUrl ? <img src={store.logoUrl} alt="" className="h-full w-full object-cover" /> : getInitial(store)}
+      {store.logoUrl ? <Image src={store.logoUrl} alt="" width={64} height={64} sizes="64px" unoptimized className="h-full w-full object-cover" /> : getInitial(store)}
     </span>
   );
 }
@@ -99,12 +100,15 @@ function CommerceImageFrame({
 
   return (
     <div className={cn("relative isolate overflow-hidden bg-[var(--space-muted)]", className)}>
-      {mode === "contain" ? <img src={imageUrl} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-28 blur-2xl saturate-125" /> : null}
+      {mode === "contain" ? <Image src={imageUrl} alt="" fill sizes="(min-width: 768px) 320px, 70vw" unoptimized className="scale-110 object-cover opacity-28 blur-2xl saturate-125" /> : null}
       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,rgba(255,255,255,.08)_100%)]" />
-      <img
+      <Image
         src={imageUrl}
         alt={alt}
-        className={cn("relative z-10 h-full w-full", mode === "cover" ? "object-cover" : "object-contain p-3", imageClassName)}
+        fill
+        sizes="(min-width: 768px) 320px, 70vw"
+        unoptimized
+        className={cn("z-10", mode === "cover" ? "object-cover" : "object-contain p-3", imageClassName)}
       />
     </div>
   );
@@ -158,7 +162,7 @@ function AppHero({ store, products, featuredProduct, flow }: CommercialTemplateP
         <div className="absolute -bottom-16 left-10 size-52 rounded-full bg-[var(--space-accent)]/18 blur-3xl" />
         {hero.imageMode === "cover" ? (
           <>
-            <img src={hero.imageUrl ?? ""} alt="" className="absolute inset-0 h-full w-full object-cover opacity-82" />
+            <Image src={hero.imageUrl ?? ""} alt="" fill sizes="(min-width: 768px) 960px, 100vw" unoptimized className="object-cover opacity-82" />
             <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,.54)_0%,rgba(0,0,0,.22)_52%,rgba(0,0,0,.08)_100%)]" />
           </>
         ) : null}

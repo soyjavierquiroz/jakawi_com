@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Mic, RotateCcw, Square, Trash2, UploadCloud } from "lucide-react";
+import Image from "next/image";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { ImageCropperDialog } from "@/components/images/ImageCropperDialog";
 import type { CropAspectPreset } from "@/components/images/types";
@@ -313,8 +314,8 @@ export function SellerVoiceNotesSettings({ canEdit, store }: SellerVoiceNotesSet
             <span className="text-sm font-semibold text-neutral-700">{avatarGuidance.label}</span>
             <input type="hidden" name="sellerVoiceAvatarUrl" value={avatarUrl} />
             <div className="flex items-center gap-3">
-              <div className="size-12 overflow-hidden rounded-full bg-brand-dark">
-                {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : null}
+              <div className="relative size-12 overflow-hidden rounded-full bg-brand-dark">
+                {avatarUrl ? <Image src={avatarUrl} alt="" fill sizes="48px" unoptimized className="object-cover" /> : null}
               </div>
               <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-brand-border bg-white px-3 text-sm font-black text-brand-dark transition hover:border-brand">
                 {uploading === "avatar" ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}

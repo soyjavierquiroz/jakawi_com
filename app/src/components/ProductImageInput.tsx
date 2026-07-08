@@ -1,6 +1,7 @@
 "use client";
 
 import { ImagePlus, X } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ImageCropperDialog } from "@/components/images/ImageCropperDialog";
 import type { CropAspectPreset } from "@/components/images/types";
@@ -61,12 +62,12 @@ export function ProductImageInput({ currentImageUrl }: { currentImageUrl?: strin
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <p className="text-sm font-black text-brand-dark">Imagen actual</p>
-          <img src={currentImageUrl ?? "/placeholder-product.svg"} alt="" className="mt-2 aspect-square w-full max-w-52 rounded-md border border-brand-border bg-brand-muted object-cover" />
+          <Image src={currentImageUrl ?? "/placeholder-product.svg"} alt="" width={208} height={208} sizes="208px" unoptimized className="mt-2 aspect-square w-full max-w-52 rounded-md border border-brand-border bg-brand-muted object-cover" />
         </div>
         <div>
           <p className="text-sm font-black text-brand-dark">{previewUrl ? "Nueva imagen seleccionada" : "Cambiar imagen"}</p>
-          <div className="mt-2 grid aspect-square w-full max-w-52 place-items-center overflow-hidden rounded-md border border-dashed border-brand-border bg-brand-muted">
-            {previewUrl ? <img src={previewUrl} alt="" className="h-full w-full object-cover" /> : <ImagePlus className="size-8 text-neutral-400" />}
+          <div className="relative mt-2 grid aspect-square w-full max-w-52 place-items-center overflow-hidden rounded-md border border-dashed border-brand-border bg-brand-muted">
+            {previewUrl ? <Image src={previewUrl} alt="" fill sizes="208px" unoptimized className="object-cover" /> : <ImagePlus className="size-8 text-neutral-400" />}
           </div>
         </div>
       </div>

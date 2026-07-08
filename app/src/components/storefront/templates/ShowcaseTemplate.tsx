@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
 import { CommercialCategoryChips, CommercialEmptyProducts, CommercialFooter, type CommercialTemplateProduct, type CommercialTemplateProps, type CommercialTemplateStore } from "@/components/storefront/templates/components";
@@ -38,7 +39,7 @@ function ShowcaseHero({
 
   return (
     <section className="relative isolate h-[clamp(320px,42svh,430px)] overflow-hidden rounded-b-[2rem] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--space-primary)_92%,#000)_0%,#111827_58%,color-mix(in_srgb,var(--space-primary)_62%,var(--space-accent))_100%)] text-[var(--space-primary-contrast)] shadow-[0_18px_46px_rgb(0_0_0/0.12)] md:mx-auto md:mt-4 md:h-[440px] md:max-w-6xl md:rounded-[1.75rem] lg:h-[480px]">
-      {visual.type === "cover" ? <img src={visual.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover saturate-105" /> : null}
+      {visual.type === "cover" ? <Image src={visual.imageUrl} alt="" fill sizes="(min-width: 768px) 1152px, 100vw" unoptimized className="object-cover saturate-105" /> : null}
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,.08)_46%,rgba(0,0,0,.50)_100%)]" />
 
       <div className="relative mx-auto flex h-full max-w-6xl items-end px-5 pb-8 pt-[calc(env(safe-area-inset-top)+24px)] sm:px-8 md:pb-10 md:pt-[calc(env(safe-area-inset-top)+34px)] lg:px-10">
@@ -56,7 +57,7 @@ function ShowcaseProductImage({ product, featured = false }: { product: Commerci
 
   return (
     <div className={cn("relative isolate overflow-hidden bg-[var(--space-muted)]", featured ? "aspect-[4/3] rounded-[1.35rem]" : "aspect-[4/3] rounded-xl")}>
-      <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+      <Image src={imageUrl} alt="" fill sizes={featured ? "(min-width: 768px) 640px, 100vw" : "(min-width: 768px) 33vw, 100vw"} unoptimized className="object-cover" />
     </div>
   );
 }

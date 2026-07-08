@@ -1,6 +1,7 @@
 "use client";
 
 import { ImagePlus, X } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ImageCropperDialog } from "@/components/images/ImageCropperDialog";
 import type { CropAspectPreset } from "@/components/images/types";
@@ -102,9 +103,9 @@ export function StoreImageInputs({
         <div className="space-y-3">
           <span className="block text-sm font-semibold text-neutral-700">{coverGuidance.label}</span>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-            <div className="aspect-[4/3] w-full max-w-md overflow-hidden rounded-md border border-brand-border bg-brand-muted">
+            <div className="relative aspect-[4/3] w-full max-w-md overflow-hidden rounded-md border border-brand-border bg-brand-muted">
               {coverPreviewUrl || currentCoverUrl ? (
-                <img src={coverPreviewUrl ?? currentCoverUrl ?? ""} alt="" className="h-full w-full object-cover" />
+                <Image src={coverPreviewUrl ?? currentCoverUrl ?? ""} alt="" fill sizes="(min-width: 640px) 448px, 100vw" unoptimized className="object-cover" />
               ) : (
                 <div className="grid h-full place-items-center">
                   <ImagePlus className="size-8 text-neutral-400" />
@@ -129,9 +130,9 @@ export function StoreImageInputs({
         <div className="space-y-3">
           <span className="block text-sm font-semibold text-neutral-700">{logoGuidance.label}</span>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-            <div className="aspect-square w-full max-w-44 overflow-hidden rounded-md border border-brand-border bg-brand-muted">
+            <div className="relative aspect-square w-full max-w-44 overflow-hidden rounded-md border border-brand-border bg-brand-muted">
               {logoPreviewUrl || currentLogoUrl ? (
-                <img src={logoPreviewUrl ?? currentLogoUrl ?? ""} alt="" className="h-full w-full object-cover" />
+                <Image src={logoPreviewUrl ?? currentLogoUrl ?? ""} alt="" fill sizes="176px" unoptimized className="object-cover" />
               ) : (
                 <div className="grid h-full place-items-center">
                   <ImagePlus className="size-8 text-neutral-400" />

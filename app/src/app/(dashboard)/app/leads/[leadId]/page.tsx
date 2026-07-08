@@ -1,4 +1,5 @@
 import { CheckCircle2, MessageCircle, XCircle } from "lucide-react";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { markLeadContacted, markLeadLost, markLeadWon } from "@/app/(dashboard)/app/leads/actions";
 import { requireUser } from "@/lib/auth";
@@ -251,7 +252,7 @@ export default async function LeadDetailPage({
             <h2 className="text-xl font-black">Producto principal</h2>
             {mainProduct ? (
               <div className="mt-4">
-                <img src={mainProduct.imageUrl ?? "/placeholder-product.svg"} alt="" className="aspect-square w-full rounded-md object-cover" />
+                <Image src={mainProduct.imageUrl ?? "/placeholder-product.svg"} alt="" width={420} height={420} sizes="(min-width: 768px) 320px, 100vw" unoptimized className="aspect-square w-full rounded-md object-cover" />
                 <h3 className="mt-3 font-black">{mainProduct.name}</h3>
                 <p className="text-sm font-bold text-brand-dark">
                   {formatMoney({
