@@ -48,6 +48,9 @@ required_vars=(
   EMAIL_DELIVERY_MODE
 )
 
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+dockerfile="$repo_root/app/Dockerfile"
+
 if [[ ! -f "$env_file" ]]; then
   echo "ENV_FILE=missing"
   echo "FAIL deploy preflight"
@@ -86,6 +89,18 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$env_file"
 
 failed=0
+
+if [[ ! -f "$dockerfile" ]]; then
+  echo "MIGRATION_STARTUP_SEPARATED=unknown"
+  echo "Dockerfile missing: $dockerfile" >&2
+  failed=1
+elif grep -Eq 'prisma[[:space:]]+migrate[[:space:]]+deploy.*&&.*pnpm[[:space:]]+start' "$dockerfile"; then
+  echo "MIGRATION_STARTUP_SEPARATED=fail"
+  echo "Dockerfile must not run prisma migrate deploy in web startup" >&2
+  failed=1
+else
+  echo "MIGRATION_STARTUP_SEPARATED=pass"
+fi
 
 for key in "${required_vars[@]}"; do
   if [[ -n "${present[$key]:-}" ]]; then

@@ -2,7 +2,7 @@
 
 Estado: BLOCKED
 
-Release Batch v16 no se desplegó porque el contrato de esta corrida exige `migrate deploy no ejecutado`, pero la imagen/servicio actual arranca con `pnpm prisma migrate deploy && pnpm start`.
+Release Batch v16 no se desplegó porque el contrato de esta corrida exige `migrate deploy no ejecutado`, pero la imagen/servicio activa ejecutaba `prisma migrate deploy` antes de iniciar `pnpm start`.
 
 No se hizo deploy, no se recreó el servicio, no se modificaron flags, no se hicieron DB writes manuales y no se ejecutó `prisma migrate deploy`.
 
@@ -36,7 +36,7 @@ Contrato final del resolver incluido en el commit objetivo:
 Auditoría pre-deploy:
 
 ```text
-app/Dockerfile: CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm start"]
+app/Dockerfile tenia un `CMD` shell que ejecutaba `prisma migrate deploy` antes de `pnpm start`.
 ```
 
 La recreación del task `jakawi_com_web` ejecutaría `prisma migrate deploy` automáticamente al arrancar, aunque no haya migraciones pendientes. Como la regla de v16 pide explícitamente:

@@ -18,6 +18,8 @@ Leccion de Release Batch v6: `docker stack deploy` puede no recrear el task si s
 
 Leccion de Release Batch v7: las variables runtime criticas del servicio web deben estar versionadas explicitamente en `infra/docker-stack.yml`. Si faltan del stack file, `docker stack deploy` puede removerlas de la spec y obligar a correcciones manuales con `docker service update --env-add`.
 
+Leccion de Release Batch v16: el contenedor web no debe ejecutar migraciones automaticamente al arrancar. `app/Dockerfile` debe arrancar con `pnpm start`; las migraciones Prisma se ejecutan solo con `scripts/run-prisma-migrate-deploy.sh` durante releases que tengan migraciones pendientes reales y autorizadas.
+
 ## Cargar env sin imprimir secrets
 
 Desde la maquina autorizada:
@@ -70,6 +72,7 @@ scripts/deploy-preflight.sh
 Salida permitida:
 
 ```text
+MIGRATION_STARTUP_SEPARATED=pass
 DATABASE_URL=present
 SESSION_SECRET=present
 APP_ENCRYPTION_KEY=present
@@ -89,6 +92,35 @@ FAIL deploy preflight
 ```
 
 Nunca imprimir valores.
+
+## Migraciones Prisma explicitas
+
+El web container ya no ejecuta migraciones en startup. Esto evita que cada recreacion de `jakawi_com_web` intente correr `prisma migrate deploy` implicitamente.
+
+Reglas:
+
+- Releases sin migraciones: validar `npx prisma migrate status` y documentar que no hay pendientes.
+- Releases con migraciones pendientes reales: ejecutar explicitamente `scripts/run-prisma-migrate-deploy.sh` con `DATABASE_URL` cargado y evidencia redacted.
+- Nunca imprimir `DATABASE_URL`.
+- Nunca usar el startup del contenedor web como mecanismo de migracion.
+
+Comando explicito cuando una release autoriza migracion:
+
+```bash
+cd /var/opt/jakawi.com
+set -a
+. .env.stack
+set +a
+QA_DIR="/var/backups/jakawi.com/qa/<release>/<timestamp>" scripts/run-prisma-migrate-deploy.sh
+```
+
+Si `QA_DIR` esta definido, el script guarda:
+
+- `prisma-migrate-status-before.txt`
+- `prisma-migrate-deploy.txt`
+- `prisma-migrate-status-after.txt`
+
+Si `QA_DIR` no esta definido, la salida puede redirigirse desde el release runner.
 
 ## Deploy seguro
 
@@ -209,6 +241,7 @@ docker stack services jakawi_com
 - `npm run typecheck --if-present`.
 - `npm run lint --if-present`.
 - `npx prisma migrate status`.
+- Ejecutar `scripts/run-prisma-migrate-deploy.sh` solo si hay migraciones pendientes reales y el release lo autoriza.
 - Backup DB si hay migraciones.
 - `scripts/deploy-preflight.sh` PASS.
 - Build de imagen.
