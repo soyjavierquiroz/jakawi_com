@@ -7,22 +7,46 @@ const baseEnv = {
   JAKAWI_PRIMARY_DOMAIN: "jakawi.com",
 };
 
-function domainDb(type: "CUSTOM_DOMAIN" | "JAKAWI_SUBDOMAIN" = "CUSTOM_DOMAIN") {
+type FakeStoreDomainType = "CUSTOM_DOMAIN" | "JAKAWI_SUBDOMAIN";
+type FakeStoreDomainStatus = "PENDING" | "VERIFYING" | "VERIFIED" | "ACTIVE" | "FAILED" | "DISABLED";
+type FakeDomain = {
+  hostname: string;
+  type: FakeStoreDomainType;
+  status: FakeStoreDomainStatus;
+  store: { id: string; slug: string; isPublished: boolean } | null;
+};
+
+function domainDb(rows: FakeDomain[] = [activeCustomDomain("shop.example.com")]) {
   let calls = 0;
   return {
     get calls() {
       return calls;
     },
     storeDomain: {
-      findFirst: async () => {
+      findFirst: async (args: unknown) => {
         calls += 1;
-        return {
-          hostname: type === "CUSTOM_DOMAIN" ? "shop.example.com" : "tienda.jakawi.com",
-          type,
-          store: { id: "store-1", slug: "demo", isPublished: true },
-        };
+        const where = (args as { where?: { hostname?: string; status?: string; type?: string } }).where ?? {};
+        const row = rows.find((item) => item.hostname === where.hostname && item.status === where.status && item.type === where.type);
+        if (!row || row.type !== "CUSTOM_DOMAIN") return null;
+        return { hostname: row.hostname, type: row.type, store: row.store };
       },
     },
+  };
+}
+
+function activeCustomDomain(hostname: string, slug = "demo"): FakeDomain {
+  return {
+    hostname,
+    type: "CUSTOM_DOMAIN",
+    status: "ACTIVE",
+    store: { id: "store-1", slug, isPublished: true },
+  };
+}
+
+function customDomainWithStatus(status: Exclude<FakeStoreDomainStatus, "ACTIVE">): FakeDomain {
+  return {
+    ...activeCustomDomain(`${status.toLowerCase()}.example.com`),
+    status,
   };
 }
 
@@ -66,10 +90,32 @@ test("CUSTOM_DOMAINS_ENABLED=false blocks custom host resolution before DB looku
   assert.equal(db.calls, 0);
 });
 
-test("resolveStorefrontRequest maps custom root to storefront", async () => {
+test("CUSTOM_DOMAINS_ENABLED=true + CUSTOM_DOMAIN ACTIVE exact match resolves storefront", async () => {
+  const db = domainDb([activeCustomDomain("shop.example.com")]);
   const result = await resolveStorefrontRequest("shop.example.com", "/", {
     env: baseEnv,
-    db: domainDb(),
+    db,
+  });
+
+  assert.equal(result.mode, "CUSTOM_DOMAIN");
+  assert.equal(result.storeSlug, "demo");
+  assert.equal(db.calls, 1);
+});
+
+test("hostname matching is case-insensitive and normalized before lookup", async () => {
+  const result = await resolveStorefrontRequest("HTTPS://Shop.Example.COM/path", "/", {
+    env: baseEnv,
+    db: domainDb([activeCustomDomain("shop.example.com")]),
+  });
+
+  assert.equal(result.mode, "CUSTOM_DOMAIN");
+  assert.equal(result.storeSlug, "demo");
+});
+
+test("hostname with port is normalized before lookup", async () => {
+  const result = await resolveStorefrontRequest("shop.example.com:443", "/", {
+    env: baseEnv,
+    db: domainDb([activeCustomDomain("shop.example.com")]),
   });
 
   assert.equal(result.mode, "CUSTOM_DOMAIN");
@@ -79,7 +125,7 @@ test("resolveStorefrontRequest maps custom root to storefront", async () => {
 test("resolveStorefrontRequest maps custom /p/demo to product", async () => {
   const result = await resolveStorefrontRequest("shop.example.com", "/p/demo", {
     env: baseEnv,
-    db: domainDb(),
+    db: domainDb([activeCustomDomain("shop.example.com")]),
   });
 
   assert.equal(result.mode, "CUSTOM_DOMAIN");
@@ -88,41 +134,60 @@ test("resolveStorefrontRequest maps custom /p/demo to product", async () => {
 });
 
 test("resolveStorefrontRequest maps platform /slug to platform storefront", async () => {
+  const db = domainDb([activeCustomDomain("jakawi.com")]);
   const result = await resolveStorefrontRequest("jakawi.com", "/slug", {
     env: baseEnv,
-    db: domainDb(),
+    db,
   });
 
   assert.equal(result.mode, "PLATFORM_SLUG");
   assert.equal(result.storeSlug, "slug");
+  assert.equal(db.calls, 0);
 });
 
-test("ACTIVE status allows custom domain resolution", async () => {
-  const result = await resolveStorefrontRequest("shop.example.com", "/", {
+test("jakawi.com reserved host does not resolve via StoreDomain lookup", async () => {
+  const db = domainDb([activeCustomDomain("jakawi.com")]);
+  const result = await resolveStorefrontRequest("jakawi.com", "/", {
     env: baseEnv,
-    db: {
-      storeDomain: {
-        findFirst: async () => ({
-          hostname: "shop.example.com",
-          type: "CUSTOM_DOMAIN",
-          store: { id: "store-1", slug: "demo", isPublished: true },
-        }),
-      },
-    },
+    db,
   });
 
-  assert.equal(result.mode, "CUSTOM_DOMAIN");
-  assert.equal(result.storeSlug, "demo");
+  assert.equal(result.mode, "NOT_STOREFRONT");
+  assert.equal(db.calls, 0);
 });
 
-test("PENDING status does not resolve custom domain", async () => {
-  const result = await resolveStorefrontRequest("pending.example.com", "/", {
+test("localhost and IP hosts do not resolve via StoreDomain lookup", async () => {
+  const db = domainDb([activeCustomDomain("localhost"), activeCustomDomain("127.0.0.1")]);
+  const localhostResult = await resolveStorefrontRequest("localhost", "/", { env: baseEnv, db });
+  const ipResult = await resolveStorefrontRequest("127.0.0.1", "/", { env: baseEnv, db });
+
+  assert.equal(localhostResult.mode, "NOT_STOREFRONT");
+  assert.equal(ipResult.mode, "NOT_STOREFRONT");
+  assert.equal(db.calls, 0);
+});
+
+for (const status of ["PENDING", "VERIFYING", "VERIFIED", "FAILED", "DISABLED"] as const) {
+  test(`CUSTOM_DOMAINS_ENABLED=true + CUSTOM_DOMAIN ${status} does not resolve`, async () => {
+    const result = await resolveStorefrontRequest(`${status.toLowerCase()}.example.com`, "/", {
+      env: baseEnv,
+      db: domainDb([customDomainWithStatus(status)]),
+    });
+
+    assert.equal(result.mode, "NOT_STOREFRONT");
+  });
+}
+
+test("CUSTOM_DOMAINS_ENABLED=true + JAKAWI_SUBDOMAIN ACTIVE does not resolve", async () => {
+  const result = await resolveStorefrontRequest("tienda.jakawi.com", "/", {
     env: baseEnv,
-    db: {
-      storeDomain: {
-        findFirst: async () => null,
+    db: domainDb([
+      {
+        hostname: "tienda.jakawi.com",
+        type: "JAKAWI_SUBDOMAIN",
+        status: "ACTIVE",
+        store: { id: "store-1", slug: "demo", isPublished: true },
       },
-    },
+    ]),
   });
 
   assert.equal(result.mode, "NOT_STOREFRONT");

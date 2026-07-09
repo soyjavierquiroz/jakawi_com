@@ -17,7 +17,7 @@ type DomainLookupStore = {
 
 type DomainLookupRow = {
   hostname: string;
-  type: "JAKAWI_SUBDOMAIN" | "CUSTOM_DOMAIN";
+  type: "CUSTOM_DOMAIN";
   store: DomainLookupStore | null;
 };
 
@@ -162,7 +162,7 @@ export async function resolveStoreFromHost(input: string | null | undefined, opt
     where: {
       hostname,
       status: "ACTIVE",
-      type: { in: ["CUSTOM_DOMAIN", "JAKAWI_SUBDOMAIN"] },
+      type: "CUSTOM_DOMAIN",
     },
     select: {
       hostname: true,
@@ -206,10 +206,9 @@ export async function resolveStorefrontRequest(
   const domain = await resolveStoreFromHost(hostname, options);
   if (!domain) return { mode: "NOT_STOREFRONT" };
 
-  const mode = domain.type === "JAKAWI_SUBDOMAIN" ? "JAKAWI_SUBDOMAIN" : "CUSTOM_DOMAIN";
-  if (segments.length === 0) return { mode, storeSlug: domain.store.slug };
+  if (segments.length === 0) return { mode: "CUSTOM_DOMAIN", storeSlug: domain.store.slug };
   if (segments[0] === "p" && segments[1] && segments.length === 2) {
-    return { mode, storeSlug: domain.store.slug, productSlug: segments[1] };
+    return { mode: "CUSTOM_DOMAIN", storeSlug: domain.store.slug, productSlug: segments[1] };
   }
 
   return { mode: "NOT_STOREFRONT" };
