@@ -26,8 +26,20 @@ type AccountDb = AuthTokenDb & {
   };
 };
 
+type AccountEmailSender = {
+  sendPasswordResetEmail: typeof sendPasswordResetEmail;
+  sendEmailVerificationEmail: typeof sendEmailVerificationEmail;
+};
+
 function accountDb(db?: AccountDb) {
   return db ?? (getPrisma() as unknown as AccountDb);
+}
+
+function accountEmailSender(emailSender?: Partial<AccountEmailSender>): AccountEmailSender {
+  return {
+    sendPasswordResetEmail: emailSender?.sendPasswordResetEmail ?? sendPasswordResetEmail,
+    sendEmailVerificationEmail: emailSender?.sendEmailVerificationEmail ?? sendEmailVerificationEmail,
+  };
 }
 
 function safeEmailParse(email: string) {
@@ -45,16 +57,18 @@ async function issueAccountToken(
   type: AuthTokenType,
   options: {
     db: AccountDb;
+    emailSender?: Partial<AccountEmailSender>;
     now?: Date;
     token?: string;
   },
 ) {
   const token = await createAuthToken(user.id, type, { db: options.db, now: options.now, token: options.token });
+  const emailSender = accountEmailSender(options.emailSender);
 
   if (type === authTokenTypes.PASSWORD_RESET) {
-    await sendPasswordResetEmail(user.email, token.token);
+    await emailSender.sendPasswordResetEmail(user.email, token.token);
   } else {
-    await sendEmailVerificationEmail(user.email, token.token);
+    await emailSender.sendEmailVerificationEmail(user.email, token.token);
   }
 
   return token;
@@ -64,6 +78,7 @@ export async function requestPasswordReset(
   email: string,
   options: {
     db?: AccountDb;
+    emailSender?: Partial<AccountEmailSender>;
     now?: Date;
     token?: string;
   } = {},
@@ -78,7 +93,7 @@ export async function requestPasswordReset(
   });
 
   if (user) {
-    await issueAccountToken(user, authTokenTypes.PASSWORD_RESET, { db, now: options.now, token: options.token });
+    await issueAccountToken(user, authTokenTypes.PASSWORD_RESET, { db, emailSender: options.emailSender, now: options.now, token: options.token });
   }
 
   return { ok: true as const, message: passwordResetRequestedMessage };
@@ -118,6 +133,7 @@ export async function requestEmailVerificationForUser(
   userId: string,
   options: {
     db?: AccountDb;
+    emailSender?: Partial<AccountEmailSender>;
     now?: Date;
     token?: string;
   } = {},
@@ -131,7 +147,7 @@ export async function requestEmailVerificationForUser(
   if (!user) return { ok: false as const, error: "Usuario no encontrado." };
   if (user.emailVerifiedAt) return { ok: true as const, status: "already_verified" as const };
 
-  await issueAccountToken(user, authTokenTypes.EMAIL_VERIFY, { db, now: options.now, token: options.token });
+  await issueAccountToken(user, authTokenTypes.EMAIL_VERIFY, { db, emailSender: options.emailSender, now: options.now, token: options.token });
   return { ok: true as const, status: "sent" as const };
 }
 
@@ -139,6 +155,7 @@ export async function requestEmailVerificationByEmail(
   email: string,
   options: {
     db?: AccountDb;
+    emailSender?: Partial<AccountEmailSender>;
     now?: Date;
     token?: string;
   } = {},
@@ -153,7 +170,7 @@ export async function requestEmailVerificationByEmail(
   });
 
   if (user && !user.emailVerifiedAt) {
-    await issueAccountToken(user, authTokenTypes.EMAIL_VERIFY, { db, now: options.now, token: options.token });
+    await issueAccountToken(user, authTokenTypes.EMAIL_VERIFY, { db, emailSender: options.emailSender, now: options.now, token: options.token });
   }
 
   return { ok: true as const, status: "accepted" as const };

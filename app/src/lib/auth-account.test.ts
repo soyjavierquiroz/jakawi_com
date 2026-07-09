@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { authTokenTypes, consumeAuthToken, createAuthToken, hashAuthToken } from "./auth-tokens";
-import { requestPasswordReset, resetPasswordWithToken, verifyEmailWithToken, passwordResetRequestedMessage } from "./auth-account";
+import {
+  requestEmailVerificationForUser,
+  requestPasswordReset,
+  resetPasswordWithToken,
+  verifyEmailWithToken,
+  passwordResetRequestedMessage,
+} from "./auth-account";
 import { sendAuthEmail } from "./email/email-service";
 
 type UserRecord = {
@@ -142,6 +148,26 @@ test("password reset request does not reveal missing email", async () => {
   assert.equal(db.tokens.length, 0);
 });
 
+test("password reset request uses email service without revealing user existence", async () => {
+  const db = fakeDb();
+  const sent: Array<{ to: string; token: string }> = [];
+  const emailSender = {
+    sendPasswordResetEmail: async (to: string, token: string) => {
+      sent.push({ to, token });
+      return { sent: false, mode: "disabled" as const };
+    },
+  };
+
+  const existing = await requestPasswordReset("owner@example.com", { db: db as never, emailSender, token: "reset-token" });
+  const missing = await requestPasswordReset("missing@example.com", { db: db as never, emailSender, token: "missing-token" });
+
+  assert.equal(existing.ok, true);
+  assert.equal(existing.message, passwordResetRequestedMessage);
+  assert.equal(missing.ok, true);
+  assert.equal(missing.message, passwordResetRequestedMessage);
+  assert.deepEqual(sent, [{ to: "owner@example.com", token: "reset-token" }]);
+});
+
 test("password reset changes hash and invalidates sessions", async () => {
   const db = fakeDb();
   await createAuthToken("user-1", authTokenTypes.PASSWORD_RESET, { db: db as never, token: "reset-token" });
@@ -165,6 +191,25 @@ test("email verification marks emailVerifiedAt", async () => {
 
   assert.equal(result.ok, true);
   assert.equal(db.users[0].emailVerifiedAt?.toISOString(), now.toISOString());
+});
+
+test("email verification request uses email service", async () => {
+  const db = fakeDb();
+  const sent: Array<{ to: string; token: string }> = [];
+  const result = await requestEmailVerificationForUser("user-1", {
+    db: db as never,
+    token: "verify-token",
+    emailSender: {
+      sendEmailVerificationEmail: async (to: string, token: string) => {
+        sent.push({ to, token });
+        return { sent: false, mode: "disabled" as const };
+      },
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, "sent");
+  assert.deepEqual(sent, [{ to: "owner@example.com", token: "verify-token" }]);
 });
 
 test("disabled auth email adapter does not send or log full token", async () => {
