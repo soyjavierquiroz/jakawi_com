@@ -33,6 +33,7 @@ import { checkRateLimit, getClientIpFromHeaders } from "@/lib/rate-limit";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { allowedImageDeletePrefixes, deleteJakawiMediaObjectIfOwned, deleteSellerVoiceObjectIfOwned, isJakawiMediaUrlOwnedByStore, uploadOptimizedImage } from "@/lib/storage";
 import { buildRewardValueLabel, isStoreReferralRewardStatus, isStoreReferralRewardType, parseOptionalDate, parseOptionalPositiveInt, parseRewardAmountToCents } from "@/lib/store-referral-rewards";
+import { updateManualBillingStore } from "@/lib/manual-billing";
 import {
   isStorePaymentMethod,
   isStorePaymentPlanKey,
@@ -836,6 +837,41 @@ export async function extendStoreTrialAction(formData: FormData) {
 
   revalidatePath("/app/admin/stores");
   redirect("/app/admin/stores?ok=trial");
+}
+
+export async function updateManualBillingAction(formData: FormData) {
+  const user = await requireSuperAdmin();
+  const returnTo = adminReturnTo(formData, "/app/admin/billing");
+  const result = await updateManualBillingStore(getPrisma() as never, user, {
+    storeId: field(formData, "storeId"),
+    plan: field(formData, "plan"),
+    billingStatus: field(formData, "billingStatus"),
+    trialEndsAt: field(formData, "trialEndsAt"),
+    currentPeriodEndsAt: field(formData, "currentPeriodEndsAt"),
+    manualPaymentReference: field(formData, "manualPaymentReference"),
+    internalBillingNotes: field(formData, "internalBillingNotes"),
+  });
+
+  if (!result.ok) {
+    const message =
+      result.reason === "store_not_found"
+        ? "Tienda no encontrada"
+        : result.reason === "invalid_status"
+          ? "Estado billing invalido"
+          : result.reason === "invalid_date"
+            ? "Fecha invalida"
+            : result.reason === "sensitive_reference"
+              ? "La referencia no debe incluir numeros completos de tarjeta o cuenta"
+              : "Billing no actualizado";
+    redirect(appendQueryParam(returnTo, "error", message));
+  }
+
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/billing");
+  revalidatePath("/app/admin/stores");
+  revalidatePath("/app/plan");
+  if (result.store.slug) revalidatePath(`/${result.store.slug}`);
+  redirect(appendQueryParam(returnTo, "ok", "billing"));
 }
 
 export async function createStoreDomainManualAction(formData: FormData) {

@@ -219,7 +219,7 @@ export async function getStorePaymentSummary(storeId: string) {
 
 export async function getStorePaymentsForOwner(storeId: string) {
   return getPrisma().storePayment.findMany({
-    where: { storeId },
+    where: { storeId, amountCents: { gt: 0 } },
     orderBy: { createdAt: "desc" },
     take: 20,
   });

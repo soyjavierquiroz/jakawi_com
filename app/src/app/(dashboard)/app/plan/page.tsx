@@ -4,6 +4,7 @@ import { PlanUsageCompactCard } from "@/components/dashboard/PlanUsageCompactCar
 import { getPlanPriceForCountry } from "@/config/regional-pricing";
 import { siteConfig } from "@/config/site";
 import { requireStore } from "@/lib/auth";
+import { getOwnerManualBillingSnapshot, manualBillingOwnerCopy } from "@/lib/manual-billing";
 import { getPlanLimitLabel, getProductUsage, getSellerAiUsage, getStorePlanState } from "@/lib/plan-limits";
 import { formatStorePaymentMoney, getStorePaymentsForOwner, storePaymentStatusLabel, storePaymentTypeLabel } from "@/lib/store-payments";
 import { cn } from "@/lib/ui";
@@ -26,8 +27,7 @@ export default async function PlanPage() {
   const planState = getStorePlanState(store);
   const price = getPlanPriceForCountry(planState.planCode, store.countryCode);
   const locale = store.locale ?? "es-BO";
-  const trialLabel = planState.trialEndsAt ? planState.trialEndsAt.toLocaleDateString(store.locale ?? "es-BO") : null;
-  const status = planState.trialExpired ? "Prueba terminada" : planState.planCode === "TRIAL" && trialLabel ? `Prueba hasta ${trialLabel}` : "Activo";
+  const billing = getOwnerManualBillingSnapshot(store, payments);
 
   const productUsageLabel = `${productUsage.used} / ${productUsage.limit}`;
   const sellerAiUsageLabel = sellerAiUsage.enabled ? `${sellerAiUsage.used} / ${getPlanLimitLabel(sellerAiUsage.limit)}` : "No incluido";
@@ -39,10 +39,10 @@ export default async function PlanPage() {
         <div>
           <p className="text-sm font-bold text-brand-dark">Plan</p>
           <h1 className="text-3xl font-black md:text-4xl">Plan y límites</h1>
-          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Consulta tu uso actual, el estado de tu prueba y los pagos registrados manualmente por JAKAWI.</p>
+          <p className="mt-2 max-w-2xl text-base font-semibold leading-7 text-neutral-600">Consulta tu uso actual, trial, vencimiento y pagos registrados manualmente por JAKAWI.</p>
         </div>
-        <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
-          Solicitar upgrade manual
+        <a href={billing.contactHref} className="inline-flex h-11 items-center justify-center rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">
+          Coordinar pago manual
         </a>
       </div>
 
@@ -50,7 +50,7 @@ export default async function PlanPage() {
         <Sparkles className="size-8 text-brand-lime" />
         <p className="mt-4 text-sm font-black text-white/60">Plan actual</p>
         <h2 className="mt-1 text-2xl font-black md:text-3xl">{planState.planName}</h2>
-        <p className="mt-2 text-sm font-semibold text-white/70">{price.priceLabel} · {status}</p>
+        <p className="mt-2 text-sm font-semibold text-white/70">{price.priceLabel} · {billing.billingStatusLabel}</p>
         <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-white/70">
           {planState.trialExpired
             ? "Tu prueba ya terminó. Solicita un upgrade manual para continuar ampliando catálogo y capacidades."
@@ -58,6 +58,38 @@ export default async function PlanPage() {
               ? "Tu prueba permite validar el espacio comercial antes de pasar a un plan pago."
               : "Tu plan está activo. Revisa abajo los límites y pagos registrados."}
         </p>
+      </section>
+
+      <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-brand-dark">{billing.billingMode}</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">{billing.instructions}</p>
+          </div>
+          <CreditCard className="size-5 shrink-0 text-brand" />
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-md bg-brand-muted px-3 py-2">
+            <p className="text-[11px] font-black uppercase text-neutral-500">Estado</p>
+            <p className="mt-1 font-black text-brand-dark">{billing.billingStatusLabel}</p>
+          </div>
+          <div className="rounded-md bg-brand-muted px-3 py-2">
+            <p className="text-[11px] font-black uppercase text-neutral-500">Trial</p>
+            <p className="mt-1 font-black text-brand-dark">{formatDate(billing.trialEndsAt, locale)}</p>
+          </div>
+          <div className="rounded-md bg-brand-muted px-3 py-2">
+            <p className="text-[11px] font-black uppercase text-neutral-500">Vencimiento</p>
+            <p className="mt-1 font-black text-brand-dark">{formatDate(billing.currentPeriodEndsAt, locale)}</p>
+          </div>
+          <div className="rounded-md bg-brand-muted px-3 py-2">
+            <p className="text-[11px] font-black uppercase text-neutral-500">Referencia</p>
+            <p className="mt-1 break-words font-black text-brand-dark">{billing.manualPaymentReference ?? "Sin referencia"}</p>
+          </div>
+        </div>
+        <p className="mt-4 rounded-md bg-white px-3 py-2 text-sm font-bold leading-6 text-brand-dark">{manualBillingOwnerCopy.noCheckout}</p>
+        <a href={billing.contactHref} className="mt-4 inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-white px-5 font-bold text-brand-dark hover:border-brand">
+          Escribir a {billing.contactEmail}
+        </a>
       </section>
 
       <PlanUsageCompactCard productUsageLabel={productUsageLabel} sellerAiUsageLabel={sellerAiUsageLabel} voiceNotesLabel={voiceNotesLabel} />
@@ -102,8 +134,8 @@ export default async function PlanPage() {
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 md:p-5">
           <p className="font-black text-amber-900">Seller AI y notas de voz están disponibles en Pro/Premium.</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">Puedes seguir vendiendo con link público y WhatsApp directo mientras evalúas el upgrade.</p>
-          <a href="mailto:hola@jakawi.com?subject=Solicitar%20upgrade%20JAKAWI" className="mt-4 inline-flex h-11 items-center rounded-md bg-brand-dark px-5 font-bold text-white hover:bg-brand">
-            Pedir upgrade manual
+          <a href={billing.contactHref} className="mt-4 inline-flex h-11 items-center rounded-md bg-brand-dark px-5 font-bold text-white hover:bg-brand">
+            Coordinar upgrade manual
           </a>
         </section>
       ) : (
