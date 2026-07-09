@@ -8,6 +8,7 @@ export const routesConfig = {
   newProduct: "/app/productos/nuevo",
   storeSettings: "/app/tienda",
   integrations: "/app/integraciones",
+  domains: "/app/dominios",
   categories: "/app/categorias",
   whatsapp: "/app/whatsapp",
   sellerAi: "/app/seller-ai",

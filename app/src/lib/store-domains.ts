@@ -6,7 +6,7 @@ import {
 import { normalizeHostname, validateStoreDomainHostname, type StoreDomainKind } from "@/lib/domains";
 
 export const storeDomainTypes = ["CUSTOM_DOMAIN", "JAKAWI_SUBDOMAIN"] as const;
-export const storeDomainStatuses = ["PENDING", "VERIFYING", "ACTIVE", "FAILED", "DISABLED"] as const;
+export const storeDomainStatuses = ["PENDING", "VERIFYING", "VERIFIED", "ACTIVE", "FAILED", "DISABLED"] as const;
 export const storeDomainVerificationTypes = ["NONE", "DNS_TXT", "DNS_CNAME", "MANUAL"] as const;
 
 export type ManualStoreDomainType = (typeof storeDomainTypes)[number];

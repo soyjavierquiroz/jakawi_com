@@ -118,6 +118,7 @@ enum StoreDomainType {
 enum StoreDomainStatus {
   PENDING
   VERIFYING
+  VERIFIED
   ACTIVE
   FAILED
   DISABLED

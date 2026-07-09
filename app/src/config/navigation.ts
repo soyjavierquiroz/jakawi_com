@@ -1,4 +1,4 @@
-import { Bot, Boxes, CreditCard, Home, MessageCircle, Network, Plug, Store, Tags, UsersRound } from "lucide-react";
+import { Bot, Boxes, CreditCard, Globe2, Home, MessageCircle, Network, Plug, Store, Tags, UsersRound } from "lucide-react";
 import { routesConfig } from "@/config/site";
 
 export const navigationConfig = {
@@ -10,6 +10,7 @@ export const navigationConfig = {
     { href: routesConfig.sellerAi, label: "Seller AI", icon: Bot },
     { href: routesConfig.whatsapp, label: "WhatsApp", icon: MessageCircle },
     { href: routesConfig.integrations, label: "Integraciones", icon: Plug },
+    { href: routesConfig.domains, label: "Dominios", icon: Globe2 },
     { href: routesConfig.leads, label: "Clientes", icon: UsersRound },
     { href: routesConfig.referrals, label: "Referidos", icon: Network },
     { href: routesConfig.plan, label: "Plan", icon: CreditCard },

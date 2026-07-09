@@ -12,7 +12,7 @@ type Domain = {
   storeId: string;
   hostname: string;
   type: "CUSTOM_DOMAIN" | "JAKAWI_SUBDOMAIN";
-  status: "PENDING" | "VERIFYING" | "ACTIVE" | "FAILED" | "DISABLED";
+  status: "PENDING" | "VERIFYING" | "VERIFIED" | "ACTIVE" | "FAILED" | "DISABLED";
   isPrimary: boolean;
   verificationType: "NONE" | "DNS_TXT" | "DNS_CNAME" | "MANUAL";
   verificationValue: string | null;

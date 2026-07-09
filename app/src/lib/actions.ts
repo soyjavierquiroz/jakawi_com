@@ -24,6 +24,7 @@ import {
 } from "@/lib/auth-account";
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
+import { canOwnerRequestDomain } from "@/lib/custom-domains";
 import { sendOwnerCrmEvent, sendPartnerCrmEvent } from "@/lib/crm-webhook";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
@@ -901,6 +902,50 @@ export async function createStoreDomainManualAction(formData: FormData) {
   revalidatePath("/app/admin/domains");
   if (result.store?.slug) revalidatePath(`/${result.store.slug}`);
   redirect(appendQueryParam(returnTo, "ok", "domain"));
+}
+
+export async function requestCustomDomainAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = appReturnTo(formData, "/app/dominios");
+  const storeId = field(formData, "storeId");
+  const store = await getPrisma().store.findFirst({
+    where: { id: storeId, ownerId: user.id },
+    select: { id: true, ownerId: true, slug: true },
+  });
+
+  if (!store) {
+    redirect(appendQueryParam(returnTo, "error", "No puedes solicitar dominios para otra tienda"));
+  }
+  if (!canOwnerRequestDomain(user.id, store)) {
+    redirect(appendQueryParam(returnTo, "error", "No puedes solicitar dominios para otra tienda"));
+  }
+
+  const result = await createStoreDomainManual(getPrisma() as never, {
+    storeId: store.id,
+    hostname: field(formData, "hostname"),
+    type: "CUSTOM_DOMAIN",
+    status: "PENDING",
+    isPrimary: false,
+    verificationType: "DNS_TXT",
+  });
+
+  if (!result.ok) {
+    const message =
+      result.reason === "duplicate_hostname"
+        ? "Ese dominio ya fue solicitado"
+        : result.reason === "empty_hostname"
+          ? "El dominio es requerido"
+          : result.reason === "local_hostname_not_allowed" || result.reason === "ip_hostname_not_supported"
+            ? "Usa un dominio público, no localhost ni una IP"
+            : result.reason === "reserved_hostname" || result.reason === "jakawi_subdomain_requires_jakawi_subdomain_type"
+              ? "Ese dominio está reservado por JAKAWI"
+              : "Ingresa un dominio válido";
+    redirect(appendQueryParam(returnTo, "error", message));
+  }
+
+  revalidatePath("/app/dominios");
+  revalidatePath("/app/admin/domains");
+  redirect(appendQueryParam(returnTo, "ok", "request"));
 }
 
 export async function updateStoreDomainStatusAction(formData: FormData) {
