@@ -5,6 +5,8 @@ import {
   getCloudflareCustomHostname,
   isCloudflareCustomHostnamesEnabled,
   mapCloudflareStatus,
+  extractCloudflareDnsInstructions,
+  redactCloudflareHostnameId,
 } from "./cloudflare-custom-hostnames";
 
 const enabledConfig = {
@@ -12,6 +14,9 @@ const enabledConfig = {
   apiToken: "cf-token-test-value",
   zoneId: "zone-1",
   fallbackOrigin: "custom-hostname.jakawi.com",
+  sslMethod: "http",
+  minTlsVersion: "1.2",
+  timeoutMs: 8000,
 };
 
 test("isCloudflareCustomHostnamesEnabled is false when disabled", () => {
@@ -51,11 +56,39 @@ test("createCloudflareCustomHostname blocks when token or zone is missing", asyn
   if (!result.ok) assert.equal(result.reason, "missing_config");
 });
 
-test("mapCloudflareStatus maps SSL states to StoreDomain statuses", () => {
-  assert.equal(mapCloudflareStatus({ ssl: { status: "active" } }).storeDomainStatus, "ACTIVE");
-  assert.equal(mapCloudflareStatus({ ssl: { status: "pending_validation" } }).storeDomainStatus, "VERIFYING");
-  assert.equal(mapCloudflareStatus({ ssl: { status: "validation_timed_out" } }).storeDomainStatus, "FAILED");
-  assert.equal(mapCloudflareStatus({ ssl: { status: "deleted" } }).storeDomainStatus, "DISABLED");
+test("createCloudflareCustomHostname builds the expected request", async () => {
+  const result = await createCloudflareCustomHostname("shop.example.com", {
+    config: enabledConfig,
+    fetch: async (input, init) => {
+      assert.equal(input, "https://api.cloudflare.com/client/v4/zones/zone-1/custom_hostnames");
+      assert.equal(init.method, "POST");
+      assert.equal(init.headers.Authorization, `Bearer ${enabledConfig.apiToken}`);
+      const body = JSON.parse(init.body ?? "{}");
+      assert.equal(body.hostname, "shop.example.com");
+      assert.equal(body.ssl.method, "http");
+      assert.equal(body.ssl.type, "dv");
+      assert.equal(body.ssl.settings.min_tls_version, "1.2");
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          result: { id: "cf-hostname-1", hostname: "shop.example.com", status: "pending", ssl: { status: "pending_validation" } },
+        }),
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.mapped.storeDomainStatus, "VERIFYING");
+});
+
+test("mapCloudflareStatus requires hostname active and SSL active before activation", () => {
+  assert.equal(mapCloudflareStatus({ status: "active", ssl: { status: "active" } }).storeDomainStatus, "ACTIVE");
+  assert.equal(mapCloudflareStatus({ status: "active", ssl: { status: "pending_validation" } }).storeDomainStatus, "VERIFYING");
+  assert.equal(mapCloudflareStatus({ status: "pending", ssl: { status: "active" } }).storeDomainStatus, "VERIFYING");
+  assert.equal(mapCloudflareStatus({ status: "active", ssl: { status: "validation_timed_out" } }).storeDomainStatus, "FAILED");
+  assert.equal(mapCloudflareStatus({ status: "deleted", ssl: { status: "active" } }).storeDomainStatus, "DISABLED");
 });
 
 test("getCloudflareCustomHostname maps mock fetch response", async () => {
@@ -71,7 +104,7 @@ test("getCloudflareCustomHostname maps mock fetch response", async () => {
         status: 200,
         json: async () => ({
           success: true,
-          result: { id: "cf-hostname-1", hostname: "shop.example.com", ssl: { status: "active" } },
+          result: { id: "cf-hostname-1", hostname: "shop.example.com", status: "active", ssl: { status: "active" } },
         }),
       };
     },
@@ -98,4 +131,48 @@ test("Cloudflare API errors do not expose token text", async () => {
   assert.equal(result.ok, false);
   assert.equal(JSON.stringify(result).includes(enabledConfig.apiToken), false);
   if (!result.ok) assert.equal(result.reason, "cloudflare_error_10000");
+});
+
+test("Cloudflare timeout returns owner-safe error", async () => {
+  const result = await getCloudflareCustomHostname("cf-hostname-1", {
+    config: { ...enabledConfig, timeoutMs: 1 },
+    fetch: async (_input, init) =>
+      new Promise((resolve, reject) => {
+        init.signal?.addEventListener("abort", () => {
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        });
+        setTimeout(() => resolve({ ok: true, status: 200, json: async () => ({ success: true, result: { id: "x", hostname: "shop.example.com" } }) }), 50);
+      }),
+  });
+
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.reason, "cloudflare_timeout");
+});
+
+test("extractCloudflareDnsInstructions returns public CNAME and TXT values without secrets", () => {
+  const instructions = extractCloudflareDnsInstructions(
+    "www.tienda.com",
+    {
+      id: "cf-hostname-1",
+      hostname: "www.tienda.com",
+      ownership_verification: { type: "txt", name: "_cf-custom-hostname.www.tienda.com", value: "verify-me" },
+      ssl: { validation_records: [{ txt_name: "_acme-challenge.www.tienda.com", txt_value: "acme-token" }] },
+    },
+    "jakawi.com",
+  );
+  const serialized = JSON.stringify(instructions);
+
+  assert.deepEqual(instructions, [
+    { type: "CNAME", name: "www.tienda.com", value: "jakawi.com" },
+    { type: "TXT", name: "_cf-custom-hostname.www.tienda.com", value: "verify-me" },
+    { type: "TXT", name: "_acme-challenge.www.tienda.com", value: "acme-token" },
+  ]);
+  assert.equal(serialized.includes(enabledConfig.apiToken), false);
+});
+
+test("redactCloudflareHostnameId shows only a partial id", () => {
+  assert.equal(redactCloudflareHostnameId("abcdef123456"), "abcdef…3456");
+  assert.equal(redactCloudflareHostnameId(null), null);
 });

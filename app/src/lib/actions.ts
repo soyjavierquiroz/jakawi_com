@@ -25,6 +25,7 @@ import {
 import { createSession, destroySession, hashPassword, requireStore, requireUser, verifyPassword } from "@/lib/auth";
 import { COMMERCIAL_THEME_PRESETS, DEFAULT_COMMERCIAL_THEME, normalizeHexColor, type CommercialThemePresetKey } from "@/lib/commercial-theme";
 import { canOwnerRequestDomain } from "@/lib/custom-domains";
+import { isCloudflareCustomHostnamesEnabled } from "@/lib/cloudflare-custom-hostnames";
 import { sendOwnerCrmEvent, sendPartnerCrmEvent } from "@/lib/crm-webhook";
 import { makeSlug, normalizePhone, priceToCents } from "@/lib/format";
 import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib/plan-limits";
@@ -943,9 +944,43 @@ export async function requestCustomDomainAction(formData: FormData) {
     redirect(appendQueryParam(returnTo, "error", message));
   }
 
+  if (isCloudflareCustomHostnamesEnabled()) {
+    const provision = await provisionStoreDomainCloudflare(getPrisma() as never, result.domain.id);
+    if (!provision.ok) {
+      revalidatePath("/app/dominios");
+      revalidatePath("/app/admin/domains");
+      redirect(appendQueryParam(returnTo, "error", `Cloudflare no pudo iniciar verificación: ${provision.reason}`));
+    }
+  }
+
   revalidatePath("/app/dominios");
   revalidatePath("/app/admin/domains");
   redirect(appendQueryParam(returnTo, "ok", "request"));
+}
+
+export async function verifyCustomDomainAction(formData: FormData) {
+  const user = await requireUser();
+  const returnTo = appReturnTo(formData, "/app/dominios");
+  const domainId = field(formData, "domainId");
+  const domain = await getPrisma().storeDomain.findFirst({
+    where: {
+      id: domainId,
+      type: "CUSTOM_DOMAIN",
+      store: { ownerId: user.id },
+    },
+    select: { id: true, store: { select: { slug: true } } },
+  });
+
+  if (!domain) redirect(appendQueryParam(returnTo, "error", "No puedes verificar dominios de otra tienda"));
+  if (!isCloudflareCustomHostnamesEnabled()) redirect(appendQueryParam(returnTo, "ok", "cloudflare-disabled"));
+
+  const result = await refreshStoreDomainCloudflareStatus(getPrisma() as never, domain.id);
+  if (!result.ok) redirect(appendQueryParam(returnTo, "error", `Cloudflare no actualizado: ${result.reason}`));
+
+  revalidatePath("/app/dominios");
+  revalidatePath("/app/admin/domains");
+  if (result.store?.slug) revalidatePath(`/${result.store.slug}`);
+  redirect(appendQueryParam(returnTo, "ok", "verify"));
 }
 
 export async function updateStoreDomainStatusAction(formData: FormData) {

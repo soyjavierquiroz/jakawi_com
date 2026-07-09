@@ -1,5 +1,6 @@
 import {
   createCloudflareCustomHostname,
+  extractCloudflareDnsInstructions,
   getCloudflareCustomHostname,
   type CloudflareOperationResult,
 } from "@/lib/cloudflare-custom-hostnames";
@@ -16,6 +17,7 @@ export type ManualStoreDomainVerificationType = (typeof storeDomainVerificationT
 type StoreDomainStore = {
   id: string;
   slug: string;
+  isPublished?: boolean;
 };
 
 type StoreDomainRecord = {
@@ -39,6 +41,7 @@ type StoreDomainDb = {
   };
   storeDomain: {
     findUnique: (args: unknown) => Promise<StoreDomainRecord | null>;
+    findFirst?: (args: unknown) => Promise<StoreDomainRecord | null>;
     updateMany: (args: unknown) => Promise<unknown>;
     create: (args: { data: unknown }) => Promise<StoreDomainRecord>;
     update: (args: { where: { id: string }; data: unknown }) => Promise<StoreDomainRecord>;
@@ -71,6 +74,22 @@ function cloudflareVerificationValue(result: CloudflareOperationResult) {
     result.hostname.ssl?.validation_records?.[0]?.http_url ??
     null
   );
+}
+
+function cloudflareVerificationType(result: CloudflareOperationResult): ManualStoreDomainVerificationType {
+  if (!result.ok) return "DNS_CNAME";
+  const instructions = extractCloudflareDnsInstructions(result.hostname.hostname, result.hostname);
+  if (instructions.some((instruction) => instruction.type === "TXT")) return "DNS_TXT";
+  if (instructions.some((instruction) => instruction.type === "CNAME")) return "DNS_CNAME";
+  return "MANUAL";
+}
+
+function statusFromCloudflareResult(result: CloudflareOperationResult, expectedHostname: string, store?: StoreDomainStore | null): ManualStoreDomainStatus {
+  if (!result.ok) return "FAILED";
+  const hostnameMatches = normalizeHostname(result.hostname.hostname) === normalizeHostname(expectedHostname);
+  if (result.mapped.canActivate && hostnameMatches && store?.isPublished !== false) return "ACTIVE";
+  if (result.mapped.storeDomainStatus === "FAILED" || result.mapped.storeDomainStatus === "DISABLED") return result.mapped.storeDomainStatus;
+  return "VERIFYING";
 }
 
 export function normalizeStoreDomainType(value: string): ManualStoreDomainType | null {
@@ -185,7 +204,7 @@ export async function provisionStoreDomainCloudflare(
   domainId: string,
   options: { createHostname?: typeof createCloudflareCustomHostname } = {},
 ): Promise<StoreDomainOperationResult> {
-  const domain = await db.storeDomain.findUnique({ where: { id: domainId }, include: { store: { select: { id: true, slug: true } } } });
+  const domain = await db.storeDomain.findUnique({ where: { id: domainId }, include: { store: { select: { id: true, slug: true, isPublished: true } } } });
   if (!domain) return { ok: false, reason: "domain_not_found" };
   if (domain.type !== "CUSTOM_DOMAIN") return { ok: false, reason: "custom_domain_required", hostname: domain.hostname };
 
@@ -193,13 +212,14 @@ export async function provisionStoreDomainCloudflare(
   const result = await createHostname(domain.hostname);
   if (!result.ok) return { ok: false, reason: result.reason, hostname: domain.hostname };
 
+  const status = statusFromCloudflareResult(result, domain.hostname, domain.store);
   const updated = await db.storeDomain.update({
     where: { id: domain.id },
     data: {
       cloudflareHostnameId: result.hostname.id,
-      status: result.mapped.storeDomainStatus,
+      status,
       sslStatus: result.mapped.sslStatus,
-      verificationType: "DNS_CNAME",
+      verificationType: cloudflareVerificationType(result),
       verificationValue: cloudflareVerificationValue(result),
       lastCheckedAt: new Date(),
     },
@@ -209,11 +229,11 @@ export async function provisionStoreDomainCloudflare(
 }
 
 export async function refreshStoreDomainCloudflareStatus(
-  db: Pick<StoreDomainDb, "storeDomain">,
+  db: Pick<StoreDomainDb, "storeDomain" | "$transaction">,
   domainId: string,
   options: { getHostname?: typeof getCloudflareCustomHostname } = {},
 ): Promise<StoreDomainOperationResult> {
-  const domain = await db.storeDomain.findUnique({ where: { id: domainId }, include: { store: { select: { id: true, slug: true } } } });
+  const domain = await db.storeDomain.findUnique({ where: { id: domainId }, include: { store: { select: { id: true, slug: true, isPublished: true } } } });
   if (!domain) return { ok: false, reason: "domain_not_found" };
   if (!domain.cloudflareHostnameId) return { ok: false, reason: "missing_cloudflare_hostname_id", hostname: domain.hostname };
 
@@ -221,15 +241,40 @@ export async function refreshStoreDomainCloudflareStatus(
   const result = await getHostname(domain.cloudflareHostnameId);
   if (!result.ok) return { ok: false, reason: result.reason, hostname: domain.hostname };
 
-  const updated = await db.storeDomain.update({
-    where: { id: domain.id },
-    data: {
-      status: result.mapped.storeDomainStatus,
-      sslStatus: result.mapped.sslStatus,
-      verificationValue: cloudflareVerificationValue(result) ?? domain.verificationValue,
-      lastCheckedAt: new Date(),
-    },
-  });
+  const status = statusFromCloudflareResult(result, domain.hostname, domain.store);
+  const data = {
+    status,
+    sslStatus: result.mapped.sslStatus,
+    verificationType: cloudflareVerificationType(result),
+    verificationValue: cloudflareVerificationValue(result) ?? domain.verificationValue,
+    lastCheckedAt: new Date(),
+  };
+
+  let updated: StoreDomainRecord;
+  const canSetPrimary = status === "ACTIVE" && !domain.isPrimary && db.storeDomain.findFirst
+    ? !(await db.storeDomain.findFirst({
+        where: {
+          storeId: domain.storeId,
+          type: "CUSTOM_DOMAIN",
+          isPrimary: true,
+          status: "ACTIVE",
+          id: { not: domain.id },
+        },
+      }))
+    : false;
+
+  if (canSetPrimary) {
+    const [, primaryDomain] = (await db.$transaction([
+      db.storeDomain.updateMany({ where: { storeId: domain.storeId, isPrimary: true, type: "CUSTOM_DOMAIN" }, data: { isPrimary: false } }),
+      db.storeDomain.update({ where: { id: domain.id }, data: { ...data, isPrimary: true } }),
+    ])) as unknown as [unknown, StoreDomainRecord];
+    updated = primaryDomain;
+  } else {
+    updated = await db.storeDomain.update({
+      where: { id: domain.id },
+      data,
+    });
+  }
 
   return { ok: true, domain: updated, store: domain.store };
 }

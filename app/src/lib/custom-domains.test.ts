@@ -65,24 +65,35 @@ test("DNS instructions contain only expected public DNS values", () => {
   }
 });
 
-test("admin status and primary actions require superadmin", () => {
+test("admin status, primary, and refresh actions require superadmin", () => {
   const actionsSource = readFileSync(new URL("./actions.ts", import.meta.url), "utf8");
-  for (const actionName of ["updateStoreDomainStatusAction", "setPrimaryStoreDomainAction"]) {
+  for (const actionName of ["updateStoreDomainStatusAction", "setPrimaryStoreDomainAction", "refreshStoreDomainCloudflareStatusAction"]) {
     const start = actionsSource.indexOf(`export async function ${actionName}`);
     assert.notEqual(start, -1);
     assert.match(actionsSource.slice(start, start + 240), /await requireSuperAdmin\(\)/);
   }
 });
 
-test("owner and admin pages do not expose Cloudflare private IDs or API tokens", () => {
+test("owner verify action is scoped to domains from the owner store", () => {
+  const actionsSource = readFileSync(new URL("./actions.ts", import.meta.url), "utf8");
+  const start = actionsSource.indexOf("export async function verifyCustomDomainAction");
+  assert.notEqual(start, -1);
+  const snippet = actionsSource.slice(start, start + 700);
+
+  assert.match(snippet, /await requireUser\(\)/);
+  assert.match(snippet, /store: \{ ownerId: user\.id \}/);
+  assert.equal(snippet.includes("setStoreDomainStatus"), false);
+});
+
+test("owner and admin pages do not expose Cloudflare API tokens or raw secrets", () => {
   const ownerPage = readFileSync(new URL("../app/(dashboard)/app/dominios/page.tsx", import.meta.url), "utf8");
   const adminPage = readFileSync(new URL("../app/(dashboard)/app/admin/domains/page.tsx", import.meta.url), "utf8");
   const uiSource = `${ownerPage}\n${adminPage}`;
 
-  assert.equal(uiSource.includes("cloudflareHostnameId"), false);
+  assert.equal(ownerPage.includes("cloudflareHostnameId"), false);
   assert.equal(uiSource.includes("CLOUDFLARE_API_TOKEN"), false);
-  assert.equal(uiSource.includes("provisionStoreDomainCloudflareAction"), false);
-  assert.equal(uiSource.includes("refreshStoreDomainCloudflareStatusAction"), false);
+  assert.equal(uiSource.includes("Authorization"), false);
+  assert.equal(uiSource.includes("raw"), false);
 });
 
 test("owner email is redacted for admin display", () => {

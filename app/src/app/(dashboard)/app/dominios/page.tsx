@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Globe2, ShieldCheck } from "lucide-react";
-import { requestCustomDomainAction } from "@/lib/actions";
+import { requestCustomDomainAction, verifyCustomDomainAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
 import { buildDnsInstructions, deriveDomainStatusLabel } from "@/lib/custom-domains";
 import { getPrisma } from "@/lib/prisma";
@@ -28,12 +28,14 @@ export default async function OwnerDomainsPage({
       status: true,
       isPrimary: true,
       verificationValue: true,
+      sslStatus: true,
+      lastCheckedAt: true,
       createdAt: true,
     },
     orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
   });
   const primaryDomain = domains.find((domain) => domain.isPrimary);
-  const cnameTarget = process.env.CLOUDFLARE_CUSTOM_HOSTNAME_FALLBACK_ORIGIN || "jakawi.com";
+  const cnameTarget = process.env.CUSTOM_DOMAIN_CNAME_TARGET || process.env.CLOUDFLARE_CUSTOM_HOSTNAME_FALLBACK_ORIGIN || "jakawi.com";
 
   return (
     <section className="space-y-5 md:space-y-6">
@@ -48,7 +50,9 @@ export default async function OwnerDomainsPage({
       {params.ok ? (
         <p className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm font-bold text-green-700">
           <CheckCircle2 className="size-4" />
-          Solicitud recibida. La activación no es automática.
+          {params.ok === "cloudflare-disabled"
+            ? "Cloudflare todavía no está habilitado. Mantén tus DNS listos; JAKAWI activará la verificación automática pronto."
+            : "Solicitud recibida. Tu dominio se activará automáticamente cuando DNS y SSL estén listos."}
         </p>
       ) : null}
       {params.error ? (
@@ -103,7 +107,7 @@ export default async function OwnerDomainsPage({
             </div>
           </div>
           <div className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">
-            Aunque un registro figure como active, el tráfico personalizado permanece apagado durante esta beta manual.
+            Aunque un registro figure como active, el tráfico personalizado permanece apagado mientras CUSTOM_DOMAINS_ENABLED=false.
           </div>
         </section>
       </div>
@@ -136,6 +140,10 @@ export default async function OwnerDomainsPage({
                       {domain.isPrimary ? <span className="inline-flex rounded-full bg-brand-dark px-2.5 py-1 text-xs font-black text-white">principal</span> : null}
                     </div>
                     <p className="mt-2 text-xs font-semibold text-neutral-500">Solicitado: {domain.createdAt.toISOString().slice(0, 10)}</p>
+                    <div className="mt-2 text-xs font-semibold leading-5 text-neutral-600">
+                      <p>SSL/certificado: {domain.sslStatus ?? "pendiente"}</p>
+                      <p>Última verificación: {domain.lastCheckedAt ? domain.lastCheckedAt.toISOString().slice(0, 16).replace("T", " ") : "sin verificar"}</p>
+                    </div>
                   </div>
                   <div className="w-full rounded-md bg-brand-muted px-3 py-2 md:max-w-xl">
                     <p className="text-xs font-black uppercase text-neutral-500">Instrucciones DNS manuales</p>
@@ -146,7 +154,14 @@ export default async function OwnerDomainsPage({
                         </li>
                       ))}
                     </ul>
-                    <p className="mt-2 text-xs font-semibold leading-5 text-neutral-500">Configura estos registros con tu proveedor. JAKAWI revisará DNS manualmente antes de cambiar el estado.</p>
+                    <p className="mt-2 text-xs font-semibold leading-5 text-neutral-500">Tu dominio se activará automáticamente cuando DNS y SSL estén listos.</p>
+                    <form action={verifyCustomDomainAction} className="mt-3">
+                      <input type="hidden" name="returnTo" value="/app/dominios" />
+                      <input type="hidden" name="domainId" value={domain.id} />
+                      <button className="h-9 rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand">
+                        Verificar ahora
+                      </button>
+                    </form>
                   </div>
                 </div>
               </article>

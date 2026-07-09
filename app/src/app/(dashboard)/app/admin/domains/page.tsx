@@ -3,9 +3,11 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/AdminNav";
 import {
   createStoreDomainManualAction,
+  refreshStoreDomainCloudflareStatusAction,
   setPrimaryStoreDomainAction,
   updateStoreDomainStatusAction,
 } from "@/lib/actions";
+import { redactCloudflareHostnameId } from "@/lib/cloudflare-custom-hostnames";
 import { getAdminDomainManagementData, requireSuperAdmin } from "@/lib/admin";
 import {
   buildDnsInstructions,
@@ -37,9 +39,9 @@ export default async function AdminDomainsPage({
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-bold leading-none text-brand-dark">Superadmin</p>
-          <h1 className="mt-1 text-3xl font-black md:text-4xl">Dominios · beta manual</h1>
+          <h1 className="mt-1 text-3xl font-black md:text-4xl">Dominios · self-service beta</h1>
           <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-neutral-600">
-            Revisión asistida de solicitudes y DNS. Esta pantalla no llama Cloudflare ni activa tráfico personalizado.
+            Revisión asistida de solicitudes, DNS y Cloudflare Custom Hostnames. No activa tráfico personalizado mientras el flag runtime esté apagado.
           </p>
         </div>
         <Link href="/app/admin" className="inline-flex h-11 items-center justify-center rounded-md border border-brand-border bg-brand-paper px-5 font-bold text-brand-dark hover:border-brand">
@@ -67,7 +69,7 @@ export default async function AdminDomainsPage({
             <AlertTriangle className="mt-0.5 size-5 shrink-0" />
             <div>
               <p className="font-black">CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED={cloudflareCustomHostnames.enabled ? "true" : "false"}</p>
-              <p className="mt-1 leading-6">Cloudflare API no está disponible desde esta operación manual.</p>
+              <p className="mt-1 leading-6">{cloudflareCustomHostnames.enabled ? "Cloudflare API lista para verificaciones explícitas." : "Cloudflare API apagada: las verificaciones no llamarán API externa."}</p>
             </div>
           </div>
         </div>
@@ -80,7 +82,7 @@ export default async function AdminDomainsPage({
           </div>
           <div>
             <h2 className="text-xl font-black text-brand-dark">Registrar solicitud manual</h2>
-            <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">Crea únicamente un dominio custom pendiente. No provisiona DNS, SSL ni Cloudflare.</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">Crea únicamente un dominio custom pendiente. La verificación Cloudflare se ejecuta por acciones explícitas y flag habilitado.</p>
           </div>
         </div>
 
@@ -166,6 +168,13 @@ export default async function AdminDomainsPage({
                         {domain.isPrimary ? "Ya es primary" : "Marcar primary"}
                       </button>
                     </form>
+                    <form action={refreshStoreDomainCloudflareStatusAction}>
+                      <input type="hidden" name="returnTo" value="/app/admin/domains" />
+                      <input type="hidden" name="domainId" value={domain.id} />
+                      <button className="h-10 w-full rounded-md border border-brand-border bg-white px-3 text-xs font-black text-brand-dark hover:border-brand">
+                        Verificar Cloudflare
+                      </button>
+                    </form>
                     <div className="rounded-md bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">
                       {customDomainsEnabled ? "Runtime custom habilitado: revisar antes de usar ACTIVE." : "ACTIVE solo registra decisión manual; no activa tráfico con el flag apagado."}
                     </div>
@@ -173,6 +182,11 @@ export default async function AdminDomainsPage({
 
                   <div className="rounded-md bg-brand-muted px-3 py-2">
                     <p className="text-xs font-black uppercase text-neutral-500">DNS esperado</p>
+                    <div className="mt-2 rounded bg-white/70 px-2 py-1 text-xs font-semibold leading-5 text-neutral-700">
+                      <p>Cloudflare ID: {redactCloudflareHostnameId(domain.cloudflareHostnameId) ?? "sin crear"}</p>
+                      <p>SSL/certificado: {domain.sslStatus ?? "pendiente"}</p>
+                      <p>Último check: {domain.lastCheckedAt ? domain.lastCheckedAt.toISOString().slice(0, 16).replace("T", " ") : "sin verificar"}</p>
+                    </div>
                     <ul className="mt-2 space-y-1">
                       {instructions.map((instruction) => (
                         <li key={`${instruction.type}-${instruction.name}`} className="break-all font-mono text-xs font-semibold text-neutral-700">

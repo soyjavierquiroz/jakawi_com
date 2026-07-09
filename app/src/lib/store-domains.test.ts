@@ -5,6 +5,7 @@ import { createStoreDomainManual, provisionStoreDomainCloudflare, refreshStoreDo
 type Store = {
   id: string;
   slug: string;
+  isPublished?: boolean;
 };
 
 type Domain = {
@@ -48,6 +49,18 @@ class FakeDomainDb {
         count += 1;
       }
       return { count };
+    },
+    findFirst: async (args: { where: { storeId?: string; type?: string; isPrimary?: boolean; status?: string; id?: { not?: string } } }) => {
+      const domain = this.domains.find((row) => {
+        if (args.where.storeId && row.storeId !== args.where.storeId) return false;
+        if (args.where.type && row.type !== args.where.type) return false;
+        if (typeof args.where.isPrimary === "boolean" && row.isPrimary !== args.where.isPrimary) return false;
+        if (args.where.status && row.status !== args.where.status) return false;
+        if (args.where.id?.not && row.id === args.where.id.not) return false;
+        return true;
+      });
+      if (!domain) return null;
+      return { ...domain, store: this.stores.find((store) => store.id === domain.storeId) };
     },
     create: async (args: { data: Omit<Domain, "id" | "lastCheckedAt"> & { lastCheckedAt?: Date } }) => {
       const domain: Domain = {
@@ -170,7 +183,37 @@ test("provisionStoreDomainCloudflare requires CUSTOM_DOMAIN", async () => {
   if (!result.ok) assert.equal(result.reason, "custom_domain_required");
 });
 
-test("refreshStoreDomainCloudflareStatus updates sslStatus and status", async () => {
+test("provisionStoreDomainCloudflare stores Cloudflare id and starts VERIFYING", async () => {
+  const db = new FakeDomainDb();
+  const created = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "provision.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+  if (!created.ok) throw new Error("domain not created");
+
+  const result = await provisionStoreDomainCloudflare(db as never, created.domain.id, {
+    createHostname: async () => ({
+      ok: true,
+      hostname: {
+        id: "cf-hostname-1",
+        hostname: "provision.example.com",
+        status: "pending",
+        ownership_verification: { type: "txt", name: "_cf.provision.example.com", value: "verify-provision" },
+        ssl: { status: "pending_validation" },
+      },
+      mapped: { storeDomainStatus: "VERIFYING", sslStatus: "pending_validation", cloudflareStatus: "pending", canActivate: false },
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(db.domains[0].cloudflareHostnameId, "cf-hostname-1");
+  assert.equal(db.domains[0].status, "VERIFYING");
+  assert.equal(db.domains[0].verificationType, "DNS_TXT");
+  assert.equal(db.domains[0].verificationValue, "verify-provision");
+});
+
+test("refreshStoreDomainCloudflareStatus activates only when hostname and SSL are active", async () => {
   const db = new FakeDomainDb();
   const created = await createStoreDomainManual(db as never, {
     storeId: "store-1",
@@ -183,13 +226,78 @@ test("refreshStoreDomainCloudflareStatus updates sslStatus and status", async ()
   const result = await refreshStoreDomainCloudflareStatus(db as never, created.domain.id, {
     getHostname: async () => ({
       ok: true,
-      hostname: { id: "cf-hostname-1", hostname: "refresh.example.com", ssl: { status: "active" } },
-      mapped: { storeDomainStatus: "ACTIVE", sslStatus: "active" },
+      hostname: { id: "cf-hostname-1", hostname: "refresh.example.com", status: "active", ssl: { status: "active" } },
+      mapped: { storeDomainStatus: "ACTIVE", sslStatus: "active", cloudflareStatus: "active", canActivate: true },
     }),
   });
 
   assert.equal(result.ok, true);
   assert.equal(db.domains[0].status, "ACTIVE");
+  assert.equal(db.domains[0].isPrimary, true);
   assert.equal(db.domains[0].sslStatus, "active");
   assert.ok(db.domains[0].lastCheckedAt instanceof Date);
+});
+
+test("refreshStoreDomainCloudflareStatus keeps pending SSL in VERIFYING", async () => {
+  const db = new FakeDomainDb();
+  const created = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "pending-ssl.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+  if (!created.ok) throw new Error("domain not created");
+  db.domains[0].cloudflareHostnameId = "cf-hostname-1";
+
+  const result = await refreshStoreDomainCloudflareStatus(db as never, created.domain.id, {
+    getHostname: async () => ({
+      ok: true,
+      hostname: { id: "cf-hostname-1", hostname: "pending-ssl.example.com", status: "active", ssl: { status: "pending_validation" } },
+      mapped: { storeDomainStatus: "VERIFYING", sslStatus: "pending_validation", cloudflareStatus: "active", canActivate: false },
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(db.domains[0].status, "VERIFYING");
+  assert.equal(db.domains[0].isPrimary, false);
+});
+
+test("refreshStoreDomainCloudflareStatus maps Cloudflare failed status safely", async () => {
+  const db = new FakeDomainDb();
+  const created = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "failed.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+  if (!created.ok) throw new Error("domain not created");
+  db.domains[0].cloudflareHostnameId = "cf-hostname-1";
+
+  const result = await refreshStoreDomainCloudflareStatus(db as never, created.domain.id, {
+    getHostname: async () => ({
+      ok: true,
+      hostname: { id: "cf-hostname-1", hostname: "failed.example.com", status: "failed", ssl: { status: "pending_validation" } },
+      mapped: { storeDomainStatus: "FAILED", sslStatus: "pending_validation", cloudflareStatus: "failed", canActivate: false },
+    }),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(db.domains[0].status, "FAILED");
+});
+
+test("refreshStoreDomainCloudflareStatus returns owner-safe Cloudflare errors without mutating status", async () => {
+  const db = new FakeDomainDb();
+  const created = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "error.example.com",
+    type: "CUSTOM_DOMAIN",
+  });
+  if (!created.ok) throw new Error("domain not created");
+  db.domains[0].cloudflareHostnameId = "cf-hostname-1";
+
+  const result = await refreshStoreDomainCloudflareStatus(db as never, created.domain.id, {
+    getHostname: async () => ({ ok: false, reason: "cloudflare_error_10000" }),
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(JSON.stringify(result).includes("secret-token"), false);
+  assert.equal(db.domains[0].status, "PENDING");
 });
