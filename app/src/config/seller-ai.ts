@@ -150,3 +150,41 @@ export const sellerAiConfig = {
     },
   },
 };
+
+function parseBoolean(value: string | undefined, fallback = false) {
+  if (value == null || value.trim() === "") return fallback;
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
+function parseInteger(value: string | undefined, fallback: number, options: { min: number; max: number }) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(options.max, Math.max(options.min, parsed));
+}
+
+function parseSlugList(value: string | undefined) {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+type SellerAiEnv = Record<string, string | undefined>;
+
+export function getSellerAiLlmConfig(env: SellerAiEnv = process.env) {
+  return {
+    enabled: parseBoolean(env.SELLER_AI_LLM_ENABLED, false),
+    provider: env.SELLER_AI_LLM_PROVIDER?.trim() || "openai",
+    model: env.SELLER_AI_LLM_MODEL?.trim() || "gpt-4.1-mini",
+    allowedStoreSlugs: parseSlugList(env.SELLER_AI_LLM_STORE_SLUGS || "javier"),
+    timeoutMs: parseInteger(env.SELLER_AI_LLM_TIMEOUT_MS, 10000, { min: 1000, max: 30000 }),
+    maxRecentMessages: parseInteger(env.SELLER_AI_LLM_MAX_RECENT_MESSAGES, 6, { min: 1, max: 12 }),
+    maxContextProducts: parseInteger(env.SELLER_AI_LLM_MAX_CONTEXT_PRODUCTS, 4, { min: 1, max: 5 }),
+    openAiApiKeyPresent: Boolean(env.OPENAI_API_KEY?.trim()),
+  };
+}
+
+export function isSellerAiLlmStoreAllowed(storeSlug: string, env: SellerAiEnv = process.env) {
+  const config = getSellerAiLlmConfig(env);
+  return config.allowedStoreSlugs.length === 0 || config.allowedStoreSlugs.includes(storeSlug);
+}

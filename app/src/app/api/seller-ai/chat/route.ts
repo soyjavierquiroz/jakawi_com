@@ -10,6 +10,7 @@ import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
 import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
+import { tryGetSellerAiLlmReply } from "@/lib/seller-ai/llm";
 import { buildQuickRepliesForMode, extractCommercialSignals, inferSellerAiMode, type SellerAiMode } from "@/lib/seller-ai/modes";
 import { getSellerAiRecommendations, type SellerAiRecommendedProduct } from "@/lib/seller-ai/recommendations";
 import { getSellerVoiceNoteConfig } from "@/lib/seller-ai/voice-notes";
@@ -87,6 +88,51 @@ function priceLine({
 
 function hasPublishedPrice(product?: ProductForReply | null) {
   return product?.priceCents != null && product.priceCents > 0;
+}
+
+function mergeQuickReplies(baseReplies: string[], additions: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  return [...baseReplies, ...additions]
+    .map((reply) => reply?.trim())
+    .filter((reply): reply is string => Boolean(reply))
+    .filter((reply) => {
+      const key = normalizeText(reply);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 4);
+}
+
+async function getRecommendedProductsBySlugs({
+  store,
+  slugs,
+}: {
+  store: { id: string; currency?: string | null; countryCode?: string | null; locale?: string | null };
+  slugs: string[];
+}): Promise<SellerAiRecommendedProduct[]> {
+  if (slugs.length === 0) return [];
+  const products = await getPrisma().product.findMany({
+    where: { storeId: store.id, isVisible: true, slug: { in: slugs } },
+    include: { category: true },
+  });
+  const bySlug = new Map(products.map((product) => [product.slug, product]));
+  return slugs
+    .map((slug) => bySlug.get(slug))
+    .filter((product): product is NonNullable<typeof product> => Boolean(product))
+    .map((product) => ({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      priceLabel: formatMoney({
+        amountCents: product.priceCents,
+        currency: store.currency ?? product.currency,
+        countryCode: store.countryCode ?? "BO",
+        locale: store.locale,
+      }),
+      imageUrl: product.imageUrl,
+      shortReason: product.category?.name ? `Opcion de ${product.category.name}` : "Producto recomendado de la tienda",
+    }));
 }
 
 function buildAssistantMessage({
@@ -307,9 +353,10 @@ export async function POST(request: Request) {
           detectedNeed: signals.detectedNeed ?? journey.detectedNeed,
           budget: signals.budget ?? journey.budget,
         });
-  const recommendations = keepClearlyRelatedAlternatives(rawRecommendations, product);
-  const showRecommendedProducts = wantsAlternatives && recommendations.length > 0;
-  const assistantMessage = buildAssistantMessage({
+  const ruleRecommendations = keepClearlyRelatedAlternatives(rawRecommendations, product);
+  let recommendations = ruleRecommendations;
+  let showRecommendedProducts = wantsAlternatives && recommendations.length > 0;
+  let assistantMessage = buildAssistantMessage({
     mode: inferred.mode,
     userMessage: parsed.data.message,
     product,
@@ -318,9 +365,51 @@ export async function POST(request: Request) {
     recommendations,
     shouldAskPhone: shouldStartPhoneCapture,
   });
-  const replyMessage = await getPrisma().conversationMessage.create({
-    data: { conversationId: conversation.id, role: MessageRole.ASSISTANT, content: assistantMessage, metadata: { productId: product?.id, journeyId: journey.id, mode: inferred.mode, stage: inferred.stage } },
+  const llmReply = await tryGetSellerAiLlmReply({
+    store: lead.store,
+    currentProduct: product,
+    commercialSignals: {
+      ...signals,
+      detectedNeed: signals.detectedNeed ?? journey.detectedNeed ?? undefined,
+      budget: signals.budget ?? journey.budget ?? undefined,
+      urgency: signals.urgency ?? journey.urgency ?? undefined,
+      objections: signals.objections.length > 0 ? signals.objections : Array.isArray(journey.objections) ? journey.objections : [],
+    },
+    mode: inferred.mode,
+    journeySummary: journey.conversationSummary,
+    recentMessages: messagesBeforeReply,
+    visitorMessage: parsed.data.message,
   });
+  if (llmReply) {
+    assistantMessage = llmReply.output.reply;
+    recommendations = await getRecommendedProductsBySlugs({ store: lead.store, slugs: llmReply.output.recommendedProductSlugs });
+    showRecommendedProducts = recommendations.length > 0;
+  }
+  const replyMessage = await getPrisma().conversationMessage.create({
+    data: {
+      conversationId: conversation.id,
+      role: MessageRole.ASSISTANT,
+      content: assistantMessage,
+      metadata: {
+        productId: product?.id,
+        journeyId: journey.id,
+        mode: inferred.mode,
+        stage: inferred.stage,
+        provider: llmReply ? "openai" : "rules",
+        objectionType: llmReply?.output.objectionType,
+      },
+    },
+  });
+  if (llmReply) {
+    await getPrisma().conversation.update({
+      where: { id: conversation.id },
+      data: {
+        modelUsed: llmReply.modelUsed,
+        tokensInput: llmReply.tokensInput ?? undefined,
+        tokensOutput: llmReply.tokensOutput ?? undefined,
+      },
+    });
+  }
   await logLeadEvent({
     leadId: lead.id,
     sessionId: lead.sessionId,
@@ -328,11 +417,11 @@ export async function POST(request: Request) {
     eventType: LeadEventType.AI_MESSAGE_SENT,
     productId: product?.id,
     journeyId: journey.id,
-    metadata: { message: assistantMessage, mode: inferred.mode, stage: inferred.stage },
+    metadata: { message: assistantMessage, mode: inferred.mode, stage: inferred.stage, provider: llmReply ? "openai" : "rules" },
   });
   const messages = [...messagesBeforeReply, replyMessage];
   const intentScore = Math.min(100, Math.max(provisionalIntentScore, calculateIntentScore({ events, messages, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED })));
-  const shouldShowWhatsappCta = shouldStartPhoneCapture || inferred.mode === "DECISION_SUPPORT" || (intentScore >= 70 && inferred.mode !== "DISCOVERY");
+  const shouldShowWhatsappCta = Boolean(llmReply?.output.handoffReady) || shouldStartPhoneCapture || inferred.mode === "DECISION_SUPPORT" || (intentScore >= 70 && inferred.mode !== "DISCOVERY");
   const hasVisibleCommercialSignal =
     signals.intentBoost > 0 ||
     Boolean(product) ||
@@ -368,7 +457,7 @@ export async function POST(request: Request) {
     stage: inferred.stage,
     recommendedProducts: recommendations.map((item) => ({ id: item.id, name: item.name, slug: item.slug, priceLabel: item.priceLabel, shortReason: item.shortReason })),
   });
-  const quickReplies = buildQuickRepliesForMode({
+  const rulesQuickReplies = buildQuickRepliesForMode({
     mode: inferred.mode,
     commercialType: lead.store.commercialType,
     product,
@@ -379,10 +468,13 @@ export async function POST(request: Request) {
     usedReplies: messagesBeforeReply.filter((message) => message.role === MessageRole.USER).map((message) => message.content),
     lastUserMessage: parsed.data.message,
   });
+  const quickReplies = llmReply
+    ? mergeQuickReplies(llmReply.output.quickReplies, [llmReply.output.handoffReady ? (llmReply.output.whatsappCtaLabel ?? "Continuar por WhatsApp") : null])
+    : rulesQuickReplies;
   const handoffVoiceNote = getSellerVoiceNoteConfig(lead.store, "HANDOFF");
   const guidanceVoiceNote = getSellerVoiceNoteConfig(lead.store, "GUIDANCE");
   const voiceNote =
-    inferred.mode === "CLOSING_PREP" || shouldStartPhoneCapture
+    inferred.mode === "CLOSING_PREP" || shouldStartPhoneCapture || llmReply?.output.handoffReady
       ? handoffVoiceNote
       : hasVoiceGuidanceContext(parsed.data.message, signals)
         ? guidanceVoiceNote
@@ -409,7 +501,7 @@ export async function POST(request: Request) {
     objections: signals.objections.length > 0 ? signals.objections.join(", ") : updatedJourney?.objections,
     intentLabel: classifyIntent(intentScore),
     shouldShowWhatsappCta,
-    shouldStartPhoneCapture,
+    shouldStartPhoneCapture: shouldStartPhoneCapture || Boolean(llmReply?.output.shouldAskPhone),
     voiceNote: voiceNote?.enabled ? voiceNote : null,
     voiceNoteSuggestion,
   });
