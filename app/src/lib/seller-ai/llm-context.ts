@@ -3,12 +3,19 @@ import { getSellerAiLlmConfig } from "@/config/seller-ai";
 import { formatMoney } from "@/lib/money";
 import { getPrisma } from "@/lib/prisma";
 import type { CommercialSignals, SellerAiMode } from "@/lib/seller-ai/modes";
+import { getSellerAiSalesStylePreset } from "@/lib/seller-ai/seller-ai";
 import type { SellerAiReplyInput, SellerAiReplyProduct } from "@/lib/seller-ai/types";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 type ProductWithCategory = Product & { category?: { name: string; slug: string } | null };
-type StoreForContext = Pick<Store, "id" | "slug" | "name" | "whatsapp" | "currency" | "countryCode" | "locale" | "plan">;
+type StoreForContext = Pick<Store, "id" | "slug" | "name" | "description" | "commercialTagline" | "whatsapp" | "currency" | "countryCode" | "locale" | "plan">;
 type SellerAiContextDb = Pick<ReturnType<typeof getPrisma>, "product">;
+
+function cappedText(value: string | null | undefined, maxLength: number) {
+  const clean = (value ?? "").replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  return clean.length > maxLength ? `${clean.slice(0, Math.max(0, maxLength - 3))}...` : clean;
+}
 
 function productUrl(storeSlug: string, productSlug: string) {
   return `/${storeSlug}/p/${productSlug}`;
@@ -120,6 +127,7 @@ export async function buildSellerAiReplyInput({
 }): Promise<SellerAiReplyInput> {
   const flow = getStorefrontFlow(store.plan);
   const candidateProducts = await getSellerAiLlmCandidateProducts({ store, currentProduct, db });
+  const salesStyle = getSellerAiSalesStylePreset();
 
   return {
     store: {
@@ -127,6 +135,15 @@ export async function buildSellerAiReplyInput({
       slug: store.slug,
       name: store.name,
       whatsappPresent: Boolean(store.whatsapp),
+    },
+    storeContext: {
+      name: store.name,
+      description: cappedText(store.description, 500),
+      commercialTagline: cappedText(store.commercialTagline, 200),
+    },
+    salesStyle: {
+      id: salesStyle.id,
+      instruction: salesStyle.instruction,
     },
     currentProduct: currentProduct ? toReplyProduct(store, currentProduct) : null,
     candidateProducts,

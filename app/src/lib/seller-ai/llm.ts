@@ -6,7 +6,7 @@ import type { SellerAiLlmReplyResult } from "@/lib/seller-ai/types";
 import type { ConversationMessage, Product, Store } from "@prisma/client";
 
 type ProductWithCategory = Product & { category?: { name: string; slug: string } | null };
-type StoreForLlm = Pick<Store, "id" | "slug" | "name" | "whatsapp" | "currency" | "countryCode" | "locale" | "plan">;
+type StoreForLlm = Pick<Store, "id" | "slug" | "name" | "description" | "commercialTagline" | "whatsapp" | "currency" | "countryCode" | "locale" | "plan">;
 
 function normalizeText(input?: string | null) {
   return (input ?? "")
@@ -48,16 +48,51 @@ const complexClosingPatterns = [
   /\b(reservar.*(hoy|ahora|whatsapp)|pedir.*(hoy|ahora|whatsapp))\b/,
 ];
 
+const ambiguousReferencePatterns = [
+  /\b(el otro|la otra|los otros|las otras)\b/,
+  /\b(ese|esa|esos|esas)\b/,
+  /\b(cual de esos|cual de esas|cual era|cual me dijiste)\b/,
+  /\b(lo que me dijiste|lo que dijiste|el anterior|la anterior)\b/,
+  /\b(comparado con|comparada con)\b/,
+  /\b(y ese|y esa|y el otro|y la otra)\b/,
+];
+
+const recentRecommendationPatterns = [
+  /\b(recomiendo|recomendaria|opcion|opciones|alternativa|alternativas|comparar|compararia)\b/,
+  /\b(tambien tenemos|tambien podrias|miraria tambien|me interesa)\b/,
+  /\b(producto recomendado|similar al producto|buena opcion)\b/,
+];
+
+type RecentMessageLike = Pick<ConversationMessage, "role" | "content">;
+
+export function hasAmbiguousReference(message: string) {
+  const text = normalizeText(message);
+  return text.length <= 120 && hasAnyPattern(text, ambiguousReferencePatterns);
+}
+
+export function recentHistoryHasProductComparisonOrRecommendations(messages: RecentMessageLike[] = []) {
+  return messages
+    .slice(-6)
+    .some((message) => {
+      if (!message.content) return false;
+      const text = normalizeText(message.content);
+      return hasAnyPattern(text, recentRecommendationPatterns) || (/,\s*\w+/.test(text) && /\b(opcion|alternativa|comparar)\b/.test(text));
+    });
+}
+
 export function shouldUseSellerAiLlm({
   visitorMessage,
   commercialSignals,
   mode,
+  recentMessages,
 }: {
   visitorMessage: string;
   commercialSignals: CommercialSignals;
   mode: SellerAiMode;
+  recentMessages?: RecentMessageLike[];
 }) {
   const text = normalizeText(visitorMessage);
+  if (hasAmbiguousReference(visitorMessage) && recentHistoryHasProductComparisonOrRecommendations(recentMessages)) return true;
   if (hasAnyPattern(text, comparisonPatterns)) return true;
   if (hasAnyPattern(text, indecisionPatterns)) return true;
   if (hasAnyPattern(text, realObjectionPatterns)) return true;
@@ -86,7 +121,7 @@ export async function tryGetSellerAiLlmReply({
   const config = getSellerAiLlmConfig();
   if (!config.enabled || config.provider !== "openai" || !config.openAiApiKeyPresent) return null;
   if (!isSellerAiLlmStoreAllowed(store.slug)) return null;
-  if (!shouldUseSellerAiLlm({ visitorMessage, commercialSignals, mode })) return null;
+  if (!shouldUseSellerAiLlm({ visitorMessage, commercialSignals, mode, recentMessages })) return null;
 
   const input = await buildSellerAiReplyInput({
     store,
