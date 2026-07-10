@@ -1,23 +1,28 @@
 # www.exitosos.com Cloudflare Activation
 
-Status: BLOCKED
+Status: WARN
 
-QA_DIR: `/var/backups/jakawi.com/qa/activate-www-exitosos-good-enough/20260710-124929`
+QA_DIR: `/var/backups/jakawi.com/qa/activate-www-exitosos-retry-env/20260710-125932`
 
-Cloudflare hostname status: not checked
+DATABASE_URL_present: yes
 
-SSL status: not checked
+Cloudflare hostname status: pending
 
-StoreDomain status: not changed
+SSL status: initializing
+
+StoreDomain status: VERIFYING
 
 CUSTOM_DOMAINS_ENABLED final: false
 
 CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED final: true
 
-Smoke result: not run
+www.exitosos.com result: pending, TLS verification failed while Cloudflare SSL is initializing
 
 Custom traffic enabled: no
 
 Secrets exposed: no
 
-Blocker: `npx prisma validate` failed before deploy or Cloudflare work. Prisma could not find `DATABASE_URL`; see `evidence/prisma-validate.txt`.
+Pending DNS:
+
+- `CNAME www.exitosos.com -> jakawi.com`
+- `TXT _cf-custom-hostname.www.exitosos.com -> 91c1f6a5-2a6e-49ab-af41-0c7d6d2e11b5`
