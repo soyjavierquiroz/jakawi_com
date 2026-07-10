@@ -8,11 +8,13 @@ import { incrementSellerAiConversationUsage, PlanLimitError } from "@/lib/plan-l
 import { getPrisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
+import { buildWhatsappHandoffMessage, buildWhatsappHandoffUrl, computeLeadQualification, shouldShowWhatsappHandoff } from "@/lib/seller-ai/lead-qualification";
 import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
 import { tryGetSellerAiLlmReply } from "@/lib/seller-ai/llm";
 import { buildQuickRepliesForMode, extractCommercialSignals, inferSellerAiMode, type SellerAiMode } from "@/lib/seller-ai/modes";
 import { getSellerAiRecommendations, type SellerAiRecommendedProduct } from "@/lib/seller-ai/recommendations";
+import { createCommercialSnapshot } from "@/lib/seller-ai/snapshot";
 import { getSellerVoiceNoteConfig } from "@/lib/seller-ai/voice-notes";
 
 const chatSchema = z.object({
@@ -279,6 +281,13 @@ export async function POST(request: Request) {
 
   const userMessageCount = conversation.messages.filter((message) => message.role === MessageRole.USER).length;
   if (userMessageCount >= 30) {
+    const whatsappHandoff = computeLeadQualification({
+      score: lead.intentScore,
+      messages: conversation.messages.filter((message) => message.role === MessageRole.USER).map((message) => message.content),
+      whatsappNumber: lead.store.whatsapp,
+      whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED,
+    });
+    const showWhatsappHandoff = shouldShowWhatsappHandoff(whatsappHandoff, lead.store.whatsapp);
     return NextResponse.json({
       ok: true,
       assistantMessage: sellerAiConfig.reserved.maxMessages,
@@ -287,7 +296,12 @@ export async function POST(request: Request) {
       showRecommendedProducts: false,
       intentScore: lead.intentScore,
       intentLabel: classifyIntent(lead.intentScore),
-      shouldShowWhatsappCta: true,
+      shouldShowWhatsappCta: showWhatsappHandoff,
+      whatsappHandoff: {
+        visible: showWhatsappHandoff,
+        leadScore: whatsappHandoff.score,
+        leadStage: whatsappHandoff.stage,
+      },
       shouldStartPhoneCapture: false,
     });
   }
@@ -421,7 +435,13 @@ export async function POST(request: Request) {
   });
   const messages = [...messagesBeforeReply, replyMessage];
   const intentScore = Math.min(100, Math.max(provisionalIntentScore, calculateIntentScore({ events, messages, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED })));
-  const shouldShowWhatsappCta = Boolean(llmReply?.output.handoffReady) || shouldStartPhoneCapture || inferred.mode === "DECISION_SUPPORT" || (intentScore >= 70 && inferred.mode !== "DISCOVERY");
+  const whatsappHandoff = computeLeadQualification({
+    score: intentScore,
+    messages: messages.filter((message) => message.role === MessageRole.USER).map((message) => message.content),
+    whatsappNumber: lead.store.whatsapp,
+    whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED,
+  });
+  const shouldShowWhatsappCta = shouldShowWhatsappHandoff(whatsappHandoff, lead.store.whatsapp);
   const hasVisibleCommercialSignal =
     signals.intentBoost > 0 ||
     Boolean(product) ||
@@ -480,6 +500,41 @@ export async function POST(request: Request) {
         ? guidanceVoiceNote
         : null;
   const voiceNoteSuggestion = voiceNote?.enabled ? voiceNote.type : undefined;
+  const existingSnapshot = shouldShowWhatsappCta && lead.snapshotId ? await getPrisma().commercialSnapshot.findUnique({ where: { id: lead.snapshotId } }) : null;
+  const snapshot =
+    existingSnapshot ??
+    (shouldShowWhatsappCta
+      ? await createCommercialSnapshot({
+          journeyId: journey.id,
+          leadId: lead.id,
+          customerName: lead.customerName,
+          customerPhone: lead.customerPhone,
+          city: lead.city,
+          currentItem: product
+            ? {
+                id: product.id,
+                name: product.name,
+                slug: product.slug,
+                priceCents: product.priceCents,
+                currency: lead.store.currency ?? product.currency,
+              }
+            : undefined,
+          recommendedItems: recommendations.map((item) => ({ id: item.id, name: item.name, slug: item.slug })),
+          viewedItems: updatedJourney?.viewedProducts ?? lead.viewedProducts ?? undefined,
+          detectedNeed: signals.detectedNeed ?? updatedJourney?.detectedNeed,
+          objections: signals.objections.length > 0 ? signals.objections.join(", ") : updatedJourney?.objections,
+          budget: signals.budget ?? updatedJourney?.budget,
+          urgency: signals.urgency ?? updatedJourney?.urgency,
+          intentScore: whatsappHandoff.score,
+          customerSummary: lead.conversationSummary,
+        })
+      : null);
+  if (snapshot && snapshot.id !== lead.snapshotId) {
+    await getPrisma().lead.update({ where: { id: lead.id }, data: { snapshotId: snapshot.id } });
+  }
+  const handoffCode = snapshot?.snapshotCode;
+  const handoffMessage = handoffCode ? buildWhatsappHandoffMessage(handoffCode) : undefined;
+  const handoffUrl = handoffCode ? buildWhatsappHandoffUrl({ whatsappNumber: lead.store.whatsapp, code: handoffCode }) : undefined;
 
   return NextResponse.json({
     ok: true,
@@ -501,7 +556,15 @@ export async function POST(request: Request) {
     objections: signals.objections.length > 0 ? signals.objections.join(", ") : updatedJourney?.objections,
     intentLabel: classifyIntent(intentScore),
     shouldShowWhatsappCta,
-    shouldStartPhoneCapture: shouldStartPhoneCapture || Boolean(llmReply?.output.shouldAskPhone),
+    shouldStartPhoneCapture: shouldShowWhatsappCta && (shouldStartPhoneCapture || Boolean(llmReply?.output.shouldAskPhone)),
+    whatsappHandoff: {
+      visible: shouldShowWhatsappCta,
+      code: handoffCode,
+      url: handoffUrl,
+      message: handoffMessage,
+      leadScore: whatsappHandoff.score,
+      leadStage: whatsappHandoff.stage,
+    },
     voiceNote: voiceNote?.enabled ? voiceNote : null,
     voiceNoteSuggestion,
   });

@@ -1,6 +1,7 @@
 import { CommercialSnapshotChannel, Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { generateSnapshotCode } from "@/lib/seller-ai/journey-code";
+import { buildWhatsappHandoffMessage } from "@/lib/seller-ai/lead-qualification";
 
 type SnapshotMessageInput = {
   snapshotCode: string;
@@ -28,41 +29,8 @@ export async function createUniqueSnapshotCode() {
   return `SNP-${Date.now().toString(36).toUpperCase().slice(-7)}`;
 }
 
-function itemName(value?: Prisma.JsonValue | null) {
-  if (!value || typeof value !== "object" || Array.isArray(value) || !("name" in value)) return null;
-  const name = value.name;
-  return typeof name === "string" ? name : null;
-}
-
-function itemNames(value?: Prisma.JsonValue | null) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => (typeof item === "object" && item && "name" in item ? item.name : null))
-    .filter((name): name is string => typeof name === "string" && name.length > 0)
-    .slice(0, 3);
-}
-
 export function buildChannelMessageFromSnapshot(snapshot: SnapshotMessageInput) {
-  const currentItemName = itemName(snapshot.currentItem);
-  const recommendedNames = itemNames(snapshot.recommendedItems);
-  const lines = [
-    "Hola, vengo de JAKAWI.",
-    currentItemName ? `Me interesa: ${currentItemName}.` : null,
-    !currentItemName && snapshot.detectedNeed ? `Estoy buscando: ${snapshot.detectedNeed}.` : null,
-    currentItemName && snapshot.detectedNeed ? `Lo quiero para: ${snapshot.detectedNeed}.` : null,
-    recommendedNames.length > 0 ? `Opciones recomendadas: ${recommendedNames.join(", ")}.` : null,
-    snapshot.objections ? `Duda principal: ${snapshot.objections}.` : null,
-    snapshot.customerPhone ? `Mi número: ${snapshot.customerPhone}.` : null,
-    snapshot.customerName ? `Mi nombre: ${snapshot.customerName}.` : null,
-    snapshot.budget ? `Presupuesto: ${snapshot.budget}.` : null,
-    snapshot.urgency ? `Urgencia: ${snapshot.urgency}.` : null,
-    snapshot.city ? `Ciudad: ${snapshot.city}.` : null,
-    snapshot.customerSummary ? `Resumen: ${snapshot.customerSummary}` : null,
-    `Código: ${snapshot.snapshotCode}.`,
-    "Quiero saber cómo comprar.",
-  ].filter(Boolean);
-
-  return lines.join("\n");
+  return buildWhatsappHandoffMessage(snapshot.snapshotCode);
 }
 
 export async function createCommercialSnapshot({
@@ -103,7 +71,7 @@ export async function createCommercialSnapshot({
   channelMessage?: string | null;
 }) {
   const snapshotCode = await createUniqueSnapshotCode();
-  const providedMessage = whatsappMessage && whatsappMessage.includes(snapshotCode) ? whatsappMessage : whatsappMessage ? `${whatsappMessage}\nSnapshot: ${snapshotCode}` : null;
+  const providedMessage = whatsappMessage && whatsappMessage.includes(snapshotCode) ? whatsappMessage : null;
   const generatedMessage =
     channelMessage ??
     providedMessage ??

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MessageRole } from "@prisma/client";
 import { getSellerAiLlmConfig, isSellerAiLlmStoreAllowed } from "@/config/seller-ai";
-import { shouldUseSellerAiLlm } from "@/lib/seller-ai/llm";
+import { hasAmbiguousReference, recentHistoryHasProductComparisonOrRecommendations, shouldUseSellerAiLlm } from "@/lib/seller-ai/llm";
 import { buildSellerAiReplyInput, getSellerAiLlmCandidateProducts, pickRecentSellerAiMessages } from "@/lib/seller-ai/llm-context";
 import { getOpenAISellerReply } from "@/lib/seller-ai/providers/openai";
 import { validateSellerAiReplyOutput, type SellerAiReplyInput } from "@/lib/seller-ai/types";
@@ -20,6 +20,8 @@ const store = {
   id: "store-1",
   slug: "javier",
   name: "Exitosos",
+  description: "Tienda de comida saludable con platos frescos para almuerzo.",
+  commercialTagline: "Comida practica para pedir rapido.",
   whatsapp: "59170000000",
   currency: "BOB",
   countryCode: "BO",
@@ -76,6 +78,15 @@ function createDb() {
 function replyInput(): SellerAiReplyInput {
   return {
     store: { id: "store-1", slug: "javier", name: "Exitosos", whatsappPresent: true },
+    storeContext: {
+      name: "Exitosos",
+      description: "Tienda de comida saludable.",
+      commercialTagline: "Comida practica.",
+    },
+    salesStyle: {
+      id: "CONSULTATIVE",
+      instruction: "Haz una recomendacion consultiva y breve. Pregunta maximo una cosa util. Usa solo datos provistos.",
+    },
     currentProduct: {
       id: "product-1",
       slug: "caesar-with-chicken",
@@ -153,6 +164,40 @@ test("objections, comparisons, indecision, and complex closing use OpenAI", () =
   );
 });
 
+test("ambiguous reference after recommendation history uses OpenAI", () => {
+  const recentMessages = [
+    {
+      role: MessageRole.ASSISTANT,
+      content: "Para comparar sin marearte, miraria Caesar With Chicken y Wrap de Pollo como buenas opciones.",
+    },
+  ];
+
+  assert.equal(hasAmbiguousReference("¿Y el otro?"), true);
+  assert.equal(recentHistoryHasProductComparisonOrRecommendations(recentMessages), true);
+  assert.equal(
+    shouldUseSellerAiLlm({
+      visitorMessage: "¿Y el otro?",
+      commercialSignals: { objections: [], intentBoost: 0, hasStrongIntent: false },
+      mode: "PRODUCT_ADVISOR",
+      recentMessages,
+    }),
+    true,
+  );
+});
+
+test("ambiguous reference without useful history stays on rules path", () => {
+  assert.equal(hasAmbiguousReference("¿Y ese?"), true);
+  assert.equal(
+    shouldUseSellerAiLlm({
+      visitorMessage: "¿Y ese?",
+      commercialSignals: { objections: [], intentBoost: 0, hasStrongIntent: false },
+      mode: "PRODUCT_ADVISOR",
+      recentMessages: [],
+    }),
+    false,
+  );
+});
+
 test("flag off uses rules path and does not call OpenAI", async () => {
   let called = false;
   const result = await getOpenAISellerReply(replyInput(), {
@@ -182,7 +227,7 @@ test("missing OPENAI_API_KEY falls back before fetch", async () => {
 });
 
 test("provider uses model from env and maps valid structured output", async () => {
-  const requestBodies: Array<{ model?: string }> = [];
+  const requestBodies: Array<{ model?: string; input?: Array<{ content?: string }> }> = [];
   const result = await getOpenAISellerReply(replyInput(), {
     env: { ...envBase, SELLER_AI_LLM_ENABLED: "true", OPENAI_API_KEY: "sk-test" },
     fetchImpl: (async (_url, init) => {
@@ -208,6 +253,8 @@ test("provider uses model from env and maps valid structured output", async () =
   });
 
   assert.equal(requestBodies[0]?.model, "gpt-test-model");
+  assert.match(JSON.stringify(requestBodies[0]), /storeContext/);
+  assert.match(JSON.stringify(requestBodies[0]), /salesStyle/);
   assert.equal(result?.output.objectionType, "price");
   assert.equal(result?.output.handoffReady, true);
   assert.equal(result?.tokensInput, 100);
@@ -310,4 +357,44 @@ test("reply input carries current product and WhatsApp handoff flags", async () 
   assert.equal(input.candidateProducts.length, 4);
   assert.equal(input.whatsappHandoffAvailable, true);
   assert.equal(input.store.whatsappPresent, true);
+});
+
+test("reply input includes capped store context and default sales style", async () => {
+  const input = await buildSellerAiReplyInput({
+    store: {
+      ...store,
+      description: "a".repeat(650),
+      commercialTagline: "b".repeat(260),
+    },
+    currentProduct,
+    commercialSignals: { objections: [], intentBoost: 0, hasStrongIntent: false },
+    mode: "PRODUCT_ADVISOR",
+    journeySummary: null,
+    recentMessages: [],
+    visitorMessage: "Que me recomiendas?",
+    db: createDb() as never,
+  });
+
+  assert.equal(input.storeContext.name, "Exitosos");
+  assert.equal(input.storeContext.description?.length, 500);
+  assert.equal(input.storeContext.commercialTagline?.length, 200);
+  assert.equal(input.salesStyle.id, "CONSULTATIVE");
+  assert.match(input.salesStyle.instruction, /datos provistos/i);
+});
+
+test("reply input does not carry owner prompt fields", async () => {
+  const input = await buildSellerAiReplyInput({
+    store,
+    currentProduct,
+    commercialSignals: { objections: [], intentBoost: 0, hasStrongIntent: false },
+    mode: "PRODUCT_ADVISOR",
+    journeySummary: null,
+    recentMessages: [],
+    visitorMessage: "Que me recomiendas?",
+    db: createDb() as never,
+  });
+
+  assert.deepEqual(Object.keys(input.storeContext).sort(), ["commercialTagline", "description", "name"]);
+  assert.equal(JSON.stringify(input).includes("ownerPrompt"), false);
+  assert.equal(JSON.stringify(input).includes("freeform"), false);
 });

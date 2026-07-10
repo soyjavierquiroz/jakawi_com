@@ -7,6 +7,15 @@ export type SellerAiReplyInput = {
     name: string;
     whatsappPresent: boolean;
   };
+  storeContext: {
+    name: string;
+    description: string | null;
+    commercialTagline: string | null;
+  };
+  salesStyle: {
+    id: string;
+    instruction: string;
+  };
   currentProduct: SellerAiReplyProduct | null;
   candidateProducts: SellerAiReplyProduct[];
   commercialSignals: {

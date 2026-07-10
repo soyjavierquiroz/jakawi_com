@@ -116,10 +116,6 @@ function getSellerAiLimitMessage(error: unknown) {
   return null;
 }
 
-function hasStrongIntent(input: string) {
-  return /quiero comprar|me interesa comprar|quiero pedir|quiero reservar|quiero pagar|lo quiero|lo quiero comprar|comprarlo|comprarla|continuar por whatsapp|consultar por whatsapp|hablemos por whatsapp|enviar consulta|dejar consulta|pasar a whatsapp|quiero que me escriban/i.test(input);
-}
-
 function normalizeReply(input?: string | null) {
   return (input ?? "")
     .toLowerCase()
@@ -210,15 +206,9 @@ export function SellerAiWidget({
   const isAssistantBusy = isLoading || isAssistantTyping;
   const chatIsBusy = isAssistantBusy;
   const ctaIsStrong = hasStrongPurchaseIntent || commercialStage === "CLOSING_PREP";
-  const showWhatsappCta = step === "chat" && messages.length > 0;
+  const showWhatsappCta = step === "chat" && messages.length > 0 && shouldShowWhatsappCta;
   const contextSubtitle = productName ? `Asesorando: ${productName}` : `Te ayuda ${storeName}`;
-  const whatsappCtaText = ctaIsStrong
-    ? widgetCopy.sendWhatsappInquiry
-    : commercialStage === "DECISION_SUPPORT"
-      ? widgetCopy.consultWhatsapp
-      : productName
-        ? widgetCopy.leaveWhatsappInquiry
-        : widgetCopy.continueWhatsappLong;
+  const whatsappCtaText = widgetCopy.continueWhatsappLong;
 
   const getAudioContext = useCallback(() => {
     const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -537,11 +527,6 @@ export function SellerAiWidget({
       setIsAssistantTyping(true);
       setAssistantIndicator("typing");
       setError(null);
-      if (hasStrongIntent(clean)) {
-        setShouldShowWhatsappCta(true);
-        setHasStrongPurchaseIntent(true);
-      }
-
       try {
         const response = await postJson<{
           leadId?: string;
@@ -556,6 +541,7 @@ export function SellerAiWidget({
           showRecommendedProducts?: boolean;
           shouldShowWhatsappCta: boolean;
           shouldStartPhoneCapture?: boolean;
+          whatsappHandoff?: { visible: boolean; leadScore: number; leadStage: string };
           detectedNeed?: string | null;
           voiceNote?: SellerVoiceNoteConfig | null;
           voiceNoteSuggestion?: SellerVoiceNoteType;
@@ -571,12 +557,12 @@ export function SellerAiWidget({
         setShowRecommendedProductCards(response.showRecommendedProducts === true);
         setRecommendedProductContextKey(response.showRecommendedProducts === true ? currentProductKey : null);
         setRecommendedProducts(response.showRecommendedProducts === true ? (response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
-        setShouldShowWhatsappCta((current) => current || response.shouldShowWhatsappCta);
-        if (response.shouldStartPhoneCapture) setHasStrongPurchaseIntent(true);
+        setShouldShowWhatsappCta(response.whatsappHandoff?.visible ?? response.shouldShowWhatsappCta);
+        if (response.whatsappHandoff?.leadStage === "READY_FOR_WHATSAPP" || response.shouldStartPhoneCapture) setHasStrongPurchaseIntent(true);
         if ((response.shouldStartPhoneCapture || /a qu[eé] whatsapp pueden escribirte/i.test(response.assistantMessage ?? response.message ?? "")) && requirePhoneBeforeWhatsapp) setStep("phone_capture");
       } catch (error) {
         await appendAssistantResponse({ assistantMessage: getSellerAiLimitMessage(error) ?? assistantFetchFailureFallback }, journeyId);
-        setShouldShowWhatsappCta(true);
+        setShouldShowWhatsappCta(false);
       } finally {
         setIsLoading(false);
         setIsAssistantTyping(false);
@@ -625,6 +611,7 @@ export function SellerAiWidget({
 
   const requestWhatsappStep = useCallback(async () => {
     if (assistantBusyRef.current || isAssistantBusy) return;
+    if (!shouldShowWhatsappCta) return;
     setError(null);
     setRedirectError(null);
     if (!leadId) {
@@ -646,7 +633,7 @@ export function SellerAiWidget({
       setIsAssistantTyping(false);
       setAssistantIndicator("typing");
     }
-  }, [appendAssistantResponse, continueWhatsapp, isAssistantBusy, journeyId, leadId, openChat, requirePhoneBeforeWhatsapp, voiceNotesByType.HANDOFF]);
+  }, [appendAssistantResponse, continueWhatsapp, isAssistantBusy, journeyId, leadId, openChat, requirePhoneBeforeWhatsapp, shouldShowWhatsappCta, voiceNotesByType.HANDOFF]);
 
   useEffect(() => {
     if (!sellerAiConfig.enabled || mode === "disabled") return;
@@ -656,7 +643,7 @@ export function SellerAiWidget({
       if (detail?.productId && productId && detail.productId !== productId) return;
 
       if (detail?.action === "whatsapp") {
-        void requestWhatsappStep();
+        void openChat();
         return;
       }
 
@@ -858,18 +845,21 @@ export function SellerAiWidget({
               </form>
 
               {showWhatsappCta ? (
-                <button
-                  type="button"
-                  onClick={() => void requestWhatsappStep()}
-                  disabled={chatIsBusy}
-                  className={cn(
-                    "mt-3 flex w-full items-center justify-center gap-2 rounded-full border font-black transition disabled:opacity-50",
-                    ctaIsStrong ? "h-11 border-[var(--space-primary)] bg-[var(--space-primary)] text-sm text-[var(--space-primary-contrast)] shadow-sm hover:brightness-95" : "h-10 border-[var(--space-border)] bg-white text-sm text-neutral-800 hover:bg-[var(--space-muted)]",
-                  )}
-                >
-                  <MessageCircle className="size-4 shrink-0" />
-                  <span className="min-w-0 text-center leading-none">{whatsappCtaText}</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void requestWhatsappStep()}
+                    disabled={chatIsBusy}
+                    className={cn(
+                      "mt-3 flex w-full items-center justify-center gap-2 rounded-full border font-black transition disabled:opacity-50",
+                      ctaIsStrong ? "h-11 border-[var(--space-primary)] bg-[var(--space-primary)] text-sm text-[var(--space-primary-contrast)] shadow-sm hover:brightness-95" : "h-10 border-[var(--space-border)] bg-white text-sm text-neutral-800 hover:bg-[var(--space-muted)]",
+                    )}
+                  >
+                    <MessageCircle className="size-4 shrink-0" />
+                    <span className="min-w-0 text-center leading-none">{whatsappCtaText}</span>
+                  </button>
+                  <p className="mt-1.5 text-center text-xs font-semibold text-neutral-600">Te llevamos con un asesor para finalizar.</p>
+                </>
               ) : null}
             </div>
           ) : null}
