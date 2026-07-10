@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { MessageRole } from "@prisma/client";
 import { getSellerAiLlmConfig, isSellerAiLlmStoreAllowed } from "@/config/seller-ai";
+import { shouldUseSellerAiLlm } from "@/lib/seller-ai/llm";
 import { buildSellerAiReplyInput, getSellerAiLlmCandidateProducts, pickRecentSellerAiMessages } from "@/lib/seller-ai/llm-context";
 import { getOpenAISellerReply } from "@/lib/seller-ai/providers/openai";
 import { validateSellerAiReplyOutput, type SellerAiReplyInput } from "@/lib/seller-ai/types";
@@ -116,6 +117,40 @@ test("LLM config defaults to disabled and parses safe values", () => {
 test("store not allowed gates LLM fallback", () => {
   assert.equal(isSellerAiLlmStoreAllowed("javier", { SELLER_AI_LLM_STORE_SLUGS: "javier,otra" }), true);
   assert.equal(isSellerAiLlmStoreAllowed("demo", { SELLER_AI_LLM_STORE_SLUGS: "javier,otra" }), false);
+});
+
+test("simple product questions stay on rules path", () => {
+  assert.equal(
+    shouldUseSellerAiLlm({
+      visitorMessage: "¿Cuánto cuesta?",
+      commercialSignals: { objections: ["precio"], intentBoost: 12, hasStrongIntent: false },
+      mode: "DECISION_SUPPORT",
+    }),
+    false,
+  );
+  assert.equal(
+    shouldUseSellerAiLlm({
+      visitorMessage: "¿Está disponible?",
+      commercialSignals: { objections: ["disponibilidad"], intentBoost: 12, hasStrongIntent: false },
+      mode: "DECISION_SUPPORT",
+    }),
+    false,
+  );
+});
+
+test("objections, comparisons, indecision, and complex closing use OpenAI", () => {
+  const baseSignals = { objections: [], intentBoost: 0, hasStrongIntent: false };
+  assert.equal(shouldUseSellerAiLlm({ visitorMessage: "Está caro, ¿por qué me conviene?", commercialSignals: { ...baseSignals, objections: ["precio"] }, mode: "DECISION_SUPPORT" }), true);
+  assert.equal(shouldUseSellerAiLlm({ visitorMessage: "Compárame este con otra opción más económica", commercialSignals: baseSignals, mode: "PRODUCT_ADVISOR" }), true);
+  assert.equal(shouldUseSellerAiLlm({ visitorMessage: "No sé si me conviene, ayúdame a decidir", commercialSignals: baseSignals, mode: "PRODUCT_ADVISOR" }), true);
+  assert.equal(
+    shouldUseSellerAiLlm({
+      visitorMessage: "Quiero pedir por WhatsApp",
+      commercialSignals: { ...baseSignals, hasStrongIntent: true },
+      mode: "CLOSING_PREP",
+    }),
+    true,
+  );
 });
 
 test("flag off uses rules path and does not call OpenAI", async () => {
