@@ -1,28 +1,23 @@
 # www.exitosos.com Cloudflare Activation
 
-Status: WARN
+Status: PASS
 
-QA_DIR: `/var/backups/jakawi.com/qa/refresh-www-exitosos-activation/20260710-135325`
+QA_DIR: `/var/backups/jakawi.com/qa/refresh-www-exitosos-activation/20260710-142322`
 
-DATABASE_URL_present: yes
+Hostname status: active
 
-Cloudflare hostname status: pending
+SSL status: active
 
-SSL status: pending_validation
+StoreDomain status: ACTIVE
 
-StoreDomain status: VERIFYING
-
-CUSTOM_DOMAINS_ENABLED final: false
+CUSTOM_DOMAINS_ENABLED final: true
 
 CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED final: true
 
-www.exitosos.com result: pending, TLS verification failed while Cloudflare SSL validation is pending
+https://www.exitosos.com result: OK, storefront `javier` visible
 
-Custom traffic enabled: no
+Custom traffic enabled: yes
 
 Secrets exposed: no
 
-Pending DNS:
-
-- `CNAME www.exitosos.com -> jakawi.com`
-- `TXT _cf-custom-hostname.www.exitosos.com -> 91c1f6a5-2a6e-49ab-af41-0c7d6d2e11b5`
+Notes: Cloudflare Custom Hostname and SSL are active. `www.exitosos.com` returns the `Javier` storefront with products; visible markup does not show the generic JAKAWI home hero.
