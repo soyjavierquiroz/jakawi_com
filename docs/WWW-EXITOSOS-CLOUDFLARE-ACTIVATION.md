@@ -2,13 +2,13 @@
 
 Status: WARN
 
-QA_DIR: `/var/backups/jakawi.com/qa/activate-www-exitosos-retry-env/20260710-125932`
+QA_DIR: `/var/backups/jakawi.com/qa/refresh-www-exitosos-activation/20260710-135325`
 
 DATABASE_URL_present: yes
 
 Cloudflare hostname status: pending
 
-SSL status: initializing
+SSL status: pending_validation
 
 StoreDomain status: VERIFYING
 
@@ -16,7 +16,7 @@ CUSTOM_DOMAINS_ENABLED final: false
 
 CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED final: true
 
-www.exitosos.com result: pending, TLS verification failed while Cloudflare SSL is initializing
+www.exitosos.com result: pending, TLS verification failed while Cloudflare SSL validation is pending
 
 Custom traffic enabled: no
 
