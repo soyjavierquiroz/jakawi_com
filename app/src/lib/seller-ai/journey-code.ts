@@ -12,6 +12,6 @@ export function generateJourneyCode(prefix = "JNY") {
   return `${prefix}-${codeSuffix()}`;
 }
 
-export function generateSnapshotCode(prefix = "SNP") {
-  return `${prefix}-${codeSuffix(5)}`;
+export function generateSnapshotCode(prefix = "KJ") {
+  return `${prefix}-${codeSuffix(4)}`;
 }
