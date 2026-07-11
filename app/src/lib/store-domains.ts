@@ -4,6 +4,7 @@ import {
   getCloudflareCustomHostname,
   type CloudflareOperationResult,
 } from "@/lib/cloudflare-custom-hostnames";
+import { normalizeCanonicalCustomDomainInput } from "@/lib/custom-domains";
 import { normalizeHostname, validateStoreDomainHostname, type StoreDomainKind } from "@/lib/domains";
 
 export const storeDomainTypes = ["CUSTOM_DOMAIN", "JAKAWI_SUBDOMAIN"] as const;
@@ -116,7 +117,7 @@ function defaultVerificationValue(params: { hostname: string; verificationType: 
   const provided = cleanOptional(params.provided);
   if (provided) return provided;
   if (params.verificationType === "DNS_TXT") return `jakawi-domain-verification=${params.hostname}`;
-  if (params.verificationType === "DNS_CNAME") return "custom-hostname.jakawi.com";
+  if (params.verificationType === "DNS_CNAME") return "proxy-fallback.jakawi.com";
   return null;
 }
 
@@ -124,7 +125,8 @@ export async function createStoreDomainManual(
   db: StoreDomainDb,
   input: CreateStoreDomainInput,
 ): Promise<StoreDomainOperationResult> {
-  const validation = validateStoreDomainHostname(input.hostname, { type: input.type as StoreDomainKind });
+  const hostname = input.type === "CUSTOM_DOMAIN" ? normalizeCanonicalCustomDomainInput(input.hostname).canonicalHost : input.hostname;
+  const validation = validateStoreDomainHostname(hostname, { type: input.type as StoreDomainKind });
   if (!validation.ok) return { ok: false, reason: validation.reason, hostname: validation.hostname };
 
   const [store, duplicate] = await Promise.all([
@@ -209,7 +211,11 @@ export async function provisionStoreDomainCloudflare(
   if (domain.type !== "CUSTOM_DOMAIN") return { ok: false, reason: "custom_domain_required", hostname: domain.hostname };
 
   const createHostname = options.createHostname ?? createCloudflareCustomHostname;
-  const result = await createHostname(domain.hostname);
+  let result = await createHostname(domain.hostname, { wildcard: true });
+  const wildcardUnsupported = !result.ok && result.reason === "wildcard_unsupported";
+  if (wildcardUnsupported) {
+    result = await createHostname(domain.hostname, { wildcard: false });
+  }
   if (!result.ok) return { ok: false, reason: result.reason, hostname: domain.hostname };
 
   const status = statusFromCloudflareResult(result, domain.hostname, domain.store);

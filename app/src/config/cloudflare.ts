@@ -8,7 +8,7 @@ export type CloudflareCustomHostnamesConfig = {
   timeoutMs: number;
 };
 
-const DEFAULT_FALLBACK_ORIGIN = "custom-hostname.jakawi.com";
+const DEFAULT_FALLBACK_ORIGIN = "proxy-fallback.jakawi.com";
 const DEFAULT_SSL_METHOD = "http";
 const DEFAULT_MIN_TLS_VERSION = "1.2";
 const DEFAULT_TIMEOUT_MS = 8000;

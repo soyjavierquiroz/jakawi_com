@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Globe2, ShieldCheck } from "lucide-react";
 import { requestCustomDomainAction, verifyCustomDomainAction } from "@/lib/actions";
 import { requireStore } from "@/lib/auth";
-import { buildDnsInstructions, deriveDomainStatusLabel } from "@/lib/custom-domains";
+import { buildCanonicalDomainDnsInstructions, deriveDomainStatusLabel, normalizeCanonicalCustomDomainInput } from "@/lib/custom-domains";
 import { getPrisma } from "@/lib/prisma";
 import { cn } from "@/lib/ui";
 
@@ -35,15 +35,15 @@ export default async function OwnerDomainsPage({
     orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
   });
   const primaryDomain = domains.find((domain) => domain.isPrimary);
-  const cnameTarget = process.env.CUSTOM_DOMAIN_CNAME_TARGET || process.env.CLOUDFLARE_CUSTOM_HOSTNAME_FALLBACK_ORIGIN || "jakawi.com";
+  const cnameTarget = process.env.CUSTOM_DOMAIN_CNAME_TARGET || process.env.CLOUDFLARE_CUSTOM_HOSTNAME_FALLBACK_ORIGIN || "proxy-fallback.jakawi.com";
 
   return (
     <section className="space-y-5 md:space-y-6">
       <div>
         <p className="text-sm font-bold text-brand-dark">Beta asistida</p>
         <h1 className="mt-1 text-3xl font-black md:text-4xl">Dominios personalizados</h1>
-        <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-neutral-600">
-          Los dominios personalizados están en beta asistida. JAKAWI debe validar DNS antes de activarlo.
+          <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-neutral-600">
+          Escribe tu dominio principal. JAKAWI crea el hostname canónico y prepara el alias www automáticamente.
         </p>
       </div>
 
@@ -70,7 +70,7 @@ export default async function OwnerDomainsPage({
             </div>
             <div>
               <h2 className="text-xl font-black text-brand-dark">Solicitar dominio</h2>
-              <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">Escribe solo el dominio. Quitaremos protocolo, ruta y mayúsculas automáticamente.</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-neutral-600">Escribe solo el dominio. Si escribes www, usaremos el dominio principal como canónico.</p>
             </div>
           </div>
 
@@ -85,13 +85,13 @@ export default async function OwnerDomainsPage({
                 inputMode="url"
                 autoCapitalize="none"
                 autoCorrect="off"
-                placeholder="www.tienda.com"
+                placeholder="tienda.com"
                 className="h-11 w-full rounded-md border border-brand-border bg-white px-3 text-sm font-bold text-brand-dark placeholder:text-neutral-400"
               />
             </label>
             <button className="h-11 rounded-md bg-brand px-5 text-sm font-black text-white hover:bg-brand-dark sm:self-end">Solicitar</button>
           </form>
-          <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">No aceptamos localhost, direcciones IP, dominios internos de JAKAWI ni dominios ya registrados.</p>
+          <p className="mt-3 text-xs font-semibold leading-5 text-neutral-500">No necesitas token de Cloudflare ni reglas de redirect. Sólo copia los records DNS.</p>
         </section>
 
         <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
@@ -122,7 +122,8 @@ export default async function OwnerDomainsPage({
           <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay solicitudes todavía.</div>
         ) : (
           domains.map((domain) => {
-            const instructions = buildDnsInstructions({
+            const domainFlow = normalizeCanonicalCustomDomainInput(domain.hostname);
+            const instructions = buildCanonicalDomainDnsInstructions({
               hostname: domain.hostname,
               cnameTarget,
               verificationToken: domain.verificationValue,
@@ -132,7 +133,8 @@ export default async function OwnerDomainsPage({
               <article key={domain.id} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm md:p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
-                    <h3 className="break-all text-lg font-black text-brand-dark">{domain.hostname}</h3>
+                    <h3 className="break-all text-lg font-black text-brand-dark">{domainFlow.canonicalHost}</h3>
+                    <p className="mt-1 break-all text-xs font-bold text-neutral-500">Alias redirect: {domainFlow.redirectAlias}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-black", statusClass(domain.status))}>
                         {deriveDomainStatusLabel(domain.status)}
@@ -146,7 +148,7 @@ export default async function OwnerDomainsPage({
                     </div>
                   </div>
                   <div className="w-full rounded-md bg-brand-muted px-3 py-2 md:max-w-xl">
-                    <p className="text-xs font-black uppercase text-neutral-500">Instrucciones DNS manuales</p>
+                    <p className="text-xs font-black uppercase text-neutral-500">DNS records</p>
                     <ul className="mt-2 space-y-1">
                       {instructions.map((instruction) => (
                         <li key={`${instruction.type}-${instruction.name}`} className="break-all font-mono text-xs font-semibold text-neutral-700">

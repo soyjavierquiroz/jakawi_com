@@ -96,6 +96,19 @@ test("createStoreDomainManual normalizes valid hostname", async () => {
   assert.equal(db.domains[0].verificationValue, "jakawi-domain-verification=shop.example.com");
 });
 
+test("createStoreDomainManual stores apex when owner enters www", async () => {
+  const db = new FakeDomainDb();
+  const result = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "www.exitosos.com",
+    type: "CUSTOM_DOMAIN",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(db.domains[0].hostname, "exitosos.com");
+  assert.equal(db.domains[0].verificationValue, "jakawi-domain-verification=exitosos.com");
+});
+
 test("createStoreDomainManual rejects reserved domain", async () => {
   const db = new FakeDomainDb();
   const result = await createStoreDomainManual(db as never, {
@@ -193,7 +206,9 @@ test("provisionStoreDomainCloudflare stores Cloudflare id and starts VERIFYING",
   if (!created.ok) throw new Error("domain not created");
 
   const result = await provisionStoreDomainCloudflare(db as never, created.domain.id, {
-    createHostname: async () => ({
+    createHostname: async (_hostname, options) => {
+      assert.equal(options?.wildcard, true);
+      return {
       ok: true,
       hostname: {
         id: "cf-hostname-1",
@@ -203,7 +218,8 @@ test("provisionStoreDomainCloudflare stores Cloudflare id and starts VERIFYING",
         ssl: { status: "pending_validation" },
       },
       mapped: { storeDomainStatus: "VERIFYING", sslStatus: "pending_validation", cloudflareStatus: "pending", canActivate: false },
-    }),
+    };
+    },
   });
 
   assert.equal(result.ok, true);
@@ -211,6 +227,34 @@ test("provisionStoreDomainCloudflare stores Cloudflare id and starts VERIFYING",
   assert.equal(db.domains[0].status, "VERIFYING");
   assert.equal(db.domains[0].verificationType, "DNS_TXT");
   assert.equal(db.domains[0].verificationValue, "verify-provision");
+});
+
+test("provisionStoreDomainCloudflare retries canonical hostname without wildcard when unsupported", async () => {
+  const db = new FakeDomainDb();
+  const created = await createStoreDomainManual(db as never, {
+    storeId: "store-1",
+    hostname: "exitosos.com",
+    type: "CUSTOM_DOMAIN",
+  });
+  if (!created.ok) throw new Error("domain not created");
+  const wildcards: Array<boolean | undefined> = [];
+
+  const result = await provisionStoreDomainCloudflare(db as never, created.domain.id, {
+    createHostname: async (_hostname, options) => {
+      wildcards.push(options?.wildcard);
+      if (options?.wildcard) return { ok: false, reason: "wildcard_unsupported" };
+      return {
+        ok: true,
+        hostname: { id: "cf-hostname-fallback", hostname: "exitosos.com", status: "pending", ssl: { status: "pending_validation" } },
+        mapped: { storeDomainStatus: "VERIFYING", sslStatus: "pending_validation", cloudflareStatus: "pending", canActivate: false },
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(wildcards, [true, false]);
+  assert.equal(db.domains[0].cloudflareHostnameId, "cf-hostname-fallback");
+  assert.equal(db.domains[0].hostname, "exitosos.com");
 });
 
 test("refreshStoreDomainCloudflareStatus activates only when hostname and SSL are active", async () => {

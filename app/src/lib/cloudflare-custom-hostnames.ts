@@ -11,6 +11,7 @@ type CloudflareApiEnvelope<T> = {
 export type CloudflareCustomHostname = {
   id: string;
   hostname: string;
+  wildcard?: boolean;
   status?: string;
   ssl?: {
     id?: string;
@@ -70,6 +71,8 @@ function safeStatus(value: string | undefined, fallback = "unknown") {
 export function redactCloudflareError(body: unknown) {
   const envelope = body as CloudflareApiEnvelope<unknown>;
   const firstError = envelope.errors?.[0];
+  const firstMessage = firstError?.message ?? "";
+  if (/wildcard/i.test(firstMessage)) return "wildcard_unsupported";
   if (firstError?.code) return `cloudflare_error_${firstError.code}`;
   return "cloudflare_error";
 }
@@ -199,7 +202,7 @@ async function parseCloudflareResponse<T>(response: Awaited<ReturnType<FetchLike
 
 export async function createCloudflareCustomHostname(
   hostname: string,
-  options: { config?: CloudflareCustomHostnamesConfig; fetch?: FetchLike } = {},
+  options: { config?: CloudflareCustomHostnamesConfig; fetch?: FetchLike; wildcard?: boolean } = {},
 ): Promise<CloudflareOperationResult> {
   const config = options.config ?? getCloudflareCustomHostnamesConfig();
   const enabled = ensureEnabled(config);
@@ -211,6 +214,7 @@ export async function createCloudflareCustomHostname(
     headers: authHeaders(config),
     body: JSON.stringify({
       hostname,
+      wildcard: options.wildcard ?? true,
       ssl: {
         method: config.sslMethod,
         type: "dv",

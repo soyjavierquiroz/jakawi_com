@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  buildCanonicalDomainDnsInstructions,
   buildDnsInstructions,
   canOwnerRequestDomain,
   deriveDomainStatusLabel,
   isJakawiReservedDomain,
+  normalizeCanonicalCustomDomainInput,
   normalizeDomainInput,
   redactDomainOwnerEmail,
   validateCustomDomain,
@@ -33,6 +35,19 @@ test("valid apex and www domains are accepted", () => {
   assert.equal(validateCustomDomain("www.tienda.com").ok, true);
 });
 
+test("canonical custom domain flow treats www as redirect alias", () => {
+  assert.deepEqual(normalizeCanonicalCustomDomainInput("https://www.exitosos.com/path"), {
+    inputHost: "www.exitosos.com",
+    canonicalHost: "exitosos.com",
+    redirectAlias: "www.exitosos.com",
+  });
+  assert.deepEqual(normalizeCanonicalCustomDomainInput("exitosos.com"), {
+    inputHost: "exitosos.com",
+    canonicalHost: "exitosos.com",
+    redirectAlias: "www.exitosos.com",
+  });
+});
+
 test("owner can request only for a store they own", () => {
   assert.equal(canOwnerRequestDomain("owner-1", { ownerId: "owner-1" }), true);
   assert.equal(canOwnerRequestDomain("owner-1", { ownerId: "owner-2" }), false);
@@ -40,12 +55,24 @@ test("owner can request only for a store they own", () => {
 });
 
 test("status labels cover every manual beta state", () => {
-  assert.equal(deriveDomainStatusLabel("PENDING"), "pending");
-  assert.equal(deriveDomainStatusLabel("VERIFYING"), "verification_pending");
+  assert.equal(deriveDomainStatusLabel("PENDING"), "PENDING_DNS");
+  assert.equal(deriveDomainStatusLabel("VERIFYING"), "VERIFYING_SSL");
   assert.equal(deriveDomainStatusLabel("VERIFIED"), "verified");
   assert.equal(deriveDomainStatusLabel("ACTIVE"), "active");
   assert.equal(deriveDomainStatusLabel("FAILED"), "failed");
   assert.equal(deriveDomainStatusLabel("DISABLED"), "disabled");
+});
+
+test("canonical DNS instructions show apex and www CNAME records", () => {
+  const instructions = buildCanonicalDomainDnsInstructions({
+    hostname: "www.exitosos.com",
+    cnameTarget: "proxy-fallback.jakawi.com",
+  });
+
+  assert.deepEqual(instructions, [
+    { type: "CNAME", name: "@", value: "proxy-fallback.jakawi.com" },
+    { type: "CNAME", name: "www", value: "proxy-fallback.jakawi.com" },
+  ]);
 });
 
 test("DNS instructions contain only expected public DNS values", () => {

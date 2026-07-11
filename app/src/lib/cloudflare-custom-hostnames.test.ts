@@ -65,6 +65,7 @@ test("createCloudflareCustomHostname builds the expected request", async () => {
       assert.equal(init.headers.Authorization, `Bearer ${enabledConfig.apiToken}`);
       const body = JSON.parse(init.body ?? "{}");
       assert.equal(body.hostname, "shop.example.com");
+      assert.equal(body.wildcard, true);
       assert.equal(body.ssl.method, "http");
       assert.equal(body.ssl.type, "dv");
       assert.equal(body.ssl.settings.min_tls_version, "1.2");
@@ -81,6 +82,27 @@ test("createCloudflareCustomHostname builds the expected request", async () => {
 
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.mapped.storeDomainStatus, "VERIFYING");
+});
+
+test("createCloudflareCustomHostname can explicitly disable wildcard fallback", async () => {
+  const result = await createCloudflareCustomHostname("shop.example.com", {
+    config: enabledConfig,
+    wildcard: false,
+    fetch: async (_input, init) => {
+      const body = JSON.parse(init.body ?? "{}");
+      assert.equal(body.wildcard, false);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          result: { id: "cf-hostname-1", hostname: "shop.example.com", status: "pending", ssl: { status: "pending_validation" } },
+        }),
+      };
+    },
+  });
+
+  assert.equal(result.ok, true);
 });
 
 test("mapCloudflareStatus requires hostname active and SSL active before activation", () => {

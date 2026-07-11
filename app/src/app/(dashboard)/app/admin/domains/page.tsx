@@ -10,8 +10,9 @@ import {
 import { redactCloudflareHostnameId } from "@/lib/cloudflare-custom-hostnames";
 import { getAdminDomainManagementData, requireSuperAdmin } from "@/lib/admin";
 import {
-  buildDnsInstructions,
+  buildCanonicalDomainDnsInstructions,
   deriveDomainStatusLabel,
+  normalizeCanonicalCustomDomainInput,
   redactDomainOwnerEmail,
 } from "@/lib/custom-domains";
 import { storeDomainStatuses } from "@/lib/store-domains";
@@ -120,7 +121,8 @@ export default async function AdminDomainsPage({
           <div className="rounded-lg border border-brand-border bg-brand-paper p-6 text-center text-sm font-semibold text-neutral-600 shadow-sm">No hay dominios registrados.</div>
         ) : (
           domains.map((domain) => {
-            const instructions = buildDnsInstructions({
+            const domainFlow = normalizeCanonicalCustomDomainInput(domain.hostname);
+            const instructions = buildCanonicalDomainDnsInstructions({
               hostname: domain.hostname,
               cnameTarget: cloudflareCustomHostnames.fallbackOrigin,
               verificationToken: domain.verificationValue,
@@ -135,7 +137,8 @@ export default async function AdminDomainsPage({
                         <ShieldCheck className="size-4" />
                       </div>
                       <div className="min-w-0">
-                        <h2 className="break-all text-xl font-black leading-6 text-brand-dark">{domain.hostname}</h2>
+                        <h2 className="break-all text-xl font-black leading-6 text-brand-dark">{domainFlow.canonicalHost}</h2>
+                        <p className="mt-1 break-all text-xs font-bold text-neutral-500">Alias redirect: {domainFlow.redirectAlias}</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-black", statusClass(domain.status))}>{deriveDomainStatusLabel(domain.status)}</span>
                           {domain.isPrimary ? <span className="inline-flex rounded-full bg-brand-dark px-2.5 py-1 text-xs font-black text-white">primary</span> : null}
