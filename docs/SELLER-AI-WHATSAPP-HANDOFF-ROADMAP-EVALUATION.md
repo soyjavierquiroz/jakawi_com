@@ -262,6 +262,15 @@ Respuesta mínima y sin secretos:
 
 No devolver: tokens, costes, hashes, configuración de pixels, credenciales, identificadores de sesión/visitor ni todo el historial de mensajes.
 
+## Fase 2 implementation notes
+
+- Se implementó `POST /api/handoffs/resolve` para recuperar el contexto mínimo de un handoff por `code` y `phone`.
+- El código se normaliza con `trim()` y mayúsculas. El teléfono se valida y normaliza sólo para comprobarlo contra el teléfono ya asociado al snapshot; no se guarda ni se devuelve.
+- La respuesta queda preparada para n8n con tienda reducida, producto actual, hasta 8 mensajes de hasta 500 caracteres y un resumen de hasta 1000 caracteres. No devuelve catálogo, configuración de tienda, sesión, visitor, costes, secretos ni variables de entorno.
+- Si el snapshot ya tiene teléfono, se exige coincidencia; una discrepancia responde `404` sin filtrar contexto. Si no tiene teléfono, la resolución sigue siendo sólo lectura y no lo vincula en esta fase.
+- No se añadió WhatsApp API, n8n real, Meta, TikTok ni llamadas a OpenAI. Tampoco se añadió migración ni un sistema nuevo de eventos: no existe un evento interno específico para `HANDOFF_RESOLVED`; registrarlo queda como siguiente paso cuando se defina el evento.
+- `InitiateCheckout` queda para `PAYMENT_INFO_SENT` y `Purchase` queda para `PURCHASE_COMPLETED`.
+
 ## 9. Frontend propuesto
 
 El componente a tocar es `app/src/components/seller-ai/SellerAiWidget.tsx`.
