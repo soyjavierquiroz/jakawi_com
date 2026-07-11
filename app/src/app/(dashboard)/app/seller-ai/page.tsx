@@ -144,16 +144,12 @@ export default async function SellerAiPage({
           </div>
         </SellerAiSection>
 
-        <SellerAiSection title="Notas de voz" summary="Bienvenida, orientación y cierre">
-          <SellerVoiceNotesSettings canEdit={planState.sellerAiEnabled} store={store} />
-        </SellerAiSection>
-
-        <SellerAiSection title="Estilo de venta" summary={`${selectedSalesStyle.label} · preset controlado por JAKAWI`}>
-          <form action={saveSellerAiSalesStyleAction} className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm lg:p-5">
+        <section className="rounded-lg border border-brand-border bg-brand-paper p-4 shadow-sm lg:p-5">
+          <form action={saveSellerAiSalesStyleAction}>
             <p className="text-sm font-black text-brand-dark">Estilo de venta del asistente</p>
-            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">Elige cómo responde Seller AI cuando una consulta necesita razonamiento. JAKAWI mantiene el prompt y las reglas de seguridad.</p>
+            <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-neutral-600">Elige cómo debe vender el asistente. JAKAWI mantiene las reglas y prompts seguros.</p>
             <label className="mt-4 block max-w-xl space-y-2">
-              <span className="text-sm font-semibold text-neutral-700">Preset</span>
+              <span className="text-sm font-semibold text-neutral-700">Preset actual: {selectedSalesStyle.label}</span>
               <select name="sellerAiSalesStyle" defaultValue={selectedSalesStyle.id} className="h-11 w-full rounded-md border border-brand-border px-3 font-semibold outline-none focus:border-brand">
                 {SELLER_AI_SALES_STYLE_IDS.map((styleId) => {
                   const style = getSellerAiSalesStylePreset(styleId);
@@ -164,6 +160,10 @@ export default async function SellerAiPage({
             </label>
             <button className="mt-4 h-11 rounded-md bg-brand px-5 font-bold text-white hover:bg-brand-dark">Guardar estilo</button>
           </form>
+        </section>
+
+        <SellerAiSection title="Notas de voz" summary="Bienvenida, orientación y cierre">
+          <SellerVoiceNotesSettings canEdit={planState.sellerAiEnabled} store={store} />
         </SellerAiSection>
 
         <SellerAiSection title="Vista previa" summary="Cómo lo siente el cliente">
