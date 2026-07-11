@@ -262,14 +262,80 @@ Respuesta mínima y sin secretos:
 
 No devolver: tokens, costes, hashes, configuración de pixels, credenciales, identificadores de sesión/visitor ni todo el historial de mensajes.
 
-## Fase 2 implementation notes
+## Phase 2 — Handoff Context Resolve API
 
-- Se implementó `POST /api/handoffs/resolve` para recuperar el contexto mínimo de un handoff por `code` y `phone`.
-- El código se normaliza con `trim()` y mayúsculas. El teléfono se valida y normaliza sólo para comprobarlo contra el teléfono ya asociado al snapshot; no se guarda ni se devuelve.
-- La respuesta queda preparada para n8n con tienda reducida, producto actual, hasta 8 mensajes de hasta 500 caracteres y un resumen de hasta 1000 caracteres. No devuelve catálogo, configuración de tienda, sesión, visitor, costes, secretos ni variables de entorno.
-- Si el snapshot ya tiene teléfono, se exige coincidencia; una discrepancia responde `404` sin filtrar contexto. Si no tiene teléfono, la resolución sigue siendo sólo lectura y no lo vincula en esta fase.
-- No se añadió WhatsApp API, n8n real, Meta, TikTok ni llamadas a OpenAI. Tampoco se añadió migración ni un sistema nuevo de eventos: no existe un evento interno específico para `HANDOFF_RESOLVED`; registrarlo queda como siguiente paso cuando se defina el evento.
-- `InitiateCheckout` queda para `PAYMENT_INFO_SENT` y `Purchase` queda para `PURCHASE_COMPLETED`.
+Endpoint implementado: `POST /api/handoffs/resolve`.
+
+Request esperado:
+
+```json
+{
+  "code": " kj-8f42 ",
+  "phone": "+57 300 123 4567"
+}
+```
+
+El endpoint normaliza `code` con `trim()` y mayúsculas, y acepta sólo el formato humano `KJ-XXXX`. El teléfono acepta `+`, espacios y guiones, se normaliza a dígitos con prefijo `+` y se compara contra el teléfono ya asociado al `CommercialSnapshot`, o contra el lead/journey relacionado cuando el snapshot no trae teléfono propio. Si falta `code` o `phone`, o el formato es inválido, responde `400`. Si el código no existe o el teléfono no coincide, responde `404` para no filtrar existencia.
+
+Respuesta capada:
+
+```json
+{
+  "ok": true,
+  "handoff": {
+    "code": "KJ-8F42",
+    "leadScore": 82,
+    "leadStage": "READY_FOR_WHATSAPP",
+    "conversationId": "...",
+    "storeId": "...",
+    "currentProductId": "..."
+  },
+  "store": {
+    "name": "...",
+    "whatsapp": "..."
+  },
+  "currentProduct": {
+    "id": "...",
+    "name": "...",
+    "price": "...",
+    "currency": "..."
+  },
+  "recentMessages": [
+    {
+      "role": "USER",
+      "content": "...",
+      "createdAt": "..."
+    }
+  ],
+  "summary": "..."
+}
+```
+
+Seguridad:
+
+- Usa `CommercialSnapshot` como handoff record y `snapshotCode` como código externo; no agrega migración.
+- Devuelve sólo tienda reducida, producto actual, máximo 6 mensajes recientes con contenido truncado y resumen truncado.
+- No devuelve teléfono del cliente, owner email, tokens, cookies, secrets, objetos DB completos, historial ilimitado, otros leads, otros stores, costes, modelos ni configuración interna.
+- Si el lead relacionado pertenece a otro store, su conversación y resumen no se usan en la respuesta.
+- Es de sólo lectura: no vincula teléfonos, no crea eventos y no actualiza el handoff.
+
+Qué NO hace:
+
+- No WhatsApp API.
+- No Meta/TikTok API.
+- No n8n real.
+- No OpenAI real.
+- No inbox.
+- No WebSockets.
+- No archivos.
+- No prompt editable por owner.
+- No secrets.
+
+Uso futuro por n8n:
+
+n8n recibirá del mensaje humano el código `KJ-XXXX` y el teléfono del cliente, llamará este endpoint server-to-server y usará el contexto reducido para continuar el follow-up en WhatsApp. La automatización posterior debe tratar esta respuesta como contexto mínimo de lectura, no como fuente para exponer datos internos ni para mutar el lead.
+
+`InitiateCheckout` queda para `PAYMENT_INFO_SENT` y `Purchase` queda para `PURCHASE_COMPLETED`.
 
 ## 9. Frontend propuesto
 

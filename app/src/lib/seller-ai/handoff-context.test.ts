@@ -1,12 +1,21 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { POST } from "@/app/api/handoffs/resolve/route";
 import {
-  buildResolvedHandoffContext,
-  parseHandoffResolvePayload,
-  resolveHandoffContext,
+  normalizeHandoffCode,
+  normalizePhone,
+  serializeHandoffContext,
   type HandoffSnapshot,
 } from "@/lib/seller-ai/handoff-context";
+
+type PrismaMock = {
+  commercialSnapshot: {
+    findUnique: (args: unknown) => Promise<HandoffSnapshot | null>;
+  };
+};
+
+const globalForPrisma = globalThis as typeof globalThis & { prisma?: PrismaMock };
 
 function snapshotFixture(overrides: Partial<HandoffSnapshot> = {}): HandoffSnapshot {
   return {
@@ -18,6 +27,7 @@ function snapshotFixture(overrides: Partial<HandoffSnapshot> = {}): HandoffSnaps
     journey: {
       id: "journey-1",
       intentScore: 70,
+      customerPhone: "+573001234567",
       conversationSummary: "Resumen de journey",
       store: {
         id: "store-1",
@@ -31,13 +41,16 @@ function snapshotFixture(overrides: Partial<HandoffSnapshot> = {}): HandoffSnaps
     },
     lead: {
       id: "lead-1",
+      storeId: "store-1",
+      customerPhone: "+573001234567",
       intentScore: 80,
       conversationSummary: "Resumen de lead",
       conversation: {
         id: "conversation-1",
+        storeId: "store-1",
         messages: [
-          { role: "ASSISTANT", content: "¿Cómo puedo ayudarte?", createdAt: new Date("2026-07-10T10:00:00.000Z") },
           { role: "USER", content: "Quiero comprar", createdAt: new Date("2026-07-10T10:01:00.000Z") },
+          { role: "ASSISTANT", content: "Claro, te ayudo.", createdAt: new Date("2026-07-10T10:00:00.000Z") },
         ],
       },
     },
@@ -45,22 +58,85 @@ function snapshotFixture(overrides: Partial<HandoffSnapshot> = {}): HandoffSnaps
   };
 }
 
-test("resolve acepta código normalizado y devuelve sólo el contexto capado", async () => {
-  const payload = parseHandoffResolvePayload({ code: " kj-8f42 ", phone: "+57 300 123 4567" });
-  assert.deepEqual(payload, { code: "KJ-8F42", phone: "+573001234567" });
+function installPrismaMock(findUnique: PrismaMock["commercialSnapshot"]["findUnique"]) {
+  globalForPrisma.prisma = { commercialSnapshot: { findUnique } };
+}
 
-  const result = await resolveHandoffContext({
-    code: payload!.code,
-    phone: payload!.phone,
-    findSnapshot: async (code) => {
-      assert.equal(code, "KJ-8F42");
-      return snapshotFixture();
-    },
+async function postResolve(body: unknown) {
+  const response = await POST(
+    new Request("http://localhost/api/handoffs/resolve", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  );
+  return { status: response.status, body: await response.json() };
+}
+
+test("normaliza código y teléfono de handoff", () => {
+  assert.equal(normalizeHandoffCode(" kj-8f42 "), "KJ-8F42");
+  assert.equal(normalizePhone("+57 300-123-4567"), "+573001234567");
+});
+
+test("POST /api/handoffs/resolve devuelve 400 si falta code", async () => {
+  installPrismaMock(async () => assert.fail("database should not be called"));
+
+  const result = await postResolve({ phone: "+57 300 123 4567" });
+
+  assert.equal(result.status, 400);
+  assert.deepEqual(result.body, { ok: false, error: "Missing code" });
+});
+
+test("POST /api/handoffs/resolve devuelve 400 si falta phone", async () => {
+  installPrismaMock(async () => assert.fail("database should not be called"));
+
+  const result = await postResolve({ code: "KJ-8F42" });
+
+  assert.equal(result.status, 400);
+  assert.deepEqual(result.body, { ok: false, error: "Missing phone" });
+});
+
+test("POST /api/handoffs/resolve devuelve 400 si code es inválido", async () => {
+  installPrismaMock(async () => assert.fail("database should not be called"));
+
+  const result = await postResolve({ code: "SNP-1234", phone: "+57 300 123 4567" });
+
+  assert.equal(result.status, 400);
+  assert.deepEqual(result.body, { ok: false, error: "Invalid code" });
+});
+
+test("POST /api/handoffs/resolve devuelve 404 si code no existe", async () => {
+  installPrismaMock(async (args) => {
+    assert.deepEqual((args as { where: { snapshotCode: string } }).where, { snapshotCode: "KJ-NONE" });
+    return null;
   });
+
+  const result = await postResolve({ code: "KJ-NONE", phone: "+57 300 123 4567" });
+
+  assert.equal(result.status, 404);
+  assert.deepEqual(result.body, { ok: false, error: "Handoff not found" });
+});
+
+test("POST /api/handoffs/resolve devuelve 404 si phone no coincide", async () => {
+  installPrismaMock(async () => snapshotFixture());
+
+  const result = await postResolve({ code: "KJ-8F42", phone: "+57 300 000 0000" });
+
+  assert.equal(result.status, 404);
+  assert.deepEqual(result.body, { ok: false, error: "Handoff not found" });
+});
+
+test("POST /api/handoffs/resolve devuelve 200 si code y phone coinciden", async () => {
+  installPrismaMock(async (args) => {
+    const select = (args as { select: { lead: { select: { conversation: { select: { messages: { take: number } } } } } } }).select;
+    assert.equal(select.lead.select.conversation.select.messages.take, 6);
+    assert.deepEqual(Object.keys(select).sort(), ["currentItem", "customerPhone", "customerSummary", "intentScore", "journey", "lead", "snapshotCode"].sort());
+    return snapshotFixture();
+  });
+
+  const result = await postResolve({ code: " kj-8f42 ", phone: "+57 300 123 4567" });
 
   assert.equal(result.status, 200);
   assert.equal(result.body.ok, true);
-  if (!result.body.ok) return assert.fail("expected handoff context");
   assert.deepEqual(result.body.handoff, {
     code: "KJ-8F42",
     leadScore: 82,
@@ -71,55 +147,94 @@ test("resolve acepta código normalizado y devuelve sólo el contexto capado", a
   });
   assert.deepEqual(result.body.store, { name: "Tienda demo", whatsapp: "+573009998888" });
   assert.deepEqual(result.body.currentProduct, { id: "product-1", name: "Producto demo", price: "$1.250 COP", currency: "COP" });
-  assert.deepEqual(result.body.recentMessages.map((message) => message.role), ["customer", "assistant"]);
+  assert.deepEqual(result.body.recentMessages, [
+    { role: "ASSISTANT", content: "Claro, te ayudo.", createdAt: "2026-07-10T10:00:00.000Z" },
+    { role: "USER", content: "Quiero comprar", createdAt: "2026-07-10T10:01:00.000Z" },
+  ]);
   assert.equal(result.body.summary, "Resumen comercial");
-  assert.doesNotMatch(JSON.stringify(result.body), /573001234567/);
 });
 
-test("un código inexistente o un teléfono que no coincide devuelve 404 sin contexto", async () => {
-  const missing = await resolveHandoffContext({
-    code: "KJ-NONE",
-    phone: "+573001234567",
-    findSnapshot: async () => null,
-  });
-  const mismatch = await resolveHandoffContext({
-    code: "KJ-8F42",
-    phone: "+573001111111",
-    findSnapshot: async () => snapshotFixture(),
-  });
-
-  assert.deepEqual(missing, { status: 404, body: { ok: false, error: "Handoff not found" } });
-  assert.deepEqual(mismatch, { status: 404, body: { ok: false, error: "Handoff not found" } });
-});
-
-test("mensajes, resumen y campos expuestos quedan limitados", () => {
-  const messages = Array.from({ length: 10 }, (_, index) => ({
-    role: index % 2 ? "USER" : "ASSISTANT",
-    content: `${index}`.repeat(600),
-    createdAt: new Date(`2026-07-10T10:${String(index).padStart(2, "0")}:00.000Z`),
-  }));
-  const context = buildResolvedHandoffContext(
+test("la respuesta queda capada y no expone secretos ni objetos completos", () => {
+  const context = serializeHandoffContext(
     snapshotFixture({
       customerSummary: "s".repeat(1100),
       currentItem: [{ id: "catalog-secret" }],
+    }),
+  );
+  const serialized = JSON.stringify(context);
+
+  assert.equal(context.summary.length, 1000);
+  assert.doesNotMatch(serialized, /573001234567|catalog-secret|sessionId|visitorId|customerPhone|apiKey|secret|tokens|costEstimate|modelUsed/i);
+});
+
+test("recentMessages incluye máximo 6 mensajes recientes", () => {
+  const messages = Array.from({ length: 10 }, (_, index) => ({
+    role: index % 2 ? "USER" : "ASSISTANT",
+    content: `${index}`.repeat(600),
+    createdAt: new Date(`2026-07-10T10:${String(9 - index).padStart(2, "0")}:00.000Z`),
+  }));
+  const context = serializeHandoffContext(
+    snapshotFixture({
       lead: {
         ...snapshotFixture().lead!,
-        conversation: { id: "conversation-1", messages },
+        conversation: { id: "conversation-1", storeId: "store-1", messages },
       },
     }),
   );
 
-  assert.equal(context.recentMessages.length, 8);
-  assert.ok(context.recentMessages.every((message) => message.text.length === 500));
-  assert.equal(context.summary.length, 1000);
-  assert.equal(context.recentMessages[0]?.createdAt, "2026-07-10T10:07:00.000Z");
-  assert.equal(context.currentProduct?.id, "product-1");
-  assert.doesNotMatch(JSON.stringify(context), /catalog-secret|sessionId|visitorId|customerPhone|apiKey|secret/i);
+  assert.equal(context.recentMessages.length, 6);
+  assert.ok(context.recentMessages.every((message) => message.content.length === 500));
+  assert.equal(context.recentMessages[0]?.createdAt, "2026-07-10T10:04:00.000Z");
+  assert.equal(context.recentMessages.at(-1)?.createdAt, "2026-07-10T10:09:00.000Z");
 });
 
-test("el resolver no contiene integraciones externas ni llamadas a OpenAI", () => {
-  const source = readFileSync(new URL("../../app/api/handoffs/resolve/route.ts", import.meta.url), "utf8");
+test("no filtra conversación o resumen de otro store/lead", () => {
+  const context = serializeHandoffContext(
+    snapshotFixture({
+      customerSummary: null,
+      lead: {
+        id: "lead-foreign",
+        storeId: "store-foreign",
+        customerPhone: "+573001234567",
+        intentScore: 99,
+        conversationSummary: "secret foreign lead summary",
+        conversation: {
+          id: "conversation-foreign",
+          storeId: "store-foreign",
+          messages: [{ role: "USER", content: "secret foreign message", createdAt: new Date("2026-07-10T10:02:00.000Z") }],
+        },
+      },
+    }),
+  );
+  const serialized = JSON.stringify(context);
 
-  assert.doesNotMatch(source, /fetch\(|openai|whatsapp api|meta|tiktok|n8n/i);
-  assert.doesNotMatch(source, /process\.env|customerPhone.*update|\.update\(/i);
+  assert.equal(context.handoff.conversationId, null);
+  assert.equal(context.summary, "Resumen de journey");
+  assert.deepEqual(context.recentMessages, []);
+  assert.doesNotMatch(serialized, /foreign|secret/);
+});
+
+test("no filtra producto relacional de otro store", () => {
+  const context = serializeHandoffContext(
+    snapshotFixture({
+      currentItem: null,
+      journey: {
+        ...snapshotFixture().journey,
+        currentProduct: { id: "product-foreign", storeId: "store-foreign", name: "Producto secreto", priceCents: 99900, currency: "COP" },
+      },
+    }),
+  );
+
+  assert.equal(context.handoff.currentProductId, null);
+  assert.equal(context.currentProduct, null);
+  assert.doesNotMatch(JSON.stringify(context), /foreign|secreto/i);
+});
+
+test("el resolver no contiene integraciones externas ni escrituras", () => {
+  const routeSource = readFileSync(new URL("../../app/api/handoffs/resolve/route.ts", import.meta.url), "utf8");
+  const helperSource = readFileSync(new URL("./handoff-context.ts", import.meta.url), "utf8");
+  const source = `${routeSource}\n${helperSource}`;
+
+  assert.doesNotMatch(source, /fetch\(|openai|n8n|meta|tiktok|buildWhatsappUrl|process\.env/i);
+  assert.doesNotMatch(routeSource, /customerPhone.*update|\.update\(|\.create\(|\.delete\(|\.upsert\(/i);
 });
