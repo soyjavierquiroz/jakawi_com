@@ -8,7 +8,7 @@ import type { SellerAiReplyInput, SellerAiReplyProduct } from "@/lib/seller-ai/t
 import { getStorefrontFlow } from "@/lib/storefront-flow";
 
 type ProductWithCategory = Product & { category?: { name: string; slug: string } | null };
-type StoreForContext = Pick<Store, "id" | "slug" | "name" | "description" | "commercialTagline" | "whatsapp" | "currency" | "countryCode" | "locale" | "plan">;
+type StoreForContext = Pick<Store, "id" | "slug" | "name" | "description" | "commercialTagline" | "whatsapp" | "currency" | "countryCode" | "locale" | "plan" | "sellerAiSalesStyle">;
 type SellerAiContextDb = Pick<ReturnType<typeof getPrisma>, "product">;
 
 function cappedText(value: string | null | undefined, maxLength: number) {
@@ -127,7 +127,7 @@ export async function buildSellerAiReplyInput({
 }): Promise<SellerAiReplyInput> {
   const flow = getStorefrontFlow(store.plan);
   const candidateProducts = await getSellerAiLlmCandidateProducts({ store, currentProduct, db });
-  const salesStyle = getSellerAiSalesStylePreset();
+  const salesStyle = getSellerAiSalesStylePreset(store.sellerAiSalesStyle);
 
   return {
     store: {

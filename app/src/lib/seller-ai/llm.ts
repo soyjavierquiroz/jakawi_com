@@ -6,7 +6,7 @@ import type { SellerAiLlmReplyResult } from "@/lib/seller-ai/types";
 import type { ConversationMessage, Product, Store } from "@prisma/client";
 
 type ProductWithCategory = Product & { category?: { name: string; slug: string } | null };
-type StoreForLlm = Pick<Store, "id" | "slug" | "name" | "description" | "commercialTagline" | "whatsapp" | "currency" | "countryCode" | "locale" | "plan">;
+type StoreForLlm = Pick<Store, "id" | "slug" | "name" | "description" | "commercialTagline" | "whatsapp" | "currency" | "countryCode" | "locale" | "plan" | "sellerAiSalesStyle">;
 
 function normalizeText(input?: string | null) {
   return (input ?? "")

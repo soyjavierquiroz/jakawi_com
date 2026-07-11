@@ -5,6 +5,7 @@ import { getSellerAiLlmConfig, isSellerAiLlmStoreAllowed } from "@/config/seller
 import { hasAmbiguousReference, recentHistoryHasProductComparisonOrRecommendations, shouldUseSellerAiLlm } from "@/lib/seller-ai/llm";
 import { buildSellerAiReplyInput, getSellerAiLlmCandidateProducts, pickRecentSellerAiMessages } from "@/lib/seller-ai/llm-context";
 import { getOpenAISellerReply } from "@/lib/seller-ai/providers/openai";
+import { getSellerAiSalesStylePreset } from "@/lib/seller-ai/seller-ai";
 import { validateSellerAiReplyOutput, type SellerAiReplyInput } from "@/lib/seller-ai/types";
 
 const envBase = {
@@ -27,6 +28,7 @@ const store = {
   countryCode: "BO",
   locale: "es-BO",
   plan: "LAUNCH",
+  sellerAiSalesStyle: "CONSULTATIVE",
 };
 
 const currentProduct = {
@@ -131,6 +133,8 @@ test("store not allowed gates LLM fallback", () => {
 });
 
 test("simple product questions stay on rules path", () => {
+  const fastCloseStyle = getSellerAiSalesStylePreset("FAST_CLOSE");
+  assert.equal(fastCloseStyle.id, "FAST_CLOSE");
   assert.equal(
     shouldUseSellerAiLlm({
       visitorMessage: "¿Cuánto cuesta?",
@@ -380,6 +384,29 @@ test("reply input includes capped store context and default sales style", async 
   assert.equal(input.storeContext.commercialTagline?.length, 200);
   assert.equal(input.salesStyle.id, "CONSULTATIVE");
   assert.match(input.salesStyle.instruction, /datos provistos/i);
+});
+
+test("reply input uses the sales style configured by the store", async () => {
+  const input = await buildSellerAiReplyInput({
+    store: { ...store, sellerAiSalesStyle: "FAST_CLOSE" },
+    currentProduct,
+    commercialSignals: { objections: ["precio"], intentBoost: 12, hasStrongIntent: false },
+    mode: "DECISION_SUPPORT",
+    journeySummary: null,
+    recentMessages: [],
+    visitorMessage: "Está caro, ¿por qué me conviene?",
+    db: createDb() as never,
+  });
+
+  assert.equal(input.salesStyle.id, "FAST_CLOSE");
+  assert.equal(
+    shouldUseSellerAiLlm({
+      visitorMessage: "Está caro, ¿por qué me conviene?",
+      commercialSignals: { objections: ["precio"], intentBoost: 12, hasStrongIntent: false },
+      mode: "DECISION_SUPPORT",
+    }),
+    true,
+  );
 });
 
 test("reply input does not carry owner prompt fields", async () => {

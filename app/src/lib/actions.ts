@@ -32,6 +32,7 @@ import { assertCanCreateProduct, getStorePlanState, PlanLimitError } from "@/lib
 import { isPartnerCommissionStatus, parseCommissionAmountToCents } from "@/lib/partner-commissions";
 import { getPrisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIpFromHeaders } from "@/lib/rate-limit";
+import { updateSellerAiSalesStyleForOwner } from "@/lib/seller-ai/sales-style-store";
 import { isValidStoreSlug, slugifyStoreName } from "@/lib/slug";
 import { allowedImageDeletePrefixes, deleteJakawiMediaObjectIfOwned, deleteSellerVoiceObjectIfOwned, isJakawiMediaUrlOwnedByStore, uploadOptimizedImage } from "@/lib/storage";
 import { buildRewardValueLabel, isStoreReferralRewardStatus, isStoreReferralRewardType, parseOptionalDate, parseOptionalPositiveInt, parseRewardAmountToCents } from "@/lib/store-referral-rewards";
@@ -682,6 +683,21 @@ export async function updateWhatsappAction(formData: FormData) {
   });
   revalidatePath("/app/whatsapp");
   revalidatePath(`/${store.slug}`);
+}
+
+export async function saveSellerAiSalesStyleAction(formData: FormData) {
+  const { user, store } = await requireStore();
+  const result = await updateSellerAiSalesStyleForOwner({
+    db: getPrisma(),
+    ownerId: user.id,
+    storeId: store.id,
+    style: field(formData, "sellerAiSalesStyle"),
+  });
+
+  if (!result.ok) redirect("/app/seller-ai?error=style");
+
+  revalidatePath("/app/seller-ai");
+  redirect("/app/seller-ai?ok=style");
 }
 
 function jakawiMediaUrlField(formData: FormData, name: string, storeId: string, existingUrl?: string | null) {
