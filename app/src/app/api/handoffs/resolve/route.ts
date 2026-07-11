@@ -8,34 +8,49 @@ import {
 
 export async function POST(request: Request) {
   const payload = parseHandoffResolvePayload(await request.json().catch(() => null));
-  if (!payload) return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
+  if (!payload.ok) return NextResponse.json({ ok: false, error: payload.error }, { status: 400 });
 
   const result = await resolveHandoffContext({
-    code: payload.code,
-    phone: payload.phone,
+    code: payload.value.code,
+    phone: payload.value.phone,
     findSnapshot: async (snapshotCode) =>
       (await getPrisma().commercialSnapshot.findUnique({
         where: { snapshotCode },
-        include: {
+        select: {
+          snapshotCode: true,
+          intentScore: true,
+          customerPhone: true,
+          customerSummary: true,
+          currentItem: true,
           journey: {
-            include: {
+            select: {
+              id: true,
+              intentScore: true,
+              customerPhone: true,
+              conversationSummary: true,
               store: {
                 select: { id: true, name: true, whatsapp: true, currency: true, countryCode: true, locale: true },
               },
               currentProduct: {
-                select: { id: true, name: true, priceCents: true, currency: true },
+                select: { id: true, storeId: true, name: true, priceCents: true, currency: true },
               },
             },
           },
           lead: {
-            include: {
+            select: {
+              id: true,
+              storeId: true,
+              customerPhone: true,
+              intentScore: true,
+              conversationSummary: true,
               conversation: {
                 select: {
                   id: true,
+                  storeId: true,
                   messages: {
                     select: { role: true, content: true, createdAt: true },
                     orderBy: { createdAt: "desc" },
-                    take: 8,
+                    take: 6,
                   },
                 },
               },
