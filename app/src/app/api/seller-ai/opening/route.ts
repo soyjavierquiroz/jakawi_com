@@ -142,6 +142,7 @@ export async function POST(request: Request) {
     quickReplies: buildQuickRepliesForMode({
       mode,
       commercialType: store.commercialType,
+      store,
       product,
       category: product?.category,
       recommendedProducts: recommendations,

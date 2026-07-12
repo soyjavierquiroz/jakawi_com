@@ -69,8 +69,13 @@ export const sellerAiConfig = {
     zapatos: ["Uso diario", "Para salir", "Revisar tallas"],
     maquillaje: ["Uso diario", "Para evento", "Tonos disponibles"],
     regalos: ["Es para regalar", "Tengo presupuesto", "Lo necesito pronto"],
+    food: ["Ingredientes", "Porción", "Precio", "Pedir"],
   },
   categoryTemplates: {
+    food: "Vi que estás mirando {productName}. Te ayudo con ingredientes, porción, precio o a dejar el pedido listo por WhatsApp.",
+    ensaladas: "Vi que estás mirando {productName}. Te ayudo con ingredientes, porción, precio o a dejar el pedido listo por WhatsApp.",
+    platos: "Vi que estás mirando {productName}. Te ayudo con ingredientes, porción, precio o a dejar el pedido listo por WhatsApp.",
+    bebidas: "Vi que estás mirando {productName}. Te ayudo con precio, disponibilidad o a dejar el pedido listo por WhatsApp.",
     celular: "Ese modelo puede ser buena opción si buscas batería y cámara sin pagar de más. ¿Lo quieres para trabajo, estudio o redes?",
     celulares: "Ese modelo puede ser buena opción si buscas batería y cámara sin pagar de más. ¿Lo quieres para trabajo, estudio o redes?",
     tecnologia: "Ese producto encaja bien si quieres algo práctico para uso diario. ¿Lo buscas para trabajo, estudio o entretenimiento?",

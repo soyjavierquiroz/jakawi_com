@@ -1,4 +1,5 @@
 import { sellerAiConfig } from "@/config/seller-ai";
+import { getFoodRestaurantQuickReplies, isFoodRestaurantContext } from "@/lib/seller-ai/context";
 import type { SellerAiMode } from "@/lib/seller-ai/modes";
 
 type MessageLike = { role?: string | null; content?: string | null };
@@ -8,6 +9,7 @@ type BuildNextQuickRepliesParams = {
   commercialType?: string | null;
   product?: { name?: string | null } | null;
   category?: { name?: string | null } | null;
+  store?: { slug?: string | null; name?: string | null; description?: string | null; commercialType?: string | null } | null;
   detectedNeed?: string | null;
   objections?: string[] | string | null;
   recommendedProducts?: Array<{ name: string }>;
@@ -45,6 +47,10 @@ function semanticKey(text?: string | null) {
   if (/\b(disponible|disponibilidad|stock|hay)\b/.test(normalized)) return "disponibilidad";
   if (/\b(envio|enviar|entrega|delivery)\b/.test(normalized)) return "envio";
   if (/\b(whatsapp|consulta)\b/.test(normalized)) return "whatsapp";
+  if (/\b(pedir|pedido)\b/.test(normalized)) return "pedido";
+  if (/\b(ingrediente|ingredientes|lleva|trae|contiene)\b/.test(normalized)) return "ingredientes";
+  if (/\b(porcion|porcion|tamano|tamaño|tamano porcion|tamaño porcion)\b/.test(normalized)) return "porcion";
+  if (/\b(pollo|chicken)\b/.test(normalized)) return "pollo";
   if (/\b(comprar|comprarlo|comprarla|quiero comprar|me interesa)\b/.test(normalized)) return "compra";
   if (/\b(regalo|regalar|para regalar)\b/.test(normalized)) return "regalo";
   if (/\b(estudio|estudiante|clases|universidad|colegio)\b/.test(normalized)) return "estudio";
@@ -118,6 +124,7 @@ export function buildNextQuickReplies({
   commercialType,
   product,
   category,
+  store,
   detectedNeed,
   objections,
   recommendedProducts,
@@ -127,9 +134,14 @@ export function buildNextQuickReplies({
   const focus = buildConversationFocus({ detectedNeed, objections, lastUserMessage });
   const productReply = product?.name ? `Me interesa ${product.name}` : "Me interesa comprar";
   const recommended = recommendedProducts?.[0]?.name ? `Me interesa ${recommendedProducts[0].name}` : null;
+  const foodMode = isFoodRestaurantContext({ store: store ?? (commercialType ? { commercialType } : null), product, category });
 
   let replies: string[];
-  if (mode === "CLOSING_PREP") {
+  if (foodMode && mode === "CLOSING_PREP") {
+    replies = ["Pedir por WhatsApp", "Confirmar disponibilidad", "Precio", product?.name ? `Pedir ${product.name}` : "Hacer pedido"];
+  } else if (foodMode) {
+    replies = getFoodRestaurantQuickReplies();
+  } else if (mode === "CLOSING_PREP") {
     replies = ["Enviar consulta por WhatsApp", "Quiero comprarlo", recommended ?? productReply];
   } else if (focus.hasAvailabilityQuestion) {
     replies = ["Hablemos por WhatsApp", "También quiero saber envío", "Quiero comprarlo", "Volver al producto"];

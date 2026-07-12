@@ -131,6 +131,7 @@ export function buildQuickRepliesForMode({
   commercialType,
   product,
   category,
+  store,
   detectedNeed,
   recommendedProducts,
   usedReplies,
@@ -141,6 +142,7 @@ export function buildQuickRepliesForMode({
   commercialType?: string | null;
   product?: { name?: string | null } | null;
   category?: { name?: string | null } | null;
+  store?: { slug?: string | null; name?: string | null; description?: string | null; commercialType?: string | null } | null;
   detectedNeed?: string | null;
   objections?: string[] | string | null;
   recommendedProducts?: Array<{ name: string }>;
@@ -152,6 +154,7 @@ export function buildQuickRepliesForMode({
     commercialType,
     product,
     category,
+    store,
     detectedNeed,
     objections,
     recommendedProducts,
