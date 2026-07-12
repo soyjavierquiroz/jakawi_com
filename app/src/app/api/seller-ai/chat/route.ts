@@ -7,7 +7,7 @@ import { formatMoney } from "@/lib/money";
 import { incrementSellerAiConversationUsage, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
-import { describeFoodProductFromName, isFoodRestaurantContext } from "@/lib/seller-ai/context";
+import { describeFoodProductFromName, getMenuProductProfile, isFoodRestaurantContext } from "@/lib/seller-ai/context";
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
 import { buildWhatsappHandoffMessage, buildWhatsappHandoffUrl, computeLeadQualification, shouldShowWhatsappHandoff } from "@/lib/seller-ai/lead-qualification";
 import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/lib/seller-ai/journey";
@@ -118,6 +118,17 @@ function wantsPortion(input?: string | null) {
   return /\b(porcion|tamaño|tamano|cantidad|grande|pequeno|pequeño|para cuantas personas)\b/.test(text);
 }
 
+function wantsFoodOrder(input?: string | null) {
+  const text = normalizeText(input);
+  return /\b(pedir|pedido|pedir por whatsapp|hacer pedido|comprar|lo quiero|whatsapp)\b/.test(text);
+}
+
+function foodProductLabel(product: ProductForReply) {
+  const categoryName = normalizeText(product.category?.name);
+  if (/ensalada|sopa/.test(categoryName)) return `La ${product.name}`;
+  return product.name;
+}
+
 function buildFoodAssistantMessage({
   userMessage,
   product,
@@ -129,16 +140,22 @@ function buildFoodAssistantMessage({
 }) {
   const text = normalizeText(userMessage);
   if (!product) return "Te ayudo con el menú: puedes preguntarme por ingredientes, porción, precio o pedir por WhatsApp.";
+  const menuProfile = getMenuProductProfile({ store, product });
+  const label = foodProductLabel(product);
 
   if (wantsIngredients(userMessage)) {
+    if (menuProfile?.ingredients.length) {
+      return `${label} incluye ${menuProfile.ingredients.join(", ")}. ${menuProfile.servingSuggestion} Los detalles pueden variar según disponibilidad. ¿Quieres que te ayude a confirmar disponibilidad o dejar el pedido listo por WhatsApp?`;
+    }
     if (hasExactIngredientList(product.description)) {
       return `Según la descripción cargada de ${product.name}: ${product.description} Te puedo ayudar a confirmar disponibilidad o dejar el pedido listo por WhatsApp.`;
     }
-    return `No tengo la lista exacta de ingredientes cargada todavía, pero por el nombre parece ${describeFoodProductFromName(product.name)}. Te puedo ayudar a confirmar con la tienda por WhatsApp.`;
+    return `Aún no tengo ingredientes detallados cargados para ${product.name}, pero puedo ayudarte a confirmar disponibilidad y detalles por WhatsApp.`;
   }
 
   if (wantsPortion(userMessage)) {
-    return `No tengo el tamaño exacto de la porción cargado todavía para ${product.name}. Te puedo ayudar a confirmarlo con ${store.name} por WhatsApp.`;
+    if (menuProfile?.portionNote) return `${menuProfile.portionNote} ${menuProfile.servingSuggestion} Los detalles pueden variar según disponibilidad. ¿Quieres confirmar disponibilidad por WhatsApp?`;
+    return `Aún no tengo el tamaño exacto de la porción cargado para ${product.name}. Te puedo ayudar a confirmarlo con ${store.name} por WhatsApp.`;
   }
 
   if (includesAny(text, ["precio", "cuanto", "cuesta", "vale", "costo"])) {
@@ -150,13 +167,13 @@ function buildFoodAssistantMessage({
     return `La disponibilidad de ${product.name} conviene confirmarla con ${store.name}. Te puedo dejar el pedido listo por WhatsApp.`;
   }
 
-  if (includesAny(text, ["whatsapp", "pedir", "pedido", "comprar", "lo quiero"])) {
-    return `Perfecto. Te dejo el pedido de ${product.name} armado para WhatsApp.`;
+  if (wantsFoodOrder(userMessage)) {
+    return `Perfecto. Te dejo el pedido de ${product.name} listo para WhatsApp. ¿A qué número quieres que ${store.name} te confirme disponibilidad?`;
   }
 
   const description = product.description?.trim();
   if (description) return `${product.name}: ${description} Puedo ayudarte a confirmar disponibilidad o pasarte a WhatsApp para hacer el pedido.`;
-  return `${product.name} parece ${describeFoodProductFromName(product.name)}. Puedo ayudarte con ingredientes, porción, precio o a pedir por WhatsApp.`;
+  return `Tenemos registrada esta opción como ${describeFoodProductFromName(product.name)}. Puedo ayudarte con ingredientes, porción, precio o a pedir por WhatsApp.`;
 }
 
 function mergeQuickReplies(baseReplies: string[], additions: Array<string | null | undefined>) {
@@ -224,6 +241,12 @@ export function buildAssistantMessage({
   const text = normalizeText(userMessage);
   const recommendationNames = recommendations.slice(0, 3).map((item) => item.name);
   const foodMode = isFoodRestaurantContext({ store, product, category: product?.category });
+
+  if (foodMode && mode === "CLOSING_PREP") {
+    if (product && shouldAskPhone) return `Perfecto. Te dejo el pedido de ${product.name} listo para WhatsApp. ¿A qué número quieres que ${store.name} te confirme disponibilidad?`;
+    if (product) return `Perfecto. Te dejo el pedido de ${product.name} listo para WhatsApp.`;
+    return shouldAskPhone ? `Perfecto. Te dejo el pedido listo para WhatsApp. ¿A qué número quieres que ${store.name} te confirme disponibilidad?` : "Perfecto. Te dejo el pedido listo para WhatsApp.";
+  }
 
   if (foodMode && mode !== "CLOSING_PREP") {
     return buildFoodAssistantMessage({ userMessage, product, store });
@@ -451,21 +474,25 @@ export async function POST(request: Request) {
     recommendations,
     shouldAskPhone: shouldStartPhoneCapture,
   });
-  const llmReply = await tryGetSellerAiLlmReply({
-    store: lead.store,
-    currentProduct: product,
-    commercialSignals: {
-      ...signals,
-      detectedNeed: signals.detectedNeed ?? journey.detectedNeed ?? undefined,
-      budget: signals.budget ?? journey.budget ?? undefined,
-      urgency: signals.urgency ?? journey.urgency ?? undefined,
-      objections: signals.objections.length > 0 ? signals.objections : Array.isArray(journey.objections) ? journey.objections : [],
-    },
-    mode: inferred.mode,
-    journeySummary: journey.conversationSummary,
-    recentMessages: messagesBeforeReply,
-    visitorMessage: parsed.data.message,
-  });
+  const foodMode = isFoodRestaurantContext({ store: lead.store, product, category: product?.category });
+  const shouldUseRulesForFoodMessage = foodMode && (wantsIngredients(parsed.data.message) || wantsPortion(parsed.data.message) || wantsFoodOrder(parsed.data.message));
+  const llmReply = shouldUseRulesForFoodMessage
+    ? null
+    : await tryGetSellerAiLlmReply({
+        store: lead.store,
+        currentProduct: product,
+        commercialSignals: {
+          ...signals,
+          detectedNeed: signals.detectedNeed ?? journey.detectedNeed ?? undefined,
+          budget: signals.budget ?? journey.budget ?? undefined,
+          urgency: signals.urgency ?? journey.urgency ?? undefined,
+          objections: signals.objections.length > 0 ? signals.objections : Array.isArray(journey.objections) ? journey.objections : [],
+        },
+        mode: inferred.mode,
+        journeySummary: journey.conversationSummary,
+        recentMessages: messagesBeforeReply,
+        visitorMessage: parsed.data.message,
+      });
   if (llmReply) {
     assistantMessage = llmReply.output.reply;
     recommendations = await getRecommendedProductsBySlugs({ store: lead.store, slugs: llmReply.output.recommendedProductSlugs });
@@ -561,7 +588,6 @@ export async function POST(request: Request) {
     usedReplies: messagesBeforeReply.filter((message) => message.role === MessageRole.USER).map((message) => message.content),
     lastUserMessage: parsed.data.message,
   });
-  const foodMode = isFoodRestaurantContext({ store: lead.store, product, category: product?.category });
   const quickReplies = llmReply
     ? foodMode
       ? rulesQuickReplies

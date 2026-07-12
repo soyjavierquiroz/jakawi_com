@@ -14,8 +14,8 @@ export type CommercialSignals = {
 
 type CommercialType = keyof typeof sellerAiConfig.commercialTypes;
 
-const strongIntentPattern = /\b(quiero|comprar|comprarlo|comprarla|me interesa|como compro|cómo compro|lo quiero|reservar|reserva|pedir|pedido|pagar|lo llevo|consultar por whatsapp|hablemos por whatsapp|enviar consulta|dejar consulta|pasame info|pásame info)\b/i;
-const closingIntentPattern = /\b(quiero comprar|me interesa comprar|quiero pedir|quiero pagar|quiero reservar|lo compro|lo quiero|lo quiero comprar|comprarlo|comprarla|como compro|cómo compro|pásame para comprar|pasame para comprar|quiero continuar por whatsapp|continuar por whatsapp|consultar por whatsapp|hablemos por whatsapp|enviar consulta por whatsapp|dejar consulta por whatsapp|reservar|pagar|lo llevo)\b/i;
+const strongIntentPattern = /\b(quiero|comprar|comprarlo|comprarla|me interesa|como compro|cómo compro|lo quiero|reservar|reserva|pedir|pedido|hacer pedido|pagar|lo llevo|consultar por whatsapp|hablemos por whatsapp|enviar consulta|dejar consulta|pasame info|pásame info)\b/i;
+const closingIntentPattern = /\b(quiero comprar|me interesa comprar|quiero pedir|pedir|pedido|hacer pedido|pedir por whatsapp|quiero pagar|quiero reservar|lo compro|lo quiero|lo quiero comprar|comprarlo|comprarla|como compro|cómo compro|pásame para comprar|pasame para comprar|quiero continuar por whatsapp|continuar por whatsapp|consultar por whatsapp|hablemos por whatsapp|enviar consulta por whatsapp|dejar consulta por whatsapp|reservar|pagar|lo llevo)\b/i;
 const objectionPatterns: Array<[RegExp, string]> = [
   [/\b(precio|cuanto|cuánto|cuesta|vale|costo)\b/i, "precio"],
   [/\b(disponible|disponibilidad|stock)\b/i, "disponibilidad"],

@@ -46,8 +46,8 @@ function semanticKey(text?: string | null) {
   if (/\b(precio|cuanto|cuesta|vale|costo)\b/.test(normalized)) return "precio";
   if (/\b(disponible|disponibilidad|stock|hay)\b/.test(normalized)) return "disponibilidad";
   if (/\b(envio|enviar|entrega|delivery)\b/.test(normalized)) return "envio";
-  if (/\b(whatsapp|consulta)\b/.test(normalized)) return "whatsapp";
   if (/\b(pedir|pedido)\b/.test(normalized)) return "pedido";
+  if (/\b(whatsapp|consulta)\b/.test(normalized)) return "whatsapp";
   if (/\b(ingrediente|ingredientes|lleva|trae|contiene)\b/.test(normalized)) return "ingredientes";
   if (/\b(porcion|porcion|tamano|tamaño|tamano porcion|tamaño porcion)\b/.test(normalized)) return "porcion";
   if (/\b(pollo|chicken)\b/.test(normalized)) return "pollo";
@@ -137,8 +137,10 @@ export function buildNextQuickReplies({
   const foodMode = isFoodRestaurantContext({ store: store ?? (commercialType ? { commercialType } : null), product, category });
 
   let replies: string[];
-  if (foodMode && mode === "CLOSING_PREP") {
-    replies = ["Pedir por WhatsApp", "Confirmar disponibilidad", "Precio", product?.name ? `Pedir ${product.name}` : "Hacer pedido"];
+  if (foodMode && focus.lastKey === "ingredientes") {
+    replies = ["Confirmar disponibilidad", "Pedir por WhatsApp", "Ver precio", "Volver al producto"];
+  } else if (foodMode && (focus.lastKey === "pedido" || mode === "CLOSING_PREP")) {
+    replies = ["Ya te dejo mi número", "¿Cuánto tarda?", "Confirmar disponibilidad"];
   } else if (foodMode) {
     replies = getFoodRestaurantQuickReplies();
   } else if (mode === "CLOSING_PREP") {

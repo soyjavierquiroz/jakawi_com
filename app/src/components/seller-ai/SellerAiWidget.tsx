@@ -153,6 +153,8 @@ export function SellerAiWidget({
 }: SellerAiWidgetProps) {
   const widgetCopy = sellerAiConfig.widget;
   const phoneCaptureCopy = sellerAiConfig.phoneCapture[mode === "premium" ? "premium" : mode === "guided" ? "guided" : "assistive"];
+  const phoneCaptureTitle = productName ? "¿A qué número confirmamos?" : phoneCaptureCopy.title;
+  const phoneCaptureMessage = productName ? `Déjanos tu WhatsApp para que ${storeName} pueda ubicar tu consulta y confirmar el pedido.` : phoneCaptureCopy.message;
   const closedLabel = triggerLabel ?? (mode === "premium" ? widgetCopy.premiumClosedLabel : widgetCopy.closedLabel);
   const widgetTitle = mode === "premium" ? "Seller AI Premium" : widgetCopy.title;
   const currentProductKey = `${productId ?? "store"}:${productName ?? ""}`;
@@ -781,8 +783,8 @@ export function SellerAiWidget({
 
               {step === "phone_capture" ? (
                 <div className="rounded-2xl border border-[var(--space-border)] bg-white p-3 shadow-sm">
-                  <p className="text-sm font-black leading-5 text-neutral-900">{phoneCaptureCopy.title}</p>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-neutral-600">{phoneCaptureCopy.message}</p>
+                  <p className="text-sm font-black leading-5 text-neutral-900">{phoneCaptureTitle}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-neutral-600">{phoneCaptureMessage}</p>
                 </div>
               ) : null}
 
