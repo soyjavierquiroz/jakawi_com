@@ -7,10 +7,10 @@ import { formatMoney } from "@/lib/money";
 import { incrementSellerAiConversationUsage, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
-import { describeFoodProductFromName, getMenuProductProfile } from "@/lib/seller-ai/context";
+import { describeFoodProductFromName, getMenuProductProfile, resolveAdvisorPlaybook } from "@/lib/seller-ai/context";
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
 import { isInformationalSellerIntent, resolveSellerIntent, type SellerIntent } from "@/lib/seller-ai/intent-router";
-import { buildWhatsappHandoffMessage, buildWhatsappHandoffUrl, computeLeadQualification, shouldShowWhatsappHandoff } from "@/lib/seller-ai/lead-qualification";
+import { buildWhatsappHandoffMessage, buildWhatsappHandoffUrl, computeLeadQualification, shouldExposeWhatsappHandoffForIntent, shouldShowWhatsappHandoff } from "@/lib/seller-ai/lead-qualification";
 import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
 import { tryGetSellerAiLlmReply } from "@/lib/seller-ai/llm";
@@ -135,9 +135,15 @@ function messageForSellerIntent(intent: SellerIntent, fallback: string) {
   if (intent === "ASK_PORTION") return "porción";
   if (intent === "ASK_PRICE") return "precio";
   if (intent === "ASK_AVAILABILITY") return "disponibilidad";
+  if (intent === "ASK_OCCASION") return "ocasión";
+  if (intent === "ASK_SUITABILITY") return fallback;
+  if (intent === "ASK_STYLE_ADVICE") return "estilo";
   if (intent === "ASK_FEATURES") return "características";
   if (intent === "ASK_SIZE") return "medidas";
   if (intent === "ASK_COLOR") return "colores";
+  if (intent === "ASK_MATERIAL") return "material";
+  if (intent === "ASK_FIT") return "ajuste";
+  if (intent === "ASK_COMPATIBILITY") return "compatibilidad";
   if (intent === "ASK_SHIPPING") return "envío";
   if (intent === "ASK_SERVICE_INCLUDED") return "qué incluye";
   if (intent === "ASK_DURATION") return "duración";
@@ -201,10 +207,12 @@ function buildFoodAssistantMessage({
 
 function buildProductAssistantMessage({
   intent,
+  userMessage,
   product,
   store,
 }: {
   intent: SellerIntent;
+  userMessage: string;
   product?: ProductForReply | null;
   store: StoreForReply;
 }) {
@@ -214,27 +222,64 @@ function buildProductAssistantMessage({
   const colorMatch = description?.match(/(?:Colores?|Color)\s*:\s*([^\n.]+)/i);
   const occasionMatch = description?.match(/(?:Ocasiones?|Ocasión|Ocasion)\s*:\s*([^\n.]+)/i);
   const materialMatch = description?.match(/Material\s*:\s*([^\n.]+)/i);
+  const playbook = resolveAdvisorPlaybook(store, product);
+  const fashionProfile = playbook.fashionProfile;
+  const isDress = playbook.vertical === "fashion" && (fashionProfile?.category === "dress" || /vestido/i.test(productName));
+  const productLabel = isDress ? "Este vestido" : productName;
+
+  if ((intent === "ASK_OCCASION" || intent === "ASK_SUITABILITY") && playbook.vertical === "fashion") {
+    if (fashionProfile?.occasionSuitability.length) {
+      const occasions = fashionProfile.occasionSuitability.join(", ");
+      if (normalizeText(product?.slug) === "vestido-rojo-de-fiesta" || /rojo de fiesta/i.test(productName)) {
+        return `El ${productName} es más adecuado para celebraciones de noche, cumpleaños, cenas, fiestas y eventos donde quieras un look llamativo. ${fashionProfile.weddingAdvice}\n\n¿Quieres que te confirme tallas disponibles?`;
+      }
+      const weddingAdvice = /\b(boda|matrimonio)\b/.test(normalizeText(userMessage)) && fashionProfile.weddingAdvice ? ` ${fashionProfile.weddingAdvice}` : "";
+      const softCta = fashionProfile.sizes?.length || sizeMatch?.[1] ? "¿Quieres que te confirme tallas disponibles?" : "¿Quieres ver el precio?";
+      return `${productName} puede funcionar para ${occasions}.${weddingAdvice}\n\n${softCta}`;
+    }
+    if (occasionMatch?.[1]) return `${productName} puede funcionar para ${occasionMatch[1].trim()}. ¿Quieres que te confirme tallas disponibles?`;
+    return `${productName} puede funcionar si el estilo encaja con tu ocasión. Para no inventar, ${store.name} puede confirmar detalles de uso y disponibilidad. ¿Quieres ver el precio?`;
+  }
+
+  if (intent === "ASK_STYLE_ADVICE" && playbook.vertical === "fashion") {
+    const notes = fashionProfile?.styleNotes?.length ? `${fashionProfile.styleNotes.join(", ")}.` : "Combina mejor con accesorios que no compitan con la prenda principal.";
+    return `${productName}: ${notes} ¿Quieres que te ayude a elegir talla o ver el precio?`;
+  }
+
+  if (intent === "ASK_MATERIAL") {
+    const material = fashionProfile?.material ?? materialMatch?.[1]?.trim();
+    if (material) return `${productName} tiene material registrado como ${material}. La tienda puede confirmar cualquier variación final.`;
+    return `El material de ${productName} no está especificado en la ficha cargada. Para no inventar tela exacta, ${store.name} debe confirmarlo.`;
+  }
+
   if (intent === "ASK_FEATURES") {
     const details = [materialMatch?.[1] ? `material: ${materialMatch[1]}` : null, occasionMatch?.[1] ? `ocasión: ${occasionMatch[1]}` : null, sizeMatch?.[1] ? `tallas: ${sizeMatch[1]}` : null, colorMatch?.[1] ? `color: ${colorMatch[1]}` : null].filter(Boolean);
     return description
-      ? `${productName}: ${description}${details.length ? ` Datos clave: ${details.join("; ")}.` : ""} Puedo ayudarte con tallas, colores, precio o compra.`
-      : `Aún no tengo características detalladas cargadas para ${productName}. Puedo ayudarte a consultar material, uso o detalles con ${store.name}.`;
+      ? `${productName}: ${description}${details.length ? ` Datos clave: ${details.join("; ")}.` : ""} Puedo ayudarte con ${playbook.primaryFacts.slice(0, 4).join(", ")}.`
+      : `Aún no tengo características detalladas cargadas para ${productName}. Puedo ayudarte a consultar ${playbook.primaryFacts.slice(0, 3).join(", ")} con ${store.name}.`;
   }
   if (intent === "ASK_SIZE") {
-    if (sizeMatch?.[1]) return `${productName} está registrado en tallas ${sizeMatch[1].trim()}. La disponibilidad final de cada talla la confirma ${store.name}.`;
+    const sizes = fashionProfile?.sizes?.length ? fashionProfile.sizes.join(" y ") : sizeMatch?.[1]?.trim();
+    if (sizes) return `${productLabel} está registrado en tallas ${sizes}. La disponibilidad final de cada talla la confirma ${store.name} por WhatsApp.`;
     return `Las tallas o medidas de ${productName} conviene confirmarlas con ${store.name}. Puedo dejar esa consulta lista para la tienda.`;
   }
   if (intent === "ASK_COLOR") {
-    if (colorMatch?.[1]) return `${productName} está registrado en color ${colorMatch[1].trim()}. Si buscas otro tono, ${store.name} puede confirmarte disponibilidad.`;
+    const color = fashionProfile?.color ?? colorMatch?.[1]?.trim();
+    if (color) return `${productName} está registrado en color ${color}. Si buscas otro tono, ${store.name} puede confirmarte disponibilidad.`;
     return `Los colores disponibles de ${productName} los confirma ${store.name}.`;
   }
+  if (intent === "ASK_FIT") return `El ajuste de ${productName} conviene revisarlo con la talla disponible y cómo prefieres que te quede. ¿Quieres que te confirme tallas disponibles?`;
+  if (intent === "ASK_COMPATIBILITY") return `${productName} puede combinar o funcionar según el uso que tienes en mente. Cuéntame con qué lo quieres usar y te oriento sin inventar datos.`;
   if (intent === "ASK_SHIPPING") return `El envío de ${productName} lo confirma ${store.name} según tu zona. Puedo dejar la consulta lista con el producto que estás viendo.`;
   if (intent === "ASK_PRICE" && product) {
     if (!hasPublishedPrice(product)) return `El precio actualizado de ${productName} lo confirma ${store.name}.`;
     return priceLine({ product, store });
   }
   if (intent === "ASK_AVAILABILITY") return `La disponibilidad de ${productName} la confirma ${store.name}. Puedo ayudarte a apartarlo o dejar la consulta clara.`;
-  if (intent === "START_ORDER") return `Perfecto. Te ayudo a comprar ${productName}. ¿A qué número te escribe ${store.name}?`;
+  if (intent === "START_ORDER") {
+    if (playbook.vertical === "fashion") return `Perfecto. Te ayudo a comprar ${productName}. ¿A qué número te escribe ${store.name} para confirmar talla y disponibilidad?`;
+    return `Perfecto. Te ayudo a comprar ${productName}. ¿A qué número te escribe ${store.name}?`;
+  }
   return `${productName} puede ser buena opción si encaja con lo que buscas. Te puedo ayudar con características, medidas, precio o compra.`;
 }
 
@@ -338,7 +383,7 @@ export function buildAssistantMessage({
     if (foodMode && isInformationalSellerIntent(intent)) {
       return buildFoodAssistantMessage({ userMessage: messageForSellerIntent(intent, userMessage), product, store });
     }
-    if (resolvedOfferType === "PRODUCT") return buildProductAssistantMessage({ intent, product, store });
+    if (resolvedOfferType === "PRODUCT") return buildProductAssistantMessage({ intent, userMessage, product, store });
     if (resolvedOfferType === "SERVICE") return buildServiceAssistantMessage({ intent, product, store });
   }
 
@@ -615,13 +660,16 @@ export async function POST(request: Request) {
     intent: sellerIntent,
   });
   const foodMode = offerType === "MENU";
-  const shouldUseRulesForFoodMessage =
-    foodMode &&
-    (wantsIngredients(intentMessage) ||
-      wantsPortion(intentMessage) ||
-      wantsFoodOrder(intentMessage) ||
-      ["ASK_INGREDIENTS", "ASK_PORTION", "ASK_PRICE", "ASK_AVAILABILITY", "START_ORDER"].includes(sellerIntent));
-  const llmReply = shouldUseRulesForFoodMessage
+  const shouldUseRulesForMessage =
+    intentIsInformational ||
+    sellerIntent === "START_ORDER" ||
+    sellerIntent === "START_BOOKING" ||
+    (foodMode &&
+      (wantsIngredients(intentMessage) ||
+        wantsPortion(intentMessage) ||
+        wantsFoodOrder(intentMessage) ||
+        ["ASK_INGREDIENTS", "ASK_PORTION", "ASK_PRICE", "ASK_AVAILABILITY", "START_ORDER"].includes(sellerIntent)));
+  const llmReply = shouldUseRulesForMessage
     ? null
     : await tryGetSellerAiLlmReply({
         store: lead.store,
@@ -687,7 +735,11 @@ export async function POST(request: Request) {
     whatsappNumber: lead.store.whatsapp,
     whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED,
   });
-  const shouldShowWhatsappCta = shouldShowWhatsappHandoff(whatsappHandoff, lead.store.whatsapp);
+  const shouldShowWhatsappCta = shouldExposeWhatsappHandoffForIntent({
+    qualification: whatsappHandoff,
+    whatsappNumber: lead.store.whatsapp,
+    informationalIntent: intentIsInformational,
+  });
   const hasVisibleCommercialSignal =
     signals.intentBoost > 0 ||
     Boolean(product) ||

@@ -5,9 +5,15 @@ export const sellerIntentValues = [
   "ASK_PORTION",
   "ASK_PRICE",
   "ASK_AVAILABILITY",
+  "ASK_OCCASION",
+  "ASK_SUITABILITY",
+  "ASK_STYLE_ADVICE",
   "ASK_FEATURES",
   "ASK_SIZE",
   "ASK_COLOR",
+  "ASK_MATERIAL",
+  "ASK_FIT",
+  "ASK_COMPATIBILITY",
   "ASK_SHIPPING",
   "ASK_SERVICE_INCLUDED",
   "ASK_DURATION",
@@ -33,9 +39,15 @@ const actionAliases: Record<string, SellerIntent> = {
   ASK_PORTION: "ASK_PORTION",
   ASK_PRICE: "ASK_PRICE",
   ASK_AVAILABILITY: "ASK_AVAILABILITY",
+  ASK_OCCASION: "ASK_OCCASION",
+  ASK_SUITABILITY: "ASK_SUITABILITY",
+  ASK_STYLE_ADVICE: "ASK_STYLE_ADVICE",
   ASK_FEATURES: "ASK_FEATURES",
   ASK_SIZE: "ASK_SIZE",
   ASK_COLOR: "ASK_COLOR",
+  ASK_MATERIAL: "ASK_MATERIAL",
+  ASK_FIT: "ASK_FIT",
+  ASK_COMPATIBILITY: "ASK_COMPATIBILITY",
   ASK_SHIPPING: "ASK_SHIPPING",
   ASK_SERVICE_INCLUDED: "ASK_SERVICE_INCLUDED",
   ASK_DURATION: "ASK_DURATION",
@@ -46,6 +58,8 @@ const actionAliases: Record<string, SellerIntent> = {
   BUY: "START_ORDER",
   ORDER: "START_ORDER",
   BOOK: "START_BOOKING",
+  USER_PROVIDED_PHONE: "START_ORDER",
+  CLICKED_WHATSAPP_CTA: "START_ORDER",
 };
 
 function normalize(input?: string | null) {
@@ -78,11 +92,17 @@ function resolveLabel(label?: string | null, offerType: SellerOfferType = "PRODU
   }
 
   if (offerType === "PRODUCT") {
-    if (/\b(caracteristicas|caracteristica|detalles|material|uso)\b/.test(text)) return "ASK_FEATURES";
+    if (/\b(ocasion|ocasiones|evento|eventos|boda|fiesta|cena|graduacion)\b/.test(text)) return "ASK_OCCASION";
+    if (/\b(sirve|queda bien|adecuado|adecuada|conviene)\b/.test(text)) return "ASK_SUITABILITY";
+    if (/\b(combina|zapatos|accesorios|estilo|look)\b/.test(text)) return "ASK_STYLE_ADVICE";
+    if (/\b(material|tela|de que esta hecho|de que esta hecha)\b/.test(text)) return "ASK_MATERIAL";
+    if (/\b(comodo|comoda|ajuste|entalla|me queda|fit)\b/.test(text)) return "ASK_FIT";
+    if (/\b(compatible|sirve con|funciona con)\b/.test(text)) return "ASK_COMPATIBILITY";
+    if (/\b(caracteristicas|caracteristica|detalles|uso)\b/.test(text)) return "ASK_FEATURES";
     if (/\b(medidas|medida|talla|tallas|tamano|tamaño)\b/.test(text)) return "ASK_SIZE";
     if (/\b(color|colores)\b/.test(text)) return "ASK_COLOR";
     if (/\b(envio|envío|entrega|delivery)\b/.test(text)) return "ASK_SHIPPING";
-    if (/\b(comprar|compra|comprarlo|comprarla)\b/.test(text)) return "START_ORDER";
+    if (/\b(comprar|compra|comprarlo|comprarla|apartar|apartarlo|apartarla|reservar|lo quiero|la quiero|lo llevo|hablar por whatsapp|hablemos por whatsapp)\b/.test(text)) return "START_ORDER";
   }
 
   if (offerType === "SERVICE") {
@@ -107,7 +127,13 @@ function resolveFreeText(text?: string | null, offerType: SellerOfferType = "PRO
   if (offerType === "MENU" && /\b(ingrediente|ingredientes|que trae|que lleva|contiene|con que viene|de que esta hecho|de que esta hecha)\b/.test(normalized)) return "ASK_INGREDIENTS";
   if (offerType === "MENU" && /\b(porcion|tamano|tamaño|cantidad|para cuantas personas)\b/.test(normalized)) return "ASK_PORTION";
 
-  if (offerType === "PRODUCT" && /\b(caracteristicas|caracteristica|material|detalles|uso|para que sirve)\b/.test(normalized)) return "ASK_FEATURES";
+  if (offerType === "PRODUCT" && /\b(para que evento|para que ocasion|en que ocasion|que ocasion|ocasion|ocasiones|evento|eventos|fiesta|fiestas|cena|cenas|graduacion|cumpleanos|cumpleaños|noche|dia|día)\b/.test(normalized)) return "ASK_OCCASION";
+  if (offerType === "PRODUCT" && /\b(sirve para boda|sirve para fiesta|sirve para una cena|sirve para graduacion|sirve para evento|mas adecuado|más adecuado|adecuado|adecuada|queda bien para|conviene para)\b/.test(normalized)) return "ASK_SUITABILITY";
+  if (offerType === "PRODUCT" && /\b(combina con|que zapatos|qué zapatos|zapatos|accesorios|con que accesorios|con qué accesorios|estilo|look|como lo uso|cómo lo uso)\b/.test(normalized)) return "ASK_STYLE_ADVICE";
+  if (offerType === "PRODUCT" && /\b(de que tela|de qué tela|tela|material|de que material|de qué material|de que esta hecho|de que esta hecha)\b/.test(normalized)) return "ASK_MATERIAL";
+  if (offerType === "PRODUCT" && /\b(me queda|queda ajustado|queda suelto|ajuste|fit|entalla|comodidad|comodo|cómodo|comoda|cómoda)\b/.test(normalized)) return "ASK_FIT";
+  if (offerType === "PRODUCT" && /\b(compatible|sirve con|funciona con|se puede usar con)\b/.test(normalized)) return "ASK_COMPATIBILITY";
+  if (offerType === "PRODUCT" && /\b(caracteristicas|caracteristica|detalles|uso|para que sirve)\b/.test(normalized)) return "ASK_FEATURES";
   if (offerType === "PRODUCT" && /\b(medidas|medida|talla|tallas|tamano|tamaño)\b/.test(normalized)) return "ASK_SIZE";
   if (offerType === "PRODUCT" && /\b(color|colores|tono|tonos)\b/.test(normalized)) return "ASK_COLOR";
   if (offerType === "PRODUCT" && /\b(envio|envío|entrega|delivery|mandan|envian|envían)\b/.test(normalized)) return "ASK_SHIPPING";
@@ -118,7 +144,8 @@ function resolveFreeText(text?: string | null, offerType: SellerOfferType = "PRO
 
   if (/\b(precio|cuanto vale|cuánto vale|cuanto cuesta|cuánto cuesta|cuesta|vale|costo)\b/.test(normalized)) return "ASK_PRICE";
   if (/\b(disponible|disponibilidad|hay|stock)\b/.test(normalized)) return "ASK_AVAILABILITY";
-  if (/\b(pedir|pedido|comprar|comprarlo|comprarla|quiero este|quiero esta|lo quiero|lo llevo|hablemos por whatsapp|continuar por whatsapp)\b/.test(normalized)) return "START_ORDER";
+  if (/\b(agendar|agenda|cita|reservar cita)\b/.test(normalized)) return "START_BOOKING";
+  if (/\b(pedir|pedido|comprar|comprarlo|comprarla|apartar|apartarlo|apartarla|reservar|quiero este|quiero esta|lo quiero|la quiero|lo llevo|hablar por whatsapp|hablemos por whatsapp|continuar por whatsapp)\b/.test(normalized)) return "START_ORDER";
 
   return "UNKNOWN";
 }
@@ -139,9 +166,15 @@ export function isInformationalSellerIntent(intent: SellerIntent) {
     "ASK_PORTION",
     "ASK_PRICE",
     "ASK_AVAILABILITY",
+    "ASK_OCCASION",
+    "ASK_SUITABILITY",
+    "ASK_STYLE_ADVICE",
     "ASK_FEATURES",
     "ASK_SIZE",
     "ASK_COLOR",
+    "ASK_MATERIAL",
+    "ASK_FIT",
+    "ASK_COMPATIBILITY",
     "ASK_SHIPPING",
     "ASK_SERVICE_INCLUDED",
     "ASK_DURATION",

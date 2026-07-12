@@ -1,9 +1,12 @@
 import { sellerAiConfig } from "@/config/seller-ai";
 import { getPrisma } from "@/lib/prisma";
+import type { SellerIntent } from "@/lib/seller-ai/intent-router";
+import { resolveOfferType, type SellerOfferType } from "@/lib/seller-ai/offer-type";
 
 type StoreLike = { id: string; name: string; city?: string | null };
 type CategoryLike = { id?: string; name: string; slug?: string } | null;
-type ProductLike = { id: string; name: string; categoryId?: string | null; category?: CategoryLike };
+type ProductLike = { id?: string; name?: string | null; slug?: string | null; description?: string | null; categoryId?: string | null; category?: CategoryLike };
+type ProductWithId = ProductLike & { id: string; name: string };
 type FoodCategoryLike = { id?: string | null; name?: string | null; slug?: string | null } | null;
 type FoodStoreLike = { slug?: string | null; name?: string | null; description?: string | null; commercialType?: string | null };
 type FoodProductLike = { slug?: string | null; name?: string | null; description?: string | null; category?: FoodCategoryLike };
@@ -16,6 +19,29 @@ export type MenuProductProfile = {
   orderQuestions: string[];
   ownerVerified: boolean;
   tags: string[];
+};
+
+export type AdvisorVertical = "food" | "fashion" | "luggage" | "footwear" | "service" | "generic";
+
+export type FashionProductProfile = {
+  vertical: "fashion";
+  category: "dress" | "accessory" | "generic";
+  occasionSuitability: string[];
+  styleNotes?: string[];
+  weddingAdvice?: string;
+  sizes?: string[];
+  color?: string;
+  material?: string | null;
+};
+
+export type AdvisorPlaybook = {
+  offerType: SellerOfferType;
+  vertical: AdvisorVertical;
+  category: string;
+  tone: string;
+  primaryFacts: string[];
+  supportedIntents: SellerIntent[];
+  fashionProfile?: FashionProductProfile;
 };
 
 function normalize(input?: string | null) {
@@ -95,6 +121,66 @@ const exitososMenuProfiles: Record<string, MenuProductProfile> = {
   },
 };
 
+const boutiqueLunaFashionProfiles: Record<string, FashionProductProfile> = {
+  "vestido-rojo-de-fiesta": {
+    vertical: "fashion",
+    category: "dress",
+    occasionSuitability: ["fiestas", "celebraciones", "cumpleaños", "cenas", "eventos de noche", "ocasiones especiales"],
+    styleNotes: ["look llamativo", "femenino", "ideal para destacar"],
+    weddingAdvice:
+      "También puede funcionar para una boda si el código de vestimenta permite rojo o colores fuertes. Para algo más formal, el Vestido Largo Satinado puede ser mejor opción.",
+    sizes: ["M", "L"],
+    color: "rojo",
+    material: null,
+  },
+  "vestido-floral-midi": {
+    vertical: "fashion",
+    category: "dress",
+    occasionSuitability: ["salidas de día", "almuerzos", "eventos casuales", "brunch", "reuniones informales"],
+    weddingAdvice:
+      "Puede servir para una boda de día o evento campestre si el código es casual/elegante. Para boda formal, mejor Vestido Largo Satinado.",
+    material: "tela ligera",
+  },
+  "vestido-negro-elegante": {
+    vertical: "fashion",
+    category: "dress",
+    occasionSuitability: ["cenas", "reuniones", "eventos semi formales", "noche"],
+    color: "negro",
+  },
+  "vestido-largo-satinado": {
+    vertical: "fashion",
+    category: "dress",
+    occasionSuitability: ["eventos formales", "cenas elegantes", "bodas", "celebraciones especiales"],
+  },
+  "vestido-blanco-casual": {
+    vertical: "fashion",
+    category: "dress",
+    occasionSuitability: ["día a día", "salida informal", "fin de semana", "clima cálido"],
+    color: "blanco",
+  },
+  "vestido-verde-cruzado": {
+    vertical: "fashion",
+    category: "dress",
+    occasionSuitability: ["reuniones de día", "salidas casuales", "almuerzos", "look fresco"],
+    color: "verde",
+  },
+  "cinturon-delgado-dorado": {
+    vertical: "fashion",
+    category: "accessory",
+    occasionSuitability: ["complemento para vestidos", "eventos casuales o elegantes", "marcar cintura"],
+    color: "dorado",
+  },
+};
+
+const baseSupportedIntents: Record<AdvisorVertical, SellerIntent[]> = {
+  food: ["ASK_INGREDIENTS", "ASK_PORTION", "ASK_PRICE", "ASK_AVAILABILITY", "START_ORDER"],
+  fashion: ["ASK_SIZE", "ASK_COLOR", "ASK_MATERIAL", "ASK_OCCASION", "ASK_SUITABILITY", "ASK_STYLE_ADVICE", "ASK_AVAILABILITY", "ASK_PRICE", "START_ORDER"],
+  luggage: ["ASK_SIZE", "ASK_COMPATIBILITY", "ASK_MATERIAL", "ASK_SUITABILITY", "ASK_AVAILABILITY", "ASK_PRICE", "START_ORDER"],
+  footwear: ["ASK_SIZE", "ASK_COLOR", "ASK_MATERIAL", "ASK_OCCASION", "ASK_SUITABILITY", "ASK_FIT", "ASK_AVAILABILITY", "ASK_PRICE", "START_ORDER"],
+  service: ["ASK_SERVICE_INCLUDED", "ASK_DURATION", "ASK_PRICE", "ASK_AVAILABILITY", "START_BOOKING", "START_ORDER"],
+  generic: ["ASK_FEATURES", "ASK_PRICE", "ASK_AVAILABILITY", "START_ORDER"],
+};
+
 export function isFoodRestaurantContext({
   store,
   product,
@@ -135,6 +221,76 @@ export function getMenuProductProfile({
   return exitososMenuProfiles[slug] ?? null;
 }
 
+function textForPlaybook(store?: FoodStoreLike | null, product?: ProductLike | null, category?: CategoryLike) {
+  return normalize(`${store?.slug ?? ""} ${store?.name ?? ""} ${store?.description ?? ""} ${product?.slug ?? ""} ${product?.name ?? ""} ${product?.description ?? ""} ${category?.name ?? product?.category?.name ?? ""} ${category?.slug ?? product?.category?.slug ?? ""}`);
+}
+
+function getBoutiqueLunaProfile(store?: FoodStoreLike | null, product?: ProductLike | null) {
+  if (normalize(store?.slug) !== "boutique-luna" && normalize(store?.name) !== "boutique luna") return null;
+  const slug = normalize(product?.slug);
+  if (slug && boutiqueLunaFashionProfiles[slug]) return boutiqueLunaFashionProfiles[slug];
+  const name = normalize(product?.name).replace(/\s+/g, "-");
+  return boutiqueLunaFashionProfiles[name] ?? null;
+}
+
+function inferAdvisorVertical(store?: FoodStoreLike | null, product?: ProductLike | null, category?: CategoryLike): { vertical: AdvisorVertical; category: string; profile?: FashionProductProfile } {
+  const boutiqueProfile = getBoutiqueLunaProfile(store, product);
+  if (boutiqueProfile) return { vertical: "fashion", category: boutiqueProfile.category, profile: boutiqueProfile };
+
+  const text = textForPlaybook(store, product, category);
+  if (isFoodRestaurantContext({ store, product, category })) return { vertical: "food", category: "food" };
+  if (/\b(vestido|ropa|moda|blusa|camisa|falda|pantalon|pantalón|cinturon|cinturón|accesorio|boutique)\b/.test(text)) {
+    return { vertical: "fashion", category: /\b(vestido|dress)\b/.test(text) ? "dress" : "generic" };
+  }
+  if (/\b(maleta|equipaje|carry on|carry-on|mochila|valija)\b/.test(text)) return { vertical: "luggage", category: "luggage" };
+  if (/\b(zapato|zapatilla|tenis|calzado|sandalia|botin|botín)\b/.test(text)) return { vertical: "footwear", category: "footwear" };
+  return { vertical: "generic", category: "generic" };
+}
+
+function playbookFacts(vertical: AdvisorVertical) {
+  if (vertical === "food") return ["ingredientes", "porción", "precio", "disponibilidad", "pedir"];
+  if (vertical === "fashion") return ["tallas", "colores", "material", "ocasión", "estilo", "disponibilidad", "comprar"];
+  if (vertical === "luggage") return ["medidas", "capacidad", "material", "viaje", "garantía", "comprar"];
+  if (vertical === "footwear") return ["tallas", "color", "material", "ocasión/uso", "comodidad", "comprar"];
+  if (vertical === "service") return ["qué incluye", "duración", "precio", "agenda", "requisitos", "WhatsApp"];
+  return ["características", "precio", "disponibilidad", "comprar"];
+}
+
+export function resolveAdvisorPlaybook(store?: FoodStoreLike | null, product?: ProductLike | null): AdvisorPlaybook {
+  const offerType = resolveOfferType(store, product);
+  if (offerType === "MENU") {
+    return {
+      offerType,
+      vertical: "food",
+      category: "food",
+      tone: "asesor comercial cercano",
+      primaryFacts: playbookFacts("food"),
+      supportedIntents: baseSupportedIntents.food,
+    };
+  }
+  if (offerType === "SERVICE") {
+    return {
+      offerType,
+      vertical: "service",
+      category: "service",
+      tone: "asesor comercial cercano",
+      primaryFacts: playbookFacts("service"),
+      supportedIntents: baseSupportedIntents.service,
+    };
+  }
+
+  const inferred = inferAdvisorVertical(store, product, product?.category);
+  return {
+    offerType,
+    vertical: inferred.vertical,
+    category: inferred.category,
+    tone: "asesor comercial cercano",
+    primaryFacts: playbookFacts(inferred.vertical),
+    supportedIntents: baseSupportedIntents[inferred.vertical],
+    fashionProfile: inferred.profile,
+  };
+}
+
 export function describeFoodProductFromName(productName?: string | null) {
   const text = normalize(productName);
   if (/caesar|cesar|c[eé]sar/.test(text) && /chicken|pollo/.test(text)) return "una ensalada tipo César con pollo";
@@ -159,7 +315,7 @@ export function getProductCategoryKind(product?: ProductLike | null, category?: 
   return "default";
 }
 
-export async function getRelatedProducts(storeId: string, product: ProductLike) {
+export async function getRelatedProducts(storeId: string, product: ProductWithId) {
   const categoryMatches = product.categoryId
     ? await getPrisma().product.findMany({
         where: { storeId, isVisible: true, categoryId: product.categoryId, id: { not: product.id } },
@@ -181,7 +337,7 @@ export async function getRelatedProducts(storeId: string, product: ProductLike) 
   return [...categoryMatches, ...fallback];
 }
 
-export function buildSellerContext(store: StoreLike, currentProduct: ProductLike, relatedProducts: ProductLike[], lead: unknown, messages: unknown[]) {
+export function buildSellerContext(store: StoreLike, currentProduct: ProductWithId, relatedProducts: ProductWithId[], lead: unknown, messages: unknown[]) {
   return {
     store: { id: store.id, name: store.name, city: store.city },
     currentProduct: { id: currentProduct.id, name: currentProduct.name, category: currentProduct.category?.name },

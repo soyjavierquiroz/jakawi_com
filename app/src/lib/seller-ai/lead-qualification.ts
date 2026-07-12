@@ -54,6 +54,18 @@ export function shouldShowWhatsappHandoff(qualification: LeadQualification, what
   return qualification.readyForWhatsapp && Boolean(whatsappNumber?.replace(/\D/g, ""));
 }
 
+export function shouldExposeWhatsappHandoffForIntent({
+  qualification,
+  whatsappNumber,
+  informationalIntent,
+}: {
+  qualification: LeadQualification;
+  whatsappNumber?: string | null;
+  informationalIntent?: boolean;
+}) {
+  return !informationalIntent && shouldShowWhatsappHandoff(qualification, whatsappNumber);
+}
+
 export function buildWhatsappHandoffMessage(code: string) {
   return `Hola 👋 quiero continuar con lo que estaba viendo en la tienda. Código: ${code}`;
 }

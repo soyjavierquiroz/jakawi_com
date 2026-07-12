@@ -93,5 +93,5 @@ test("PRODUCT buying copy asks for phone with store name", () => {
   const reply = buildAssistantMessage({ mode: "CLOSING_PREP", userMessage: "Quiero comprarlo", product: floralDress, store: boutiqueStore, recommendations: [], offerType: "PRODUCT", intent, shouldAskPhone: true });
 
   assert.equal(intent, "START_ORDER");
-  assert.equal(reply, "Perfecto. Te ayudo a comprar Vestido Floral Midi. ¿A qué número te escribe Boutique Luna?");
+  assert.equal(reply, "Perfecto. Te ayudo a comprar Vestido Floral Midi. ¿A qué número te escribe Boutique Luna para confirmar talla y disponibilidad?");
 });
