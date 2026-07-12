@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeHostname, resolveStorefrontRequest, validateStoreDomainHostname } from "./domains";
+import { normalizeHostname, resolveCanonicalCustomDomainRedirect, resolveStorefrontRequest, validateStoreDomainHostname } from "./domains";
 
 const baseEnv = {
   CUSTOM_DOMAINS_ENABLED: "true",
@@ -25,9 +25,10 @@ function domainDb(rows: FakeDomain[] = [activeCustomDomain("shop.example.com")])
     storeDomain: {
       findFirst: async (args: unknown) => {
         calls += 1;
-        const where = (args as { where?: { hostname?: string; status?: string; type?: string } }).where ?? {};
+        const where = (args as { where?: { hostname?: string; status?: string; type?: string; store?: { isPublished?: boolean } } }).where ?? {};
         const row = rows.find((item) => item.hostname === where.hostname && item.status === where.status && item.type === where.type);
         if (!row || row.type !== "CUSTOM_DOMAIN") return null;
+        if (where.store?.isPublished === true && row.store?.isPublished !== true) return null;
         return { hostname: row.hostname, type: row.type, store: row.store };
       },
     },
@@ -142,6 +143,23 @@ test("resolveStorefrontRequest maps platform /slug to platform storefront", asyn
 
   assert.equal(result.mode, "PLATFORM_SLUG");
   assert.equal(result.storeSlug, "slug");
+  assert.equal(db.calls, 0);
+});
+
+test("resolveCanonicalCustomDomainRedirect maps www host to active apex", async () => {
+  const result = await resolveCanonicalCustomDomainRedirect("www.shop.example.com", {
+    env: baseEnv,
+    db: domainDb([activeCustomDomain("shop.example.com")]),
+  });
+
+  assert.equal(result, "shop.example.com");
+});
+
+test("resolveCanonicalCustomDomainRedirect ignores platform and non-www hosts before DB lookup", async () => {
+  const db = domainDb([activeCustomDomain("shop.example.com")]);
+
+  assert.equal(await resolveCanonicalCustomDomainRedirect("shop.example.com", { env: baseEnv, db }), null);
+  assert.equal(await resolveCanonicalCustomDomainRedirect("www.jakawi.com", { env: baseEnv, db }), null);
   assert.equal(db.calls, 0);
 });
 

@@ -179,6 +179,28 @@ export async function resolveStoreFromHost(input: string | null | undefined, opt
   };
 }
 
+export async function resolveCanonicalCustomDomainRedirect(input: string | null | undefined, options: { env?: DomainEnv; db?: DomainLookupDb } = {}) {
+  const env = options.env ?? process.env;
+  const hostname = normalizeHostname(input);
+  if (!hostname.startsWith("www.") || isJakawiPlatformHost(hostname, env)) return null;
+
+  const canonicalHost = hostname.slice("www.".length);
+  if (!canonicalHost || isJakawiPlatformHost(canonicalHost, env) || isReservedHostname(canonicalHost, env)) return null;
+
+  const db = options.db ?? (getPrisma() as unknown as DomainLookupDb);
+  const domain = await db.storeDomain.findFirst({
+    where: {
+      hostname: canonicalHost,
+      status: "ACTIVE",
+      type: "CUSTOM_DOMAIN",
+      store: { isPublished: true },
+    },
+    select: { hostname: true },
+  });
+
+  return domain?.hostname ?? null;
+}
+
 function pathSegments(pathname: string) {
   return pathname.split(/[?#]/, 1)[0]?.split("/").filter(Boolean) ?? [];
 }

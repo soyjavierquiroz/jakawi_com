@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
-import { isJakawiPlatformHost, resolveStoreFromHost } from "@/lib/domains";
+import { permanentRedirect } from "next/navigation";
+import { isJakawiPlatformHost, resolveCanonicalCustomDomainRedirect, resolveStoreFromHost } from "@/lib/domains";
 import { renderProductBySlug } from "@/lib/storefront-pages";
 
 export default async function PublicProductPage({
@@ -10,6 +11,11 @@ export default async function PublicProductPage({
   const { storeSlug, productSlug } = await params;
   const headerStore = await headers();
   const hostname = headerStore.get("host");
+  const canonicalHost = await resolveCanonicalCustomDomainRedirect(hostname);
+  if (canonicalHost) {
+    const pathname = storeSlug === "p" ? `/p/${productSlug}` : `/${storeSlug}/p/${productSlug}`;
+    permanentRedirect(`https://${canonicalHost}${pathname}`);
+  }
 
   if (!isJakawiPlatformHost(hostname)) {
     const domainStore = await resolveStoreFromHost(hostname);

@@ -59,7 +59,7 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=drenvex_network"
-        - "traefik.http.routers.jakawi_web.rule=Host(`jakawi.com`) || Host(`www.jakawi.com`) || Host(`www.exitosos.com`)"
+        - "traefik.http.routers.jakawi_web.rule=Host(`jakawi.com`) || Host(`www.jakawi.com`) || Host(`exitosos.com`) || Host(`www.exitosos.com`)"
         - "traefik.http.routers.jakawi_web.entrypoints=websecure"
         - "traefik.http.routers.jakawi_web.tls=true"
         - "traefik.http.routers.jakawi_web.tls.certresolver=myresolver"

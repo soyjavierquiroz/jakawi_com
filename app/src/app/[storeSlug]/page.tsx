@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
-import { isJakawiPlatformHost, resolveStoreFromHost } from "@/lib/domains";
+import { notFound, permanentRedirect } from "next/navigation";
+import { isJakawiPlatformHost, resolveCanonicalCustomDomainRedirect, resolveStoreFromHost } from "@/lib/domains";
 import { reservedSlugs } from "@/lib/format";
 import { renderStorefrontBySlug } from "@/lib/storefront-pages";
 
@@ -12,6 +12,8 @@ export default async function PublicStorePage({
   const { storeSlug } = await params;
   const headerStore = await headers();
   const hostname = headerStore.get("host");
+  const canonicalHost = await resolveCanonicalCustomDomainRedirect(hostname);
+  if (canonicalHost) permanentRedirect(`https://${canonicalHost}/${storeSlug}`);
 
   if (!isJakawiPlatformHost(hostname)) {
     const domainStore = await resolveStoreFromHost(hostname);
