@@ -4,10 +4,13 @@ import {
   canTrackAnalytics,
   canTrackMarketing,
   defaultTrackingConsent,
+  getCookieConsentRegionMode,
   necessaryOnlyTrackingConsent,
   parseConsent,
   parseTrackingConsentCookie,
   serializeTrackingConsent,
+  shouldOpenConsentBanner,
+  trackingConsentCookieName,
 } from "@/lib/tracking/consent";
 import { analyticsEventNameForLegacyType, isEventAllowedForScope } from "@/lib/tracking/events";
 import { createTrackingEventId, createVisitorId, getOrCreateJourneyId, getOrCreateVisitorId, trackingCookieNames } from "@/lib/tracking/ids";
@@ -25,6 +28,24 @@ function createMockDb(options: { duplicate?: boolean } = {}) {
           return args.data;
         },
       },
+    },
+  };
+}
+
+function headersForCountry(country: string | null) {
+  return {
+    get(name: string) {
+      if (name.toLowerCase() === "cf-ipcountry") return country;
+      return null;
+    },
+  };
+}
+
+function cookiesFrom(values: Record<string, string>) {
+  return {
+    get(name: string) {
+      const value = values[name];
+      return value ? { value } : undefined;
     },
   };
 }
@@ -51,10 +72,11 @@ test("visitor and journey ids are stable when cookies already exist", () => {
   assert.match(journeyId, /^jkw_journey_/);
 });
 
-test("marketing consent is false by default", () => {
+test("strict consent is necessary-only by default", () => {
   assert.equal(defaultTrackingConsent.necessary, true);
-  assert.equal(defaultTrackingConsent.analytics, true);
+  assert.equal(defaultTrackingConsent.analytics, false);
   assert.equal(defaultTrackingConsent.marketing, false);
+  assert.equal(canTrackAnalytics(), false);
   assert.equal(canTrackMarketing(), false);
   assert.deepEqual(parseConsent('{"necessary":true,"analytics":true,"marketing":true}'), {
     necessary: true,
@@ -67,8 +89,89 @@ test("invalid consent cookie falls back to default consent", () => {
   assert.equal(parseTrackingConsentCookie("not-json"), null);
   assert.equal(parseTrackingConsentCookie('{"necessary":false,"analytics":true,"marketing":true}'), null);
   assert.deepEqual(parseConsent("not-json"), defaultTrackingConsent);
-  assert.equal(canTrackAnalytics(parseConsent("not-json")), true);
+  assert.equal(canTrackAnalytics(parseConsent("not-json")), false);
   assert.equal(canTrackMarketing(parseConsent("not-json")), false);
+});
+
+test("LATAM countries default to all consent without opening the banner", () => {
+  for (const country of ["CO", "MX"]) {
+    const regionMode = getCookieConsentRegionMode({ headers: headersForCountry(country), env: { NODE_ENV: "production" } });
+    const consent = parseConsent(null, { regionMode });
+
+    assert.equal(regionMode, "default_all");
+    assert.equal(shouldOpenConsentBanner(regionMode, null), false);
+    assert.equal(consent.analytics, true);
+    assert.equal(consent.marketing, true);
+    assert.equal(consent.source, "region_default");
+    assert.equal(consent.regionMode, "default_all");
+  }
+});
+
+test("strict countries require consent before analytics or marketing", () => {
+  for (const country of ["US", "ES", "GB"]) {
+    const regionMode = getCookieConsentRegionMode({ headers: headersForCountry(country), env: { NODE_ENV: "production" } });
+    const consent = parseConsent(null, { regionMode });
+
+    assert.equal(regionMode, "strict");
+    assert.equal(shouldOpenConsentBanner(regionMode, null), true);
+    assert.equal(consent.analytics, false);
+    assert.equal(consent.marketing, false);
+  }
+});
+
+test("unknown country falls back to strict by default", () => {
+  const regionMode = getCookieConsentRegionMode({ headers: headersForCountry("XX"), env: { NODE_ENV: "production" } });
+  const consent = parseConsent(null, { regionMode });
+
+  assert.equal(regionMode, "strict");
+  assert.equal(consent.analytics, false);
+  assert.equal(consent.marketing, false);
+});
+
+test("QA cookieRegion override is gated by environment", () => {
+  assert.equal(
+    getCookieConsentRegionMode({
+      headers: headersForCountry("CO"),
+      searchParams: new URLSearchParams("cookieRegion=US"),
+      env: { NODE_ENV: "development" },
+    }),
+    "strict",
+  );
+  assert.equal(
+    getCookieConsentRegionMode({
+      headers: headersForCountry("US"),
+      searchParams: new URLSearchParams("cookieRegion=CO"),
+      env: { NODE_ENV: "production" },
+    }),
+    "strict",
+  );
+  assert.equal(
+    getCookieConsentRegionMode({
+      headers: headersForCountry("US"),
+      searchParams: new URLSearchParams("cookieRegion=CO"),
+      env: { NODE_ENV: "production", COOKIE_CONSENT_QA_REGION_OVERRIDE_ENABLED: "true" },
+    }),
+    "default_all",
+  );
+});
+
+test("manual user preferences are respected in default_all regions", () => {
+  const manualConsent = serializeTrackingConsent(
+    { necessary: true, analytics: false, marketing: false, source: "manual", regionMode: "default_all" },
+    new Date("2026-07-08T00:00:00.000Z"),
+  );
+  const regionMode = getCookieConsentRegionMode({
+    headers: headersForCountry("CO"),
+    cookies: cookiesFrom({ [trackingConsentCookieName]: manualConsent }),
+    env: { NODE_ENV: "production" },
+  });
+  const consent = parseConsent(manualConsent, { regionMode });
+
+  assert.equal(regionMode, "default_all");
+  assert.equal(shouldOpenConsentBanner(regionMode, consent), false);
+  assert.equal(consent.analytics, false);
+  assert.equal(consent.marketing, false);
+  assert.equal(consent.source, "manual");
 });
 
 test("accept all consent serializes marketing=true", () => {

@@ -4,7 +4,7 @@ import { Prisma, type AnalyticsEventType } from "@prisma/client";
 import { getPrisma } from "@/lib/prisma";
 import { analyticsEventNameForLegacyType } from "@/lib/tracking/events";
 import { trackingCookieNames, normalizeTrackingId } from "@/lib/tracking/ids";
-import { parseConsent, trackingConsentCookieName, type TrackingConsent } from "@/lib/tracking/consent";
+import { getCookieConsentRegionMode, parseConsent, trackingConsentCookieName, type TrackingConsent } from "@/lib/tracking/consent";
 import { hashTrackingIp, trackInternalEvent } from "@/lib/tracking/track";
 
 function hashIp(ip: string | null) {
@@ -28,7 +28,9 @@ async function getRequestTrackingIds() {
 async function getRequestTrackingConsent() {
   try {
     const cookieStore = await cookies();
-    return parseConsent(cookieStore.get(trackingConsentCookieName)?.value);
+    const headerStore = await headers();
+    const regionMode = getCookieConsentRegionMode({ headers: headerStore, cookies: cookieStore });
+    return parseConsent(cookieStore.get(trackingConsentCookieName)?.value, { regionMode });
   } catch {
     return parseConsent();
   }

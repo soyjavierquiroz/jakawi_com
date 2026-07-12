@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies, headers } from "next/headers";
 import { brandConfig } from "@/config/brand";
 import { ConsentBanner } from "@/components/tracking/ConsentBanner";
+import { getCookieConsentRegionMode } from "@/lib/tracking/consent";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,11 +21,15 @@ export const metadata: Metadata = {
   description: brandConfig.tagline,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headerStore = await headers();
+  const cookieStore = await cookies();
+  const cookieConsentRegionMode = getCookieConsentRegionMode({ headers: headerStore, cookies: cookieStore });
+
   return (
     <html
       lang="es"
@@ -31,7 +37,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <ConsentBanner />
+        <ConsentBanner regionMode={cookieConsentRegionMode} />
       </body>
     </html>
   );

@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Settings2, ShieldCheck, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
-  getDefaultConsent,
+  type CookieConsentRegionMode,
+  getDefaultConsentForRegionMode,
   necessaryOnlyTrackingConsent,
   parseTrackingConsentCookie,
   serializeTrackingConsent,
+  shouldOpenConsentBanner,
   trackingConsentCookieName,
   type TrackingConsent,
 } from "@/lib/tracking/consent";
@@ -53,13 +55,17 @@ function writeStoredConsent(consent: Partial<TrackingConsent>) {
   document.cookie = `${trackingConsentCookieName}=${encodeURIComponent(serializeTrackingConsent(consent))}; ${cookieAttributes()}`;
 }
 
-export function ConsentBanner() {
+type ConsentBannerProps = {
+  regionMode: CookieConsentRegionMode;
+};
+
+export function ConsentBanner({ regionMode }: ConsentBannerProps) {
   const pathname = usePathname();
   const [state, setState] = useState<ConsentBannerState>(() => ({
     isReady: false,
     isOpen: false,
     hasStoredConsent: false,
-    preferences: getDefaultConsent(),
+    preferences: getDefaultConsentForRegionMode(regionMode),
   }));
   const { isReady, isOpen, hasStoredConsent, preferences } = state;
   const showFloatingButton = shouldShowPrivacyFloatingButton(pathname);
@@ -67,16 +73,20 @@ export function ConsentBanner() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const stored = readStoredConsent();
+      const regionDefault = getDefaultConsentForRegionMode(regionMode);
+      if (!stored && regionMode === "default_all") {
+        writeStoredConsent(regionDefault);
+      }
       setState({
         isReady: true,
-        isOpen: !stored,
-        hasStoredConsent: Boolean(stored),
-        preferences: stored ?? getDefaultConsent(),
+        isOpen: shouldOpenConsentBanner(regionMode, stored),
+        hasStoredConsent: Boolean(stored) || regionMode === "default_all",
+        preferences: stored ?? regionDefault,
       });
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, []);
+  }, [regionMode]);
 
   const statusLabel = useMemo(() => {
     if (preferences.marketing) return "Todo activado";
@@ -85,13 +95,13 @@ export function ConsentBanner() {
   }, [preferences.analytics, preferences.marketing]);
 
   function save(consent: Partial<TrackingConsent>) {
-    writeStoredConsent(consent);
+    writeStoredConsent({ ...consent, source: "manual", regionMode });
     const stored = readStoredConsent();
     setState({
       isReady: true,
       isOpen: false,
       hasStoredConsent: true,
-      preferences: stored ?? getDefaultConsent(),
+      preferences: stored ?? getDefaultConsentForRegionMode(regionMode),
     });
   }
 

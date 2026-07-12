@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { ArrowLeft, MessageCircle, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { SellerAiWidget } from "@/components/seller-ai/SellerAiWidget";
 import { ProductConversionCta } from "@/components/storefront/ProductConversionCta";
@@ -17,12 +17,14 @@ import { buildMetaPixelPageViewEvent, buildMetaPixelViewContentEvent, getActiveM
 import { buildTikTokPageViewEvent, buildTikTokViewContentEvent, getActiveTikTokPixelForStore } from "@/lib/pixels/tiktok-pixel";
 import { getPrisma } from "@/lib/prisma";
 import { getStorefrontFlow } from "@/lib/storefront-flow";
-import { parseConsent, trackingConsentCookieName } from "@/lib/tracking/consent";
+import { getCookieConsentRegionMode, parseConsent, trackingConsentCookieName } from "@/lib/tracking/consent";
 
 async function getRequestTrackingConsent() {
   try {
     const cookieStore = await cookies();
-    return parseConsent(cookieStore.get(trackingConsentCookieName)?.value);
+    const headerStore = await headers();
+    const regionMode = getCookieConsentRegionMode({ headers: headerStore, cookies: cookieStore });
+    return parseConsent(cookieStore.get(trackingConsentCookieName)?.value, { regionMode });
   } catch {
     return parseConsent();
   }
