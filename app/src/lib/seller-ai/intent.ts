@@ -23,7 +23,7 @@ export function calculateIntentScore({
   score += messages.filter((message) => message.role === "USER").length * rules.customerMessageSent;
   if (has(/precio|cu[aá]nto|cuanto|vale|costo|cuesta/, messages)) score += rules.priceQuestion;
   if (has(/talla|color|stock|disponible|disponibilidad|hay|variante/, messages)) score += rules.variantQuestion;
-  if (has(/quiero|me interesa|comprar|como compro|cómo compro|pedido|lo llevo/, messages)) score += rules.buyIntent;
+  if (has(/quiero|me interesa|comprar|como compro|cómo compro|pedir|pedido|lo llevo/, messages)) score += rules.buyIntent;
   if (whatsappClicked || events.some((event) => event.eventType === "WHATSAPP_CLICKED")) score += rules.whatsappClicked;
 
   const productViews = events.filter((event) => event.eventType === "PRODUCT_VIEW" && event.productId);

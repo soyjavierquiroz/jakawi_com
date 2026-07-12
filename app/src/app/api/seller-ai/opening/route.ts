@@ -8,6 +8,8 @@ import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib
 import { addJourneyEvent, updateJourneyStage } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
 import { buildQuickRepliesForMode, getCommercialTypeCopy, inferSellerAiMode } from "@/lib/seller-ai/modes";
+import { resolveOfferType } from "@/lib/seller-ai/offer-type";
+import { getInitialQuickReplyLabels, toSellerQuickReplies } from "@/lib/seller-ai/quick-replies";
 import { getOpeningMessage, getQuickReplies } from "@/lib/seller-ai/templates";
 import { getSellerVoiceNoteConfig } from "@/lib/seller-ai/voice-notes";
 
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
     : null;
   if ((parsed.data.productId || parsed.data.productSlug) && !product) return NextResponse.json({ ok: false, error: "Product not found" }, { status: 404 });
 
-  const { lead, journey } = await ensureSellerLead({
+  const ensured = await ensureSellerLead({
     storeId: store.id,
     sessionId: parsed.data.sessionId,
     visitorId: parsed.data.visitorId,
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
     source: product ? "product_page" : "store_discovery",
     journeyId: parsed.data.journeyId,
   });
+  const { lead, journey } = ensured;
   const inferred = inferSellerAiMode({
     hasProductContext: Boolean(product),
     productId: product?.id,
@@ -97,7 +100,17 @@ export async function POST(request: Request) {
 
   const commercialCopy = getCommercialTypeCopy(store.commercialType);
   const discoveryOpening = getDiscoveryOpening(store.name, store.categories).replace("¿Qué estás buscando hoy?", commercialCopy.discoveryOpening);
-  const message = product ? getOpeningMessage({ product, category: product.category, store }) : discoveryOpening;
+  const offerType = resolveOfferType(store, product);
+  const message =
+    product && ensured.productChanged
+      ? offerType === "MENU"
+        ? `Ahora estás viendo ${product.name}. Te puedo ayudar con ingredientes, porción, precio o pedido.`
+        : offerType === "SERVICE"
+          ? `Ahora estás viendo ${product.name}. Te puedo ayudar con qué incluye, duración, precio o agenda.`
+          : `Ahora estás viendo ${product.name}. Te puedo ayudar con características, medidas, precio o compra.`
+      : product
+        ? getOpeningMessage({ product, category: product.category, store })
+        : discoveryOpening;
   const conversationId = lead.conversation?.id;
 
   if (conversationId) {
@@ -106,7 +119,7 @@ export async function POST(request: Request) {
         conversationId,
         role: MessageRole.ASSISTANT,
         content: message,
-        metadata: { kind: "opening", mode, stage, productId: product?.id, journeyId: journey.id },
+        metadata: { kind: ensured.productChanged ? "product_switch" : "opening", mode, stage, offerType, productId: product?.id, journeyId: journey.id },
       },
     });
   }
@@ -125,8 +138,18 @@ export async function POST(request: Request) {
     eventType: LeadEventType.AI_MESSAGE_SENT,
     productId: product?.id,
     journeyId: journey.id,
-    metadata: { kind: "opening", mode, stage },
+    metadata: { kind: ensured.productChanged ? "product_switch" : "opening", mode, stage, offerType },
   });
+  const quickReplyLabels = product
+    ? buildQuickRepliesForMode({
+        mode,
+        commercialType: store.commercialType,
+        store,
+        product,
+        category: product?.category,
+        recommendedProducts: recommendations,
+      }) ?? getQuickReplies({ product, category: product.category })
+    : getInitialQuickReplyLabels(offerType);
 
   return NextResponse.json({
     ok: true,
@@ -138,15 +161,10 @@ export async function POST(request: Request) {
     assistantMessage: message,
     mode,
     stage,
+    offerType,
+    productChanged: ensured.productChanged,
     shouldStartPhoneCapture: false,
-    quickReplies: buildQuickRepliesForMode({
-      mode,
-      commercialType: store.commercialType,
-      store,
-      product,
-      category: product?.category,
-      recommendedProducts: recommendations,
-    }) ?? (product ? getQuickReplies({ product, category: product.category }) : commercialCopy.quickReplies),
+    quickReplies: toSellerQuickReplies(quickReplyLabels, offerType),
     recommendedProducts: recommendations,
     showRecommendedProducts: false,
     voiceNotes: {

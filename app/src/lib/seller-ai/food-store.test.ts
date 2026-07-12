@@ -175,11 +175,11 @@ test("food quick replies are contextual after ingredients and order", () => {
   });
 
   assert.deepEqual(afterIngredients, ["Confirmar disponibilidad", "Pedir por WhatsApp", "Ver precio", "Volver al producto"]);
-  assert.deepEqual(afterOrder, ["Ya te dejo mi número", "¿Cuánto tarda?", "Confirmar disponibilidad"]);
+  assert.deepEqual(afterOrder, ["Ya te dejo mi número", "Ver precio", "Confirmar disponibilidad"]);
   assert.doesNotMatch([...afterIngredients, ...afterOrder].join(" "), forbiddenFoodReplies);
 });
 
-test("non-food ecommerce products can keep occasion chips", () => {
+test("non-food ecommerce products use product advisor chips", () => {
   const replies = buildQuickRepliesForMode({
     mode: "PRODUCT_ADVISOR",
     commercialType: "PRODUCT_STORE",
@@ -188,8 +188,7 @@ test("non-food ecommerce products can keep occasion chips", () => {
     category: { name: "Celulares" },
   });
 
-  assert.ok(replies.includes("Trabajo"));
-  assert.ok(replies.includes("Fotos"));
+  assert.deepEqual(replies, ["Características", "Medidas", "Precio", "Comprar"]);
 });
 
 test("lead scoring still qualifies explicit purchase intent", () => {

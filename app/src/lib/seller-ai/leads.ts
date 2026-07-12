@@ -196,6 +196,7 @@ export async function ensureSellerLead({
   });
 
   if (existing) {
+    const previousCurrentProductId = existing.currentProductId;
     const lead = await getPrisma().lead.update({
       where: { id: existing.id },
       data: {
@@ -229,7 +230,13 @@ export async function ensureSellerLead({
       conversationSummary: lead.conversationSummary,
     });
 
-    return { lead: { ...lead, conversation }, journey, created: false };
+    return {
+      lead: { ...lead, conversation },
+      journey,
+      created: false,
+      previousCurrentProductId,
+      productChanged: Boolean(currentProductId && previousCurrentProductId && currentProductId !== previousCurrentProductId),
+    };
   }
 
   const lead = await getPrisma().lead.create({
@@ -264,7 +271,7 @@ export async function ensureSellerLead({
     payload: { leadId: lead.id, leadCode: lead.leadCode },
   });
 
-  return { lead, journey, created: true };
+  return { lead, journey, created: true, previousCurrentProductId: null, productChanged: false };
 }
 
 function mapLeadEventToJourneyEvent(eventType: LeadEventType) {

@@ -6,6 +6,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { SmartPhoneInput } from "@/components/forms/SmartPhoneInput";
 import { sellerAiConfig } from "@/config/seller-ai";
 import { getVisitorSessionId } from "@/lib/session-id";
+import { quickReplyActionForLabel, type SellerQuickReply } from "@/lib/seller-ai/quick-replies";
 import type { SellerAiMode as StorefrontSellerAiMode } from "@/lib/storefront-flow";
 import type { SellerAiMode as CommercialSellerAiMode } from "@/lib/seller-ai/modes";
 import type { SellerVoiceNoteConfig, SellerVoiceNoteType } from "@/lib/seller-ai/voice-notes";
@@ -69,6 +70,14 @@ type SellerAiOpenEvent = CustomEvent<{
   action?: "chat" | "whatsapp";
 }>;
 
+type SelectedProductContext = {
+  id?: string;
+  name?: string;
+  imageUrl?: string | null;
+  priceLabel?: string | null;
+  categoryName?: string | null;
+};
+
 function messageId() {
   return `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -126,6 +135,13 @@ function normalizeReply(input?: string | null) {
     .trim();
 }
 
+function normalizeQuickReplies(replies?: Array<string | SellerQuickReply> | null): SellerQuickReply[] {
+  return (replies ?? sellerAiConfig.quickReplies.default).slice(0, 4).map((reply) => {
+    if (typeof reply === "string") return { label: reply, action: quickReplyActionForLabel(reply, "PRODUCT") };
+    return reply;
+  });
+}
+
 function voiceNoteSeenKey(type: SellerVoiceNoteType, storeSlug: string, journeyId: string) {
   return `jakawi_voice_${type.toLowerCase()}_seen_${storeSlug}_${journeyId}`;
 }
@@ -153,11 +169,18 @@ export function SellerAiWidget({
 }: SellerAiWidgetProps) {
   const widgetCopy = sellerAiConfig.widget;
   const phoneCaptureCopy = sellerAiConfig.phoneCapture[mode === "premium" ? "premium" : mode === "guided" ? "guided" : "assistive"];
-  const phoneCaptureTitle = productName ? "¿A qué número confirmamos?" : phoneCaptureCopy.title;
-  const phoneCaptureMessage = productName ? `Déjanos tu WhatsApp para que ${storeName} pueda ubicar tu consulta y confirmar el pedido.` : phoneCaptureCopy.message;
   const closedLabel = triggerLabel ?? (mode === "premium" ? widgetCopy.premiumClosedLabel : widgetCopy.closedLabel);
   const widgetTitle = mode === "premium" ? "Seller AI Premium" : widgetCopy.title;
-  const currentProductKey = `${productId ?? "store"}:${productName ?? ""}`;
+  const [selectedProduct, setSelectedProduct] = useState<SelectedProductContext>({
+    id: productId,
+    name: productName,
+    imageUrl: productImageUrl,
+    priceLabel: productPriceLabel,
+    categoryName,
+  });
+  const phoneCaptureTitle = selectedProduct.name ? "¿A qué número confirmamos?" : phoneCaptureCopy.title;
+  const phoneCaptureMessage = selectedProduct.name ? `Déjanos tu WhatsApp para que ${storeName} pueda ubicar tu consulta y confirmar el pedido.` : phoneCaptureCopy.message;
+  const currentProductKey = `${selectedProduct.id ?? "store"}:${selectedProduct.name ?? ""}`;
   const [sessionId] = useState(() => (typeof window === "undefined" ? "" : getVisitorSessionId()));
   const [step, setStep] = useState<WidgetStep>("closed");
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -168,7 +191,7 @@ export function SellerAiWidget({
   const [leadCode, setLeadCode] = useState<string | null>(null);
   const [journeyId, setJourneyId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [quickReplies, setQuickReplies] = useState<string[]>(sellerAiConfig.quickReplies.default);
+  const [quickReplies, setQuickReplies] = useState<SellerQuickReply[]>(() => normalizeQuickReplies(sellerAiConfig.quickReplies.default));
   const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
   const [showRecommendedProductCards, setShowRecommendedProductCards] = useState(false);
   const [recommendedProductContextKey, setRecommendedProductContextKey] = useState<string | null>(null);
@@ -209,7 +232,7 @@ export function SellerAiWidget({
   const chatIsBusy = isAssistantBusy;
   const ctaIsStrong = hasStrongPurchaseIntent || commercialStage === "CLOSING_PREP";
   const showWhatsappCta = step === "chat" && messages.length > 0 && shouldShowWhatsappCta;
-  const contextSubtitle = productName ? `Asesorando: ${productName}` : `Te ayuda ${storeName}`;
+  const contextSubtitle = selectedProduct.name ? `Asesorando: ${selectedProduct.name}` : `Te ayuda ${storeName}`;
   const whatsappCtaText = widgetCopy.continueWhatsappLong;
 
   const getAudioContext = useCallback(() => {
@@ -354,7 +377,7 @@ export function SellerAiWidget({
 
     return quickReplies
       .filter((reply) => {
-        const normalizedReply = normalizeReply(reply);
+        const normalizedReply = normalizeReply(reply.label);
         if (!normalizedReply || normalizedReply === lastUserMessage || used.has(normalizedReply)) return false;
         if (normalizedNeed === "regalo" && (normalizedReply === "para regalar" || normalizedReply === "es para regalar")) return false;
         if (normalizedNeed === "fotos" && normalizedReply === "fotos") return false;
@@ -365,31 +388,31 @@ export function SellerAiWidget({
   }, [detectedNeed, messages, quickReplies]);
 
   const teaserText = useMemo(() => {
-    const text = `${productName ?? ""} ${categoryName ?? ""}`.toLowerCase();
+    const text = `${selectedProduct.name ?? ""} ${selectedProduct.categoryName ?? ""}`.toLowerCase();
     if (/termo|thermo|vaso/.test(text)) return widgetCopy.closedTeasers.termo;
     if (/aud[ií]fono|auricular|headphone/.test(text)) return widgetCopy.closedTeasers.audifonos;
     if (/mochila|bolso/.test(text)) return widgetCopy.closedTeasers.mochila;
     return widgetCopy.closedTeaserDefault;
-  }, [categoryName, productName, widgetCopy.closedTeaserDefault, widgetCopy.closedTeasers.audifonos, widgetCopy.closedTeasers.mochila, widgetCopy.closedTeasers.termo]);
+  }, [selectedProduct.categoryName, selectedProduct.name, widgetCopy.closedTeaserDefault, widgetCopy.closedTeasers.audifonos, widgetCopy.closedTeasers.mochila, widgetCopy.closedTeasers.termo]);
 
   useEffect(() => {
     if (!sellerAiConfig.enabled || !sessionId) return;
 
-    if (productId) {
+    if (selectedProduct.id) {
       void postJson<{ journeyId?: string }>("/api/seller-ai/events", {
         sessionId,
         visitorId: sessionId,
         storeSlug,
         eventType: "PRODUCT_VIEW",
-        productId,
-        metadata: { productName, categoryName },
+        productId: selectedProduct.id,
+        metadata: { productName: selectedProduct.name, categoryName: selectedProduct.categoryName },
       })
         .then((response) => {
           if (response.journeyId) setJourneyId(response.journeyId);
         })
         .catch(() => undefined);
     }
-  }, [categoryName, productId, productName, sessionId, storeSlug]);
+  }, [selectedProduct.categoryName, selectedProduct.id, selectedProduct.name, sessionId, storeSlug]);
 
   useEffect(() => {
     if (!sellerAiConfig.enabled || !isClosed || hasInteracted) return;
@@ -425,7 +448,9 @@ export function SellerAiWidget({
     return () => window.cancelAnimationFrame(frame);
   }, [displayedQuickReplies.length, error, isAssistantTyping, isLoading, messages.length, phoneError, redirectError, shouldShowWhatsappCta, step]);
 
-  const openChat = useCallback(async (options?: { afterOpen?: WidgetStep }) => {
+  const openChat = useCallback(async (options?: { afterOpen?: WidgetStep; product?: SelectedProductContext }) => {
+    const activeProduct = options?.product ?? selectedProduct;
+    const activeProductKey = `${activeProduct.id ?? "store"}:${activeProduct.name ?? ""}`;
     setHasInteracted(true);
     setShowTeaser(false);
     setStep("chat");
@@ -434,6 +459,32 @@ export function SellerAiWidget({
     setRecommendedProductContextKey(null);
     if (!sessionId) return null;
     if (openedRef.current) {
+      if (activeProduct.id && activeProduct.id !== selectedProduct.id) {
+        setIsLoading(true);
+        try {
+          const opening = await postJson<{
+            leadId: string;
+            leadCode: string;
+            journeyId?: string;
+            message: string;
+            assistantMessage?: string;
+            mode?: CommercialSellerAiMode;
+            stage?: CommercialSellerAiMode;
+            quickReplies: Array<string | SellerQuickReply>;
+          }>("/api/seller-ai/opening", { sessionId, visitorId: sessionId, storeSlug, productId: activeProduct.id, journeyId: journeyId ?? undefined });
+          setLeadId(opening.leadId);
+          setLeadCode(opening.leadCode);
+          if (opening.journeyId) setJourneyId(opening.journeyId);
+          if (opening.mode) setCommercialMode(opening.mode);
+          if (opening.stage) setCommercialStage(opening.stage);
+          await appendAssistantResponse({ assistantMessage: opening.assistantMessage ?? opening.message, message: opening.message }, opening.journeyId ?? journeyId);
+          setQuickReplies(normalizeQuickReplies(opening.quickReplies));
+        } catch {
+          setError("No pude cambiar el producto activo ahora. Puedes escribir tu consulta y la tienda la revisa.");
+        } finally {
+          setIsLoading(false);
+        }
+      }
       if (options?.afterOpen) setStep(options.afterOpen);
       return leadId;
     }
@@ -453,7 +504,7 @@ export function SellerAiWidget({
         visitorId: sessionId,
         storeSlug,
         eventType: "CHAT_OPENED",
-        productId,
+        productId: activeProduct.id,
       });
       const resolvedJourneyId = eventResponse.journeyId ?? journeyId;
       if (resolvedJourneyId) setJourneyId(resolvedJourneyId);
@@ -466,7 +517,7 @@ export function SellerAiWidget({
         assistantMessage?: string;
         mode?: CommercialSellerAiMode;
         stage?: CommercialSellerAiMode;
-        quickReplies: string[];
+        quickReplies: Array<string | SellerQuickReply>;
         recommendedProducts?: RecommendedProduct[];
         showRecommendedProducts?: boolean;
         voiceNotes?: {
@@ -474,7 +525,7 @@ export function SellerAiWidget({
           guidance?: SellerVoiceNoteConfig;
           handoff?: SellerVoiceNoteConfig;
         };
-      }>("/api/seller-ai/opening", { sessionId, visitorId: sessionId, storeSlug, productId, journeyId: resolvedJourneyId });
+      }>("/api/seller-ai/opening", { sessionId, visitorId: sessionId, storeSlug, productId: activeProduct.id, journeyId: resolvedJourneyId });
       const [opening] = await Promise.all([openingPromise, openingDelay]);
       setLeadId(opening.leadId);
       nextLeadId = opening.leadId;
@@ -489,9 +540,9 @@ export function SellerAiWidget({
       });
       const nextJourneyId = opening.journeyId ?? resolvedJourneyId;
       await appendAssistantResponse({ assistantMessage: opening.assistantMessage ?? opening.message, message: opening.message, voiceNote: opening.voiceNotes?.intro }, nextJourneyId);
-      setQuickReplies(opening.quickReplies);
+      setQuickReplies(normalizeQuickReplies(opening.quickReplies));
       setShowRecommendedProductCards(opening.showRecommendedProducts === true);
-      setRecommendedProductContextKey(opening.showRecommendedProducts === true ? currentProductKey : null);
+      setRecommendedProductContextKey(opening.showRecommendedProducts === true ? activeProductKey : null);
       setRecommendedProducts(opening.showRecommendedProducts === true ? (opening.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
       if (options?.afterOpen === "phone_capture") await appendAssistantResponse({ voiceNote: opening.voiceNotes?.handoff }, nextJourneyId);
       if (options?.afterOpen && nextLeadId) setStep(options.afterOpen);
@@ -505,7 +556,7 @@ export function SellerAiWidget({
       setAssistantIndicator("typing");
       setIsLoading(false);
     }
-  }, [appendAssistantResponse, currentProductKey, journeyId, leadId, messages.length, productId, sessionId, storeSlug]);
+  }, [appendAssistantResponse, journeyId, leadId, messages.length, selectedProduct, sessionId, storeSlug]);
 
   const closeWidget = useCallback(() => {
     setHasInteracted(true);
@@ -514,7 +565,7 @@ export function SellerAiWidget({
   }, []);
 
   const sendMessage = useCallback(
-    async (value: string) => {
+    async (value: string, quickReply?: SellerQuickReply) => {
       const clean = value.trim();
       if (!clean || (!leadId && !journeyId)) return;
       if (assistantBusyRef.current || isAssistantBusy) return;
@@ -538,7 +589,7 @@ export function SellerAiWidget({
           message?: string;
           mode?: CommercialSellerAiMode;
           stage?: CommercialSellerAiMode;
-          quickReplies: string[];
+          quickReplies: Array<string | SellerQuickReply>;
           recommendedProducts?: RecommendedProduct[];
           showRecommendedProducts?: boolean;
           shouldShowWhatsappCta: boolean;
@@ -547,7 +598,18 @@ export function SellerAiWidget({
           detectedNeed?: string | null;
           voiceNote?: SellerVoiceNoteConfig | null;
           voiceNoteSuggestion?: SellerVoiceNoteType;
-        }>("/api/seller-ai/chat", { leadId: leadId ?? undefined, journeyId: journeyId ?? undefined, sessionId, visitorId: sessionId, storeSlug, message: clean, currentProductId: productId });
+        }>("/api/seller-ai/chat", {
+          leadId: leadId ?? undefined,
+          journeyId: journeyId ?? undefined,
+          sessionId,
+          visitorId: sessionId,
+          storeSlug,
+          message: clean,
+          quickReply,
+          quickReplyAction: quickReply?.action,
+          quickReplyLabel: quickReply?.label,
+          currentProductId: selectedProduct.id,
+        });
         if (response.leadId) setLeadId(response.leadId);
         if (response.leadCode) setLeadCode(response.leadCode);
         if (response.journeyId) setJourneyId(response.journeyId);
@@ -555,7 +617,7 @@ export function SellerAiWidget({
         if (response.stage) setCommercialStage(response.stage);
         if (response.detectedNeed !== undefined) setDetectedNeed(response.detectedNeed ?? null);
         await appendAssistantResponse(response, response.journeyId ?? journeyId);
-        setQuickReplies(response.quickReplies);
+        setQuickReplies(normalizeQuickReplies(response.quickReplies));
         setShowRecommendedProductCards(response.showRecommendedProducts === true);
         setRecommendedProductContextKey(response.showRecommendedProducts === true ? currentProductKey : null);
         setRecommendedProducts(response.showRecommendedProducts === true ? (response.recommendedProducts ?? []).slice(0, sellerAiConfig.maxRecommendedProducts) : []);
@@ -572,7 +634,7 @@ export function SellerAiWidget({
         assistantBusyRef.current = false;
       }
     },
-    [appendAssistantResponse, currentProductKey, isAssistantBusy, journeyId, leadId, playChatTone, productId, requirePhoneBeforeWhatsapp, sessionId, storeSlug],
+    [appendAssistantResponse, currentProductKey, isAssistantBusy, journeyId, leadId, playChatTone, requirePhoneBeforeWhatsapp, selectedProduct.id, sessionId, storeSlug],
   );
 
   const continueWhatsapp = useCallback(async () => {
@@ -594,7 +656,7 @@ export function SellerAiWidget({
       const response = await postJson<{ whatsappUrl: string }>("/api/seller-ai/continue-whatsapp", {
         leadId,
         journeyId: journeyId ?? undefined,
-        selectedProductId: productId,
+        selectedProductId: selectedProduct.id,
         customerPhone: normalizedPhone,
         customerName: customerName.trim() || undefined,
       });
@@ -609,7 +671,7 @@ export function SellerAiWidget({
       setStep("phone_capture");
       setIsLoading(false);
     }
-  }, [customerName, customerPhone, customerPhoneIsValid, journeyId, leadId, productId, requirePhoneBeforeWhatsapp, widgetCopy.phoneInvalidError, widgetCopy.redirectFailed]);
+  }, [customerName, customerPhone, customerPhoneIsValid, journeyId, leadId, requirePhoneBeforeWhatsapp, selectedProduct.id, widgetCopy.phoneInvalidError, widgetCopy.redirectFailed]);
 
   const requestWhatsappStep = useCallback(async () => {
     if (assistantBusyRef.current || isAssistantBusy) return;
@@ -642,19 +704,28 @@ export function SellerAiWidget({
 
     function handleOpen(event: Event) {
       const detail = (event as SellerAiOpenEvent).detail;
-      if (detail?.productId && productId && detail.productId !== productId) return;
+      const eventProduct = detail?.productId
+        ? {
+            id: detail.productId,
+            name: detail.productName ?? selectedProduct.name,
+            imageUrl: detail.productId === productId ? productImageUrl : null,
+            priceLabel: detail.productId === productId ? productPriceLabel : null,
+            categoryName: detail.productId === productId ? categoryName : null,
+          }
+        : selectedProduct;
+      setSelectedProduct(eventProduct);
 
       if (detail?.action === "whatsapp") {
-        void openChat();
+        void openChat({ product: eventProduct });
         return;
       }
 
-      void openChat();
+      void openChat({ product: eventProduct });
     }
 
     window.addEventListener("jakawi:seller-ai-open", handleOpen);
     return () => window.removeEventListener("jakawi:seller-ai-open", handleOpen);
-  }, [mode, openChat, productId, requestWhatsappStep]);
+  }, [categoryName, mode, openChat, productId, productImageUrl, productPriceLabel, selectedProduct]);
 
   function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -710,13 +781,13 @@ export function SellerAiWidget({
           </header>
 
           <div className="shrink-0 border-b border-[var(--space-border)] bg-[var(--space-surface)] px-4 py-2 text-[var(--space-surface-contrast)]">
-            {productName ? (
+            {selectedProduct.name ? (
               <div className="flex items-center gap-2.5">
-                {productImageUrl ? <Image src={productImageUrl} alt="" width={40} height={40} sizes="40px" unoptimized className="size-10 shrink-0 rounded-md object-cover" /> : null}
+                {selectedProduct.imageUrl ? <Image src={selectedProduct.imageUrl} alt="" width={40} height={40} sizes="40px" unoptimized className="size-10 shrink-0 rounded-md object-cover" /> : null}
                 <div className="min-w-0">
                   <p className="text-[10px] font-black uppercase tracking-normal text-neutral-500">Producto seleccionado</p>
-                  <p className="truncate text-[13px] font-black leading-4">{productName}</p>
-                  <p className="truncate text-[12px] font-semibold leading-4 text-neutral-500">{[productPriceLabel, categoryName].filter(Boolean).join(" · ")}</p>
+                  <p className="truncate text-[13px] font-black leading-4">{selectedProduct.name}</p>
+                  <p className="truncate text-[12px] font-semibold leading-4 text-neutral-500">{[selectedProduct.priceLabel, selectedProduct.categoryName].filter(Boolean).join(" · ")}</p>
                 </div>
               </div>
             ) : (
@@ -813,13 +884,13 @@ export function SellerAiWidget({
                   <div className="flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {displayedQuickReplies.map((reply) => (
                       <button
-                        key={reply}
+                        key={`${reply.label}:${reply.action}`}
                         type="button"
-                        onClick={() => void sendMessage(reply)}
+                        onClick={() => void sendMessage(reply.label, reply)}
                         disabled={chatIsBusy || !leadId}
                         className="h-9 shrink-0 rounded-full border border-[var(--space-border)] bg-[var(--space-muted)] px-3 text-sm font-black text-[var(--space-surface-contrast)] transition hover:brightness-95 disabled:opacity-50"
                       >
-                        {reply}
+                        {reply.label}
                       </button>
                     ))}
                   </div>

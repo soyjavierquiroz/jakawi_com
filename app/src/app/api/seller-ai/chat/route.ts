@@ -9,11 +9,14 @@ import { getPrisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
 import { describeFoodProductFromName, getMenuProductProfile, isFoodRestaurantContext } from "@/lib/seller-ai/context";
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
+import { isInformationalSellerIntent, resolveSellerIntent, type SellerIntent } from "@/lib/seller-ai/intent-router";
 import { buildWhatsappHandoffMessage, buildWhatsappHandoffUrl, computeLeadQualification, shouldShowWhatsappHandoff } from "@/lib/seller-ai/lead-qualification";
 import { getOrCreateCustomerJourney, updateJourneyCommercialSignals } from "@/lib/seller-ai/journey";
 import { ensureSellerLead, logLeadEvent } from "@/lib/seller-ai/leads";
 import { tryGetSellerAiLlmReply } from "@/lib/seller-ai/llm";
 import { buildQuickRepliesForMode, extractCommercialSignals, inferSellerAiMode, type SellerAiMode } from "@/lib/seller-ai/modes";
+import { resolveOfferType, type SellerOfferType } from "@/lib/seller-ai/offer-type";
+import { toSellerQuickReplies } from "@/lib/seller-ai/quick-replies";
 import { getSellerAiRecommendations, type SellerAiRecommendedProduct } from "@/lib/seller-ai/recommendations";
 import { createCommercialSnapshot } from "@/lib/seller-ai/snapshot";
 import { getSellerVoiceNoteConfig } from "@/lib/seller-ai/voice-notes";
@@ -25,6 +28,10 @@ const chatSchema = z.object({
   visitorId: z.string().min(6).max(160).optional(),
   storeSlug: z.string().min(1).max(80).optional(),
   message: z.string().min(1).max(1000),
+  quickReplyAction: z.string().min(1).max(80).optional(),
+  quickReplyLabel: z.string().min(1).max(120).optional(),
+  quickReply: z.object({ label: z.string().min(1).max(120), action: z.string().min(1).max(80) }).optional(),
+  ctaAction: z.string().min(1).max(80).optional(),
   currentProductId: z.string().optional(),
 });
 
@@ -123,6 +130,21 @@ function wantsFoodOrder(input?: string | null) {
   return /\b(pedir|pedido|pedir por whatsapp|hacer pedido|comprar|lo quiero|whatsapp)\b/.test(text);
 }
 
+function messageForSellerIntent(intent: SellerIntent, fallback: string) {
+  if (intent === "ASK_INGREDIENTS") return "ingredientes";
+  if (intent === "ASK_PORTION") return "porción";
+  if (intent === "ASK_PRICE") return "precio";
+  if (intent === "ASK_AVAILABILITY") return "disponibilidad";
+  if (intent === "ASK_FEATURES") return "características";
+  if (intent === "ASK_SIZE") return "medidas";
+  if (intent === "ASK_SHIPPING") return "envío";
+  if (intent === "ASK_SERVICE_INCLUDED") return "qué incluye";
+  if (intent === "ASK_DURATION") return "duración";
+  if (intent === "START_ORDER") return "pedir por WhatsApp";
+  if (intent === "START_BOOKING") return "agendar";
+  return fallback;
+}
+
 function foodProductLabel(product: ProductForReply) {
   const categoryName = normalizeText(product.category?.name);
   if (/ensalada|sopa/.test(categoryName)) return `La ${product.name}`;
@@ -174,6 +196,58 @@ function buildFoodAssistantMessage({
   const description = product.description?.trim();
   if (description) return `${product.name}: ${description} Puedo ayudarte a confirmar disponibilidad o pasarte a WhatsApp para hacer el pedido.`;
   return `Tenemos registrada esta opción como ${describeFoodProductFromName(product.name)}. Puedo ayudarte con ingredientes, porción, precio o a pedir por WhatsApp.`;
+}
+
+function buildProductAssistantMessage({
+  intent,
+  product,
+  store,
+}: {
+  intent: SellerIntent;
+  product?: ProductForReply | null;
+  store: StoreForReply;
+}) {
+  const productName = product?.name ?? "este producto";
+  if (intent === "ASK_FEATURES") {
+    const description = product?.description?.trim();
+    return description
+      ? `${productName}: ${description}. Puedo ayudarte con medidas, precio, disponibilidad o compra.`
+      : `Aún no tengo características detalladas cargadas para ${productName}. Puedo ayudarte a consultar material, uso o detalles con ${store.name}.`;
+  }
+  if (intent === "ASK_SIZE") return `Las medidas o tallas de ${productName} conviene confirmarlas con ${store.name}. Puedo dejar esa consulta lista para la tienda.`;
+  if (intent === "ASK_SHIPPING") return `El envío de ${productName} lo confirma ${store.name} según tu zona. Puedo dejar la consulta lista con el producto que estás viendo.`;
+  if (intent === "ASK_PRICE" && product) {
+    if (!hasPublishedPrice(product)) return `El precio actualizado de ${productName} lo confirma ${store.name}.`;
+    return priceLine({ product, store });
+  }
+  if (intent === "ASK_AVAILABILITY") return `La disponibilidad de ${productName} la confirma ${store.name}. Puedo ayudarte a apartarlo o dejar la consulta clara.`;
+  if (intent === "START_ORDER") return `Perfecto. Te ayudo a apartar/comprar ${productName}. ¿A qué número te escribe la tienda?`;
+  return `${productName} puede ser buena opción si encaja con lo que buscas. Te puedo ayudar con características, medidas, precio o compra.`;
+}
+
+function buildServiceAssistantMessage({
+  intent,
+  product,
+  store,
+}: {
+  intent: SellerIntent;
+  product?: ProductForReply | null;
+  store: StoreForReply;
+}) {
+  const serviceName = product?.name ?? "este servicio";
+  if (intent === "ASK_SERVICE_INCLUDED") {
+    const description = product?.description?.trim();
+    return description ? `${serviceName}: ${description}. También puedo ayudarte con duración, precio o agenda.` : `Aún no tengo el detalle completo de qué incluye ${serviceName}. ${store.name} puede confirmarlo al coordinar.`;
+  }
+  if (intent === "ASK_DURATION") return `La duración de ${serviceName} la confirma ${store.name} según disponibilidad y modalidad.`;
+  if (intent === "ASK_PRICE" && product) {
+    if (!hasPublishedPrice(product)) return `El precio actualizado de ${serviceName} lo confirma ${store.name}.`;
+    return priceLine({ product, store });
+  }
+  if (intent === "ASK_AVAILABILITY") return `${store.name} puede confirmar disponibilidad para ${serviceName}.`;
+  if (intent === "START_BOOKING") return `Perfecto. Te ayudo a coordinar ${serviceName}. ¿A qué número te contactan para agendar?`;
+  if (intent === "START_ORDER") return `Perfecto. Te ayudo a coordinar ${serviceName} por WhatsApp. ¿A qué número te contactan?`;
+  return `Te ayudo con ${serviceName}: qué incluye, duración, precio o agenda.`;
 }
 
 function mergeQuickReplies(baseReplies: string[], additions: Array<string | null | undefined>) {
@@ -229,6 +303,8 @@ export function buildAssistantMessage({
   detectedNeed,
   recommendations,
   shouldAskPhone,
+  offerType,
+  intent,
 }: {
   mode: SellerAiMode;
   userMessage: string;
@@ -237,10 +313,21 @@ export function buildAssistantMessage({
   detectedNeed?: string | null;
   recommendations: SellerAiRecommendedProduct[];
   shouldAskPhone?: boolean;
+  offerType?: SellerOfferType;
+  intent?: SellerIntent;
 }) {
   const text = normalizeText(userMessage);
   const recommendationNames = recommendations.slice(0, 3).map((item) => item.name);
-  const foodMode = isFoodRestaurantContext({ store, product, category: product?.category });
+  const resolvedOfferType = offerType ?? resolveOfferType(store, product);
+  const foodMode = resolvedOfferType === "MENU" || isFoodRestaurantContext({ store, product, category: product?.category });
+
+  if (intent && intent !== "UNKNOWN") {
+    if (foodMode && isInformationalSellerIntent(intent)) {
+      return buildFoodAssistantMessage({ userMessage: messageForSellerIntent(intent, userMessage), product, store });
+    }
+    if (resolvedOfferType === "PRODUCT") return buildProductAssistantMessage({ intent, product, store });
+    if (resolvedOfferType === "SERVICE") return buildServiceAssistantMessage({ intent, product, store });
+  }
 
   if (foodMode && mode === "CLOSING_PREP") {
     if (product && shouldAskPhone) return `Perfecto. Te dejo el pedido de ${product.name} listo para WhatsApp. ¿A qué número quieres que ${store.name} te confirme disponibilidad?`;
@@ -407,7 +494,17 @@ export async function POST(request: Request) {
         include: { category: true },
       })
     : null;
-  const signals = extractCommercialSignals(parsed.data.message);
+  const offerType = resolveOfferType(lead.store, product);
+  const sellerIntent = resolveSellerIntent({
+    quickReplyAction: parsed.data.quickReply?.action ?? parsed.data.quickReplyAction,
+    quickReplyLabel: parsed.data.quickReply?.label ?? parsed.data.quickReplyLabel,
+    ctaAction: parsed.data.ctaAction,
+    text: parsed.data.message,
+    offerType,
+  });
+  const intentMessage = messageForSellerIntent(sellerIntent, parsed.data.message);
+  const intentIsInformational = isInformationalSellerIntent(sellerIntent);
+  const signals = extractCommercialSignals(intentMessage);
 
   try {
     await incrementSellerAiConversationUsage(lead.storeId, { journeyId: journey.id });
@@ -425,7 +522,20 @@ export async function POST(request: Request) {
   }
 
   const userMessage = await getPrisma().conversationMessage.create({
-    data: { conversationId: conversation.id, role: MessageRole.USER, content: parsed.data.message, metadata: { journeyId: journey.id, productId: product?.id, signals } },
+    data: {
+      conversationId: conversation.id,
+      role: MessageRole.USER,
+      content: parsed.data.message,
+      metadata: {
+        journeyId: journey.id,
+        productId: product?.id,
+        offerType,
+        sellerIntent,
+        quickReplyAction: parsed.data.quickReply?.action ?? parsed.data.quickReplyAction,
+        quickReplyLabel: parsed.data.quickReply?.label ?? parsed.data.quickReplyLabel,
+        signals,
+      },
+    },
   });
 
   await logLeadEvent({
@@ -435,22 +545,31 @@ export async function POST(request: Request) {
     eventType: LeadEventType.CUSTOMER_MESSAGE_SENT,
     productId: product?.id,
     journeyId: journey.id,
-    metadata: { message: parsed.data.message },
+    metadata: { message: parsed.data.message, offerType, sellerIntent },
   });
 
   const events = await getPrisma().leadEvent.findMany({ where: { leadId: lead.id } });
   const messagesBeforeReply = [...conversation.messages, userMessage];
   const calculatedIntentScore = calculateIntentScore({ events, messages: messagesBeforeReply, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED });
   const provisionalIntentScore = Math.min(100, Math.max(calculatedIntentScore, journey.intentScore + signals.intentBoost, lead.intentScore + signals.intentBoost));
-  const inferred = inferSellerAiMode({
+  let inferred = inferSellerAiMode({
     currentStage: journey.stage as SellerAiMode,
     hasProductContext: Boolean(product),
     productId: product?.id,
-    message: parsed.data.message,
+    message: intentMessage,
     intentScore: provisionalIntentScore,
     objections: signals.objections,
   });
-  const shouldStartPhoneCapture = inferred.mode === "CLOSING_PREP" && inferred.reason === "explicit closing intent";
+  if (intentIsInformational) {
+    inferred = {
+      mode: product ? "PRODUCT_ADVISOR" : "DECISION_SUPPORT",
+      stage: product ? "PRODUCT_ADVISOR" : "DECISION_SUPPORT",
+      reason: "informational seller intent",
+    };
+  } else if (sellerIntent === "START_ORDER" || sellerIntent === "START_BOOKING") {
+    inferred = { mode: "CLOSING_PREP", stage: "CLOSING_PREP", reason: "explicit quick reply closing intent" };
+  }
+  const shouldStartPhoneCapture = !intentIsInformational && inferred.mode === "CLOSING_PREP" && (inferred.reason === "explicit closing intent" || inferred.reason === "explicit quick reply closing intent");
   const wantsAlternatives = wantsRecommendationAlternatives(parsed.data.message);
   const rawRecommendations =
     !wantsAlternatives || inferred.mode === "CLOSING_PREP"
@@ -467,15 +586,22 @@ export async function POST(request: Request) {
   let showRecommendedProducts = wantsAlternatives && recommendations.length > 0;
   let assistantMessage = buildAssistantMessage({
     mode: inferred.mode,
-    userMessage: parsed.data.message,
+    userMessage: intentMessage,
     product,
     store: lead.store,
     detectedNeed: signals.detectedNeed ?? journey.detectedNeed,
     recommendations,
     shouldAskPhone: shouldStartPhoneCapture,
+    offerType,
+    intent: sellerIntent,
   });
   const foodMode = isFoodRestaurantContext({ store: lead.store, product, category: product?.category });
-  const shouldUseRulesForFoodMessage = foodMode && (wantsIngredients(parsed.data.message) || wantsPortion(parsed.data.message) || wantsFoodOrder(parsed.data.message));
+  const shouldUseRulesForFoodMessage =
+    foodMode &&
+    (wantsIngredients(intentMessage) ||
+      wantsPortion(intentMessage) ||
+      wantsFoodOrder(intentMessage) ||
+      ["ASK_INGREDIENTS", "ASK_PORTION", "ASK_PRICE", "ASK_AVAILABILITY", "START_ORDER"].includes(sellerIntent));
   const llmReply = shouldUseRulesForFoodMessage
     ? null
     : await tryGetSellerAiLlmReply({
@@ -491,7 +617,7 @@ export async function POST(request: Request) {
         mode: inferred.mode,
         journeySummary: journey.conversationSummary,
         recentMessages: messagesBeforeReply,
-        visitorMessage: parsed.data.message,
+        visitorMessage: intentMessage,
       });
   if (llmReply) {
     assistantMessage = llmReply.output.reply;
@@ -508,6 +634,8 @@ export async function POST(request: Request) {
         journeyId: journey.id,
         mode: inferred.mode,
         stage: inferred.stage,
+        offerType,
+        sellerIntent,
         provider: llmReply ? "openai" : "rules",
         objectionType: llmReply?.output.objectionType,
       },
@@ -530,7 +658,7 @@ export async function POST(request: Request) {
     eventType: LeadEventType.AI_MESSAGE_SENT,
     productId: product?.id,
     journeyId: journey.id,
-    metadata: { message: assistantMessage, mode: inferred.mode, stage: inferred.stage, provider: llmReply ? "openai" : "rules" },
+    metadata: { message: assistantMessage, mode: inferred.mode, stage: inferred.stage, offerType, sellerIntent, provider: llmReply ? "openai" : "rules" },
   });
   const messages = [...messagesBeforeReply, replyMessage];
   const intentScore = Math.min(100, Math.max(provisionalIntentScore, calculateIntentScore({ events, messages, whatsappClicked: lead.status === LeadStatus.WHATSAPP_CLICKED })));
@@ -588,11 +716,12 @@ export async function POST(request: Request) {
     usedReplies: messagesBeforeReply.filter((message) => message.role === MessageRole.USER).map((message) => message.content),
     lastUserMessage: parsed.data.message,
   });
-  const quickReplies = llmReply
+  const quickReplyLabels = llmReply
     ? foodMode
       ? rulesQuickReplies
       : mergeQuickReplies(llmReply.output.quickReplies, [llmReply.output.handoffReady ? (llmReply.output.whatsappCtaLabel ?? "Continuar por WhatsApp") : null])
     : rulesQuickReplies;
+  const quickReplies = toSellerQuickReplies(quickReplyLabels, offerType);
   const handoffVoiceNote = getSellerVoiceNoteConfig(lead.store, "HANDOFF");
   const guidanceVoiceNote = getSellerVoiceNoteConfig(lead.store, "GUIDANCE");
   const voiceNote =
@@ -648,6 +777,8 @@ export async function POST(request: Request) {
     assistantMessage,
     mode: inferred.mode,
     stage: inferred.stage,
+    offerType,
+    sellerIntent,
     quickReplies,
     recommendedProducts: recommendations,
     showRecommendedProducts,
@@ -658,7 +789,7 @@ export async function POST(request: Request) {
     objections: signals.objections.length > 0 ? signals.objections.join(", ") : updatedJourney?.objections,
     intentLabel: classifyIntent(intentScore),
     shouldShowWhatsappCta,
-    shouldStartPhoneCapture: shouldShowWhatsappCta && (shouldStartPhoneCapture || Boolean(llmReply?.output.shouldAskPhone)),
+    shouldStartPhoneCapture: !intentIsInformational && shouldShowWhatsappCta && (shouldStartPhoneCapture || Boolean(llmReply?.output.shouldAskPhone)),
     whatsappHandoff: {
       visible: shouldShowWhatsappCta,
       code: handoffCode,

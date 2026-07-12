@@ -1,6 +1,8 @@
 import { sellerAiConfig } from "@/config/seller-ai";
 import { getFoodRestaurantQuickReplies, isFoodRestaurantContext } from "@/lib/seller-ai/context";
 import type { SellerAiMode } from "@/lib/seller-ai/modes";
+import { resolveOfferType } from "@/lib/seller-ai/offer-type";
+import { getInitialQuickReplyLabels } from "@/lib/seller-ai/quick-replies";
 
 type MessageLike = { role?: string | null; content?: string | null };
 
@@ -134,34 +136,40 @@ export function buildNextQuickReplies({
   const focus = buildConversationFocus({ detectedNeed, objections, lastUserMessage });
   const productReply = product?.name ? `Me interesa ${product.name}` : "Me interesa comprar";
   const recommended = recommendedProducts?.[0]?.name ? `Me interesa ${recommendedProducts[0].name}` : null;
-  const foodMode = isFoodRestaurantContext({ store: store ?? (commercialType ? { commercialType } : null), product, category });
+  const contextStore = store ?? (commercialType ? { commercialType } : null);
+  const offerType = resolveOfferType(contextStore, product ? { ...product, category } : null);
+  const foodMode = offerType === "MENU" || isFoodRestaurantContext({ store: contextStore, product, category });
 
   let replies: string[];
   if (foodMode && focus.lastKey === "ingredientes") {
     replies = ["Confirmar disponibilidad", "Pedir por WhatsApp", "Ver precio", "Volver al producto"];
   } else if (foodMode && (focus.lastKey === "pedido" || mode === "CLOSING_PREP")) {
-    replies = ["Ya te dejo mi número", "¿Cuánto tarda?", "Confirmar disponibilidad"];
+    replies = ["Ya te dejo mi número", "Ver precio", "Confirmar disponibilidad"];
   } else if (foodMode) {
     replies = getFoodRestaurantQuickReplies();
+  } else if (offerType === "SERVICE" && mode === "CLOSING_PREP") {
+    replies = ["Ya te dejo mi número", "Precio", "Volver al producto"];
+  } else if (offerType === "SERVICE") {
+    replies = getInitialQuickReplyLabels("SERVICE");
   } else if (mode === "CLOSING_PREP") {
-    replies = ["Enviar consulta por WhatsApp", "Quiero comprarlo", recommended ?? productReply];
+    replies = ["Ya te dejo mi número", "Precio", "Disponibilidad"];
   } else if (focus.hasAvailabilityQuestion) {
-    replies = ["Hablemos por WhatsApp", "También quiero saber envío", "Quiero comprarlo", "Volver al producto"];
+    replies = ["Envío", "Comprar", "Precio", "Volver al producto"];
   } else if (focus.hasShippingQuestion) {
-    replies = ["Hablemos por WhatsApp", "También quiero saber disponibilidad", "Quiero comprarlo", "Volver al producto"];
+    replies = ["Disponibilidad", "Comprar", "Precio", "Volver al producto"];
   } else if (focus.hasPriceQuestion) {
-    replies = ["¿Está disponible?", "¿Hacen envío?", "Me interesa comprar", "Hablemos por WhatsApp"];
+    replies = ["Disponibilidad", "Envío", "Comprar", "Volver al producto"];
   } else if (focus.hasGiftNeed) {
-    replies = ["Es para estudiante", "Es para trabajo", "Algo práctico", "Algo económico"];
+    replies = ["Características", "Medidas", "Precio", "Comprar"];
   } else if (detectedNeed && mode === "PRODUCT_ADVISOR") {
-    replies = ["¿Está disponible?", "¿Cuál es el precio?", "¿Hacen envío?", "Me interesa comprar"];
+    replies = ["Características", "Medidas", "Precio", "Comprar"];
   } else if (mode === "DECISION_SUPPORT") {
-    replies = ["¿Cuál es el precio?", "¿Está disponible?", "¿Hacen envío?", "Me interesa comprar"];
+    replies = ["Características", "Disponibilidad", "Envío", "Comprar"];
   } else if (mode === "PRODUCT_ADVISOR") {
-    replies = category?.name && /celular|telefono|tel[eé]fono|smartphone/i.test(category.name) ? ["Trabajo", "Fotos", "Redes", "Juegos"] : sellerAiConfig.modes.PRODUCT_ADVISOR.quickReplies;
+    replies = getInitialQuickReplyLabels("PRODUCT");
   } else if (mode === "DISCOVERY") {
     const commercialKey = (commercialType ?? "PRODUCT_STORE") as keyof typeof sellerAiConfig.commercialTypes;
-    replies = sellerAiConfig.commercialTypes[commercialKey]?.quickReplies ?? sellerAiConfig.commercialTypes.PRODUCT_STORE.quickReplies;
+    replies = offerType === "PRODUCT" ? getInitialQuickReplyLabels("PRODUCT") : (sellerAiConfig.commercialTypes[commercialKey]?.quickReplies ?? sellerAiConfig.commercialTypes.PRODUCT_STORE.quickReplies);
   } else {
     replies = [recommended ?? productReply, "Hablemos por WhatsApp"];
   }

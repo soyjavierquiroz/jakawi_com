@@ -1,0 +1,145 @@
+import type { SellerOfferType } from "@/lib/seller-ai/offer-type";
+
+export const sellerIntentValues = [
+  "ASK_INGREDIENTS",
+  "ASK_PORTION",
+  "ASK_PRICE",
+  "ASK_AVAILABILITY",
+  "ASK_FEATURES",
+  "ASK_SIZE",
+  "ASK_SHIPPING",
+  "ASK_SERVICE_INCLUDED",
+  "ASK_DURATION",
+  "START_ORDER",
+  "START_BOOKING",
+  "BACK_TO_PRODUCT",
+  "UNKNOWN",
+] as const;
+
+export type SellerIntent = (typeof sellerIntentValues)[number];
+
+export type SellerIntentInput = {
+  action?: string | null;
+  quickReplyAction?: string | null;
+  quickReplyLabel?: string | null;
+  text?: string | null;
+  ctaAction?: string | null;
+  offerType?: SellerOfferType;
+};
+
+const actionAliases: Record<string, SellerIntent> = {
+  ASK_INGREDIENTS: "ASK_INGREDIENTS",
+  ASK_PORTION: "ASK_PORTION",
+  ASK_PRICE: "ASK_PRICE",
+  ASK_AVAILABILITY: "ASK_AVAILABILITY",
+  ASK_FEATURES: "ASK_FEATURES",
+  ASK_SIZE: "ASK_SIZE",
+  ASK_SHIPPING: "ASK_SHIPPING",
+  ASK_SERVICE_INCLUDED: "ASK_SERVICE_INCLUDED",
+  ASK_DURATION: "ASK_DURATION",
+  START_ORDER: "START_ORDER",
+  START_BOOKING: "START_BOOKING",
+  BACK_TO_PRODUCT: "BACK_TO_PRODUCT",
+  CONTINUE_WHATSAPP: "START_ORDER",
+  BUY: "START_ORDER",
+  ORDER: "START_ORDER",
+  BOOK: "START_BOOKING",
+};
+
+function normalize(input?: string | null) {
+  return (input ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[¿?¡!.,:;]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeAction(input?: string | null) {
+  return (input ?? "").trim().toUpperCase();
+}
+
+function resolveAction(input?: string | null): SellerIntent | null {
+  const normalized = normalizeAction(input);
+  return actionAliases[normalized] ?? null;
+}
+
+function resolveLabel(label?: string | null, offerType: SellerOfferType = "PRODUCT"): SellerIntent | null {
+  const text = normalize(label);
+  if (!text) return null;
+
+  if (offerType === "MENU") {
+    if (/\b(ingrediente|ingredientes|que trae|que lleva|contiene)\b/.test(text)) return "ASK_INGREDIENTS";
+    if (/\b(porcion|tamano|tamaño|cantidad)\b/.test(text)) return "ASK_PORTION";
+    if (/\b(pedir|pedido|pedir por whatsapp)\b/.test(text)) return "START_ORDER";
+  }
+
+  if (offerType === "PRODUCT") {
+    if (/\b(caracteristicas|caracteristica|detalles|material|uso)\b/.test(text)) return "ASK_FEATURES";
+    if (/\b(medidas|medida|talla|tamano|tamaño)\b/.test(text)) return "ASK_SIZE";
+    if (/\b(envio|envío|entrega|delivery)\b/.test(text)) return "ASK_SHIPPING";
+    if (/\b(comprar|compra|comprarlo|comprarla)\b/.test(text)) return "START_ORDER";
+  }
+
+  if (offerType === "SERVICE") {
+    if (/\b(que incluye|incluye|incluido|incluida)\b/.test(text)) return "ASK_SERVICE_INCLUDED";
+    if (/\b(duracion|duración|cuanto dura|cuánto dura)\b/.test(text)) return "ASK_DURATION";
+    if (/\b(agendar|agenda|cita|reservar|reserva)\b/.test(text)) return "START_BOOKING";
+    if (/\b(whatsapp|hablar)\b/.test(text)) return "START_ORDER";
+  }
+
+  if (/\b(precio|cuanto vale|cuánto vale|cuanto cuesta|cuánto cuesta|cuesta|vale|costo|ver precio)\b/.test(text)) return "ASK_PRICE";
+  if (/\b(disponible|disponibilidad|hay|stock|confirmar disponibilidad)\b/.test(text)) return "ASK_AVAILABILITY";
+  if (/\b(volver|volver al producto)\b/.test(text)) return "BACK_TO_PRODUCT";
+  if (/\b(ya te dejo mi numero|ya te dejo mi número|mi numero|mi número)\b/.test(text)) return "START_ORDER";
+
+  return null;
+}
+
+function resolveFreeText(text?: string | null, offerType: SellerOfferType = "PRODUCT"): SellerIntent {
+  const normalized = normalize(text);
+  if (!normalized) return "UNKNOWN";
+
+  if (offerType === "MENU" && /\b(ingrediente|ingredientes|que trae|que lleva|contiene|con que viene|de que esta hecho|de que esta hecha)\b/.test(normalized)) return "ASK_INGREDIENTS";
+  if (offerType === "MENU" && /\b(porcion|tamano|tamaño|cantidad|para cuantas personas)\b/.test(normalized)) return "ASK_PORTION";
+
+  if (offerType === "PRODUCT" && /\b(caracteristicas|caracteristica|material|detalles|uso|para que sirve)\b/.test(normalized)) return "ASK_FEATURES";
+  if (offerType === "PRODUCT" && /\b(medidas|medida|talla|tamano|tamaño)\b/.test(normalized)) return "ASK_SIZE";
+  if (offerType === "PRODUCT" && /\b(envio|envío|entrega|delivery|mandan|envian|envían)\b/.test(normalized)) return "ASK_SHIPPING";
+
+  if (offerType === "SERVICE" && /\b(que incluye|incluye|incluido|incluida|que trae)\b/.test(normalized)) return "ASK_SERVICE_INCLUDED";
+  if (offerType === "SERVICE" && /\b(duracion|duración|cuanto dura|cuánto dura|tiempo)\b/.test(normalized)) return "ASK_DURATION";
+  if (offerType === "SERVICE" && /\b(agendar|agenda|cita|reservar|reserva|coordinar)\b/.test(normalized)) return "START_BOOKING";
+
+  if (/\b(precio|cuanto vale|cuánto vale|cuanto cuesta|cuánto cuesta|cuesta|vale|costo)\b/.test(normalized)) return "ASK_PRICE";
+  if (/\b(disponible|disponibilidad|hay|stock)\b/.test(normalized)) return "ASK_AVAILABILITY";
+  if (/\b(pedir|pedido|comprar|comprarlo|comprarla|quiero este|quiero esta|lo quiero|lo llevo|hablemos por whatsapp|continuar por whatsapp)\b/.test(normalized)) return "START_ORDER";
+
+  return "UNKNOWN";
+}
+
+export function resolveSellerIntent(input: SellerIntentInput): SellerIntent {
+  return (
+    resolveAction(input.quickReplyAction) ??
+    resolveAction(input.action) ??
+    resolveAction(input.ctaAction) ??
+    resolveLabel(input.quickReplyLabel, input.offerType) ??
+    resolveFreeText(input.text ?? input.quickReplyLabel, input.offerType)
+  );
+}
+
+export function isInformationalSellerIntent(intent: SellerIntent) {
+  return [
+    "ASK_INGREDIENTS",
+    "ASK_PORTION",
+    "ASK_PRICE",
+    "ASK_AVAILABILITY",
+    "ASK_FEATURES",
+    "ASK_SIZE",
+    "ASK_SHIPPING",
+    "ASK_SERVICE_INCLUDED",
+    "ASK_DURATION",
+    "BACK_TO_PRODUCT",
+  ].includes(intent);
+}

@@ -21,11 +21,11 @@ const signals: Array<{ reason: string; points: number; pattern: RegExp }> = [
   { reason: "variante", points: 15, pattern: /\b(talla|color|modelo|variante)\b/i },
   { reason: "comparación", points: 15, pattern: /\b(comparar|comparación|comparacion|alternativa|opciones)\b/i },
   { reason: "pago", points: 20, pattern: /\b(pago|pagar|cómo pago|como pago|método de pago|metodo de pago|transferencia|tarjeta|qr)\b/i },
-  { reason: "intención de compra", points: 35, pattern: /\b(quiero comprar|comprarlo|comprarla|lo quiero|cómo compro|como compro|me interesa|lo llevo|hacer pedido|quiero pedir|pedir por whatsapp)\b/i },
+  { reason: "intención de compra", points: 35, pattern: /\b(quiero comprar|comprarlo|comprarla|lo quiero|cómo compro|como compro|me interesa|lo llevo|hacer pedido|quiero pedir|pedir|pedir por whatsapp)\b/i },
   { reason: "hablar con un asesor", points: 35, pattern: /\b(hablar con alguien|hablar con un asesor|whatsapp|hablemos)\b/i },
 ];
 
-const explicitPurchaseIntent = /\b(quiero comprar|comprarlo|comprarla|lo quiero|cómo compro|como compro|cómo pago|como pago|quiero pagar|lo llevo|hacer pedido|quiero pedir|pedir por whatsapp|hablar con alguien|hablar con un asesor|continuar por whatsapp|hablemos por whatsapp)\b/i;
+const explicitPurchaseIntent = /\b(quiero comprar|comprarlo|comprarla|lo quiero|cómo compro|como compro|cómo pago|como pago|quiero pagar|lo llevo|hacer pedido|quiero pedir|pedir|pedir por whatsapp|hablar con alguien|hablar con un asesor|continuar por whatsapp|hablemos por whatsapp)\b/i;
 
 function normalize(value?: string | null) {
   return (value ?? "")
