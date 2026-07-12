@@ -100,8 +100,8 @@ test("offer type quick replies expose explicit actions", () => {
     { label: "Pedir", action: "START_ORDER" },
   ]);
   assert.deepEqual(toSellerQuickReplies(getInitialQuickReplyLabels("PRODUCT"), "PRODUCT"), [
-    { label: "Características", action: "ASK_FEATURES" },
-    { label: "Medidas", action: "ASK_SIZE" },
+    { label: "Tallas", action: "ASK_SIZE" },
+    { label: "Colores", action: "ASK_COLOR" },
     { label: "Precio", action: "ASK_PRICE" },
     { label: "Comprar", action: "START_ORDER" },
   ]);

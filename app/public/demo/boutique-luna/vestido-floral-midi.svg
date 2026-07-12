@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-label="Vestido Floral Midi">
+  <rect width="900" height="1200" fill="#f8f1ea"/>
+  <circle cx="735" cy="150" r="120" fill="#eec6bb"/>
+  <path d="M360 190h180l50 165 125 530c-145 70-385 70-530 0l125-530z" fill="#f7ded7"/>
+  <path d="M360 190c35 55 145 55 180 0l-30-70H390z" fill="#fff7f1"/>
+  <path d="M310 355h280" stroke="#b66f7f" stroke-width="18" stroke-linecap="round"/>
+  <g fill="#cc6978">
+    <circle cx="350" cy="470" r="24"/><circle cx="515" cy="520" r="22"/><circle cx="425" cy="665" r="28"/><circle cx="570" cy="760" r="20"/><circle cx="315" cy="815" r="22"/>
+  </g>
+  <g fill="#8aa66f">
+    <ellipse cx="385" cy="450" rx="14" ry="32" transform="rotate(-35 385 450)"/><ellipse cx="545" cy="548" rx="12" ry="28" transform="rotate(35 545 548)"/><ellipse cx="455" cy="690" rx="14" ry="30" transform="rotate(25 455 690)"/>
+  </g>
+  <text x="450" y="1085" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#33251f">Vestido Floral Midi</text>
+</svg>

@@ -7,6 +7,7 @@ export const sellerIntentValues = [
   "ASK_AVAILABILITY",
   "ASK_FEATURES",
   "ASK_SIZE",
+  "ASK_COLOR",
   "ASK_SHIPPING",
   "ASK_SERVICE_INCLUDED",
   "ASK_DURATION",
@@ -34,6 +35,7 @@ const actionAliases: Record<string, SellerIntent> = {
   ASK_AVAILABILITY: "ASK_AVAILABILITY",
   ASK_FEATURES: "ASK_FEATURES",
   ASK_SIZE: "ASK_SIZE",
+  ASK_COLOR: "ASK_COLOR",
   ASK_SHIPPING: "ASK_SHIPPING",
   ASK_SERVICE_INCLUDED: "ASK_SERVICE_INCLUDED",
   ASK_DURATION: "ASK_DURATION",
@@ -77,7 +79,8 @@ function resolveLabel(label?: string | null, offerType: SellerOfferType = "PRODU
 
   if (offerType === "PRODUCT") {
     if (/\b(caracteristicas|caracteristica|detalles|material|uso)\b/.test(text)) return "ASK_FEATURES";
-    if (/\b(medidas|medida|talla|tamano|tamaño)\b/.test(text)) return "ASK_SIZE";
+    if (/\b(medidas|medida|talla|tallas|tamano|tamaño)\b/.test(text)) return "ASK_SIZE";
+    if (/\b(color|colores)\b/.test(text)) return "ASK_COLOR";
     if (/\b(envio|envío|entrega|delivery)\b/.test(text)) return "ASK_SHIPPING";
     if (/\b(comprar|compra|comprarlo|comprarla)\b/.test(text)) return "START_ORDER";
   }
@@ -105,7 +108,8 @@ function resolveFreeText(text?: string | null, offerType: SellerOfferType = "PRO
   if (offerType === "MENU" && /\b(porcion|tamano|tamaño|cantidad|para cuantas personas)\b/.test(normalized)) return "ASK_PORTION";
 
   if (offerType === "PRODUCT" && /\b(caracteristicas|caracteristica|material|detalles|uso|para que sirve)\b/.test(normalized)) return "ASK_FEATURES";
-  if (offerType === "PRODUCT" && /\b(medidas|medida|talla|tamano|tamaño)\b/.test(normalized)) return "ASK_SIZE";
+  if (offerType === "PRODUCT" && /\b(medidas|medida|talla|tallas|tamano|tamaño)\b/.test(normalized)) return "ASK_SIZE";
+  if (offerType === "PRODUCT" && /\b(color|colores|tono|tonos)\b/.test(normalized)) return "ASK_COLOR";
   if (offerType === "PRODUCT" && /\b(envio|envío|entrega|delivery|mandan|envian|envían)\b/.test(normalized)) return "ASK_SHIPPING";
 
   if (offerType === "SERVICE" && /\b(que incluye|incluye|incluido|incluida|que trae)\b/.test(normalized)) return "ASK_SERVICE_INCLUDED";
@@ -137,6 +141,7 @@ export function isInformationalSellerIntent(intent: SellerIntent) {
     "ASK_AVAILABILITY",
     "ASK_FEATURES",
     "ASK_SIZE",
+    "ASK_COLOR",
     "ASK_SHIPPING",
     "ASK_SERVICE_INCLUDED",
     "ASK_DURATION",

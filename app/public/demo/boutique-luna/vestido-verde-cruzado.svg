@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-label="Vestido Verde Cruzado">
+  <rect width="900" height="1200" fill="#eef4ea"/>
+  <path d="M350 170h200l58 245 112 505c-155 74-385 74-540 0l112-505z" fill="#4f8a5f"/>
+  <path d="M350 170c42 78 158 78 200 0l-42-75H392z" fill="#6fa97a"/>
+  <path d="M310 245c95 65 190 120 285 170M590 245c-95 65-190 120-285 170" stroke="#d7ecd2" stroke-width="20" stroke-linecap="round"/>
+  <path d="M285 430h330" stroke="#315d3e" stroke-width="18" stroke-linecap="round"/>
+  <text x="450" y="1085" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#254832">Vestido Verde Cruzado</text>
+</svg>

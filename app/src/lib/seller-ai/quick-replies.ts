@@ -24,6 +24,8 @@ const productActions: Record<string, SellerIntent> = {
   Características: "ASK_FEATURES",
   Caracteristicas: "ASK_FEATURES",
   Medidas: "ASK_SIZE",
+  Tallas: "ASK_SIZE",
+  Colores: "ASK_COLOR",
   Precio: "ASK_PRICE",
   Disponibilidad: "ASK_AVAILABILITY",
   Envío: "ASK_SHIPPING",
@@ -95,5 +97,5 @@ export function toSellerQuickReplies(labels: string[], offerType: SellerOfferTyp
 export function getInitialQuickReplyLabels(offerType: SellerOfferType) {
   if (offerType === "MENU") return ["Ingredientes", "Porción", "Precio", "Pedir"];
   if (offerType === "SERVICE") return ["Qué incluye", "Duración", "Precio", "Agendar"];
-  return ["Características", "Medidas", "Precio", "Comprar"];
+  return ["Tallas", "Colores", "Precio", "Comprar"];
 }

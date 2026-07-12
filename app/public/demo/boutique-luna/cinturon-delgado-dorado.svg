@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-label="Cinturón Delgado Dorado">
+  <rect width="900" height="1200" fill="#f7f0e3"/>
+  <circle cx="450" cy="520" r="300" fill="#fff7e8"/>
+  <path d="M190 520c150-105 370-105 520 0-150 105-370 105-520 0z" fill="none" stroke="#c89b32" stroke-width="42" stroke-linecap="round"/>
+  <rect x="385" y="455" width="130" height="130" rx="18" fill="none" stroke="#8b681e" stroke-width="28"/>
+  <path d="M515 520h195" stroke="#8b681e" stroke-width="18" stroke-linecap="round"/>
+  <text x="450" y="1085" text-anchor="middle" font-family="Arial, sans-serif" font-size="50" font-weight="700" fill="#5d4314">Cinturón Delgado Dorado</text>
+</svg>

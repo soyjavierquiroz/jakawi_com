@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-label="Vestido Largo Satinado">
+  <rect width="900" height="1200" fill="#f6efe4"/>
+  <linearGradient id="satin" x1="0" x2="1"><stop offset="0" stop-color="#caa86f"/><stop offset=".45" stop-color="#f7e5b8"/><stop offset="1" stop-color="#b88e51"/></linearGradient>
+  <path d="M365 145h170l45 275 130 560c-160 78-360 78-520 0l130-560z" fill="url(#satin)"/>
+  <path d="M365 145c32 95 138 95 170 0l-32-72H397z" fill="#f3d794"/>
+  <path d="M320 420c85 42 175 42 260 0" fill="none" stroke="#fff4cd" stroke-width="22" stroke-linecap="round"/>
+  <path d="M420 260c40 230 20 430-45 650" stroke="#fff0bf" stroke-width="14" opacity=".65"/>
+  <text x="450" y="1085" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#5c4422">Vestido Largo Satinado</text>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-label="Vestido Negro Elegante">
+  <rect width="900" height="1200" fill="#f3efe8"/>
+  <rect x="120" y="120" width="660" height="860" rx="34" fill="#e7dccf"/>
+  <path d="M370 175h160l70 240 95 500c-145 62-345 62-490 0l95-500z" fill="#171717"/>
+  <path d="M370 175c30 74 130 74 160 0l-28-72H398z" fill="#2a2a2a"/>
+  <path d="M300 420h300" stroke="#d6b25e" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="450" cy="520" r="16" fill="#d6b25e"/><circle cx="450" cy="610" r="14" fill="#d6b25e"/>
+  <text x="450" y="1085" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#171717">Vestido Negro Elegante</text>
+</svg>

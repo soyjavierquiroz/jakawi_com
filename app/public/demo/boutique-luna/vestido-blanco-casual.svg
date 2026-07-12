@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-label="Vestido Blanco Casual">
+  <rect width="900" height="1200" fill="#eaf1ef"/>
+  <path d="M345 185h210l55 230 110 485c-150 72-390 72-540 0l110-485z" fill="#fffdf7" stroke="#d9d3c8" stroke-width="10"/>
+  <path d="M345 185c45 70 165 70 210 0l-42-75H387z" fill="#f3eadf"/>
+  <path d="M292 418h316" stroke="#c9b6a5" stroke-width="16" stroke-linecap="round"/>
+  <path d="M280 620h340M250 760h400" stroke="#e2d8ca" stroke-width="10" stroke-linecap="round"/>
+  <text x="450" y="1085" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#4a4038">Vestido Blanco Casual</text>
+</svg>

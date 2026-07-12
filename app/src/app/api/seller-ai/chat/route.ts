@@ -7,7 +7,7 @@ import { formatMoney } from "@/lib/money";
 import { incrementSellerAiConversationUsage, PlanLimitError } from "@/lib/plan-limits";
 import { getPrisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIpFromHeaders, rateLimitResponse } from "@/lib/rate-limit";
-import { describeFoodProductFromName, getMenuProductProfile, isFoodRestaurantContext } from "@/lib/seller-ai/context";
+import { describeFoodProductFromName, getMenuProductProfile } from "@/lib/seller-ai/context";
 import { calculateIntentScore, classifyIntent } from "@/lib/seller-ai/intent";
 import { isInformationalSellerIntent, resolveSellerIntent, type SellerIntent } from "@/lib/seller-ai/intent-router";
 import { buildWhatsappHandoffMessage, buildWhatsappHandoffUrl, computeLeadQualification, shouldShowWhatsappHandoff } from "@/lib/seller-ai/lead-qualification";
@@ -137,6 +137,7 @@ function messageForSellerIntent(intent: SellerIntent, fallback: string) {
   if (intent === "ASK_AVAILABILITY") return "disponibilidad";
   if (intent === "ASK_FEATURES") return "características";
   if (intent === "ASK_SIZE") return "medidas";
+  if (intent === "ASK_COLOR") return "colores";
   if (intent === "ASK_SHIPPING") return "envío";
   if (intent === "ASK_SERVICE_INCLUDED") return "qué incluye";
   if (intent === "ASK_DURATION") return "duración";
@@ -208,20 +209,32 @@ function buildProductAssistantMessage({
   store: StoreForReply;
 }) {
   const productName = product?.name ?? "este producto";
+  const description = product?.description?.trim();
+  const sizeMatch = description?.match(/(?:Tallas?|Talla)\s*:\s*([^\n.]+)/i);
+  const colorMatch = description?.match(/(?:Colores?|Color)\s*:\s*([^\n.]+)/i);
+  const occasionMatch = description?.match(/(?:Ocasiones?|Ocasión|Ocasion)\s*:\s*([^\n.]+)/i);
+  const materialMatch = description?.match(/Material\s*:\s*([^\n.]+)/i);
   if (intent === "ASK_FEATURES") {
-    const description = product?.description?.trim();
+    const details = [materialMatch?.[1] ? `material: ${materialMatch[1]}` : null, occasionMatch?.[1] ? `ocasión: ${occasionMatch[1]}` : null, sizeMatch?.[1] ? `tallas: ${sizeMatch[1]}` : null, colorMatch?.[1] ? `color: ${colorMatch[1]}` : null].filter(Boolean);
     return description
-      ? `${productName}: ${description}. Puedo ayudarte con medidas, precio, disponibilidad o compra.`
+      ? `${productName}: ${description}${details.length ? ` Datos clave: ${details.join("; ")}.` : ""} Puedo ayudarte con tallas, colores, precio o compra.`
       : `Aún no tengo características detalladas cargadas para ${productName}. Puedo ayudarte a consultar material, uso o detalles con ${store.name}.`;
   }
-  if (intent === "ASK_SIZE") return `Las medidas o tallas de ${productName} conviene confirmarlas con ${store.name}. Puedo dejar esa consulta lista para la tienda.`;
+  if (intent === "ASK_SIZE") {
+    if (sizeMatch?.[1]) return `${productName} está registrado en tallas ${sizeMatch[1].trim()}. La disponibilidad final de cada talla la confirma ${store.name}.`;
+    return `Las tallas o medidas de ${productName} conviene confirmarlas con ${store.name}. Puedo dejar esa consulta lista para la tienda.`;
+  }
+  if (intent === "ASK_COLOR") {
+    if (colorMatch?.[1]) return `${productName} está registrado en color ${colorMatch[1].trim()}. Si buscas otro tono, ${store.name} puede confirmarte disponibilidad.`;
+    return `Los colores disponibles de ${productName} los confirma ${store.name}.`;
+  }
   if (intent === "ASK_SHIPPING") return `El envío de ${productName} lo confirma ${store.name} según tu zona. Puedo dejar la consulta lista con el producto que estás viendo.`;
   if (intent === "ASK_PRICE" && product) {
     if (!hasPublishedPrice(product)) return `El precio actualizado de ${productName} lo confirma ${store.name}.`;
     return priceLine({ product, store });
   }
   if (intent === "ASK_AVAILABILITY") return `La disponibilidad de ${productName} la confirma ${store.name}. Puedo ayudarte a apartarlo o dejar la consulta clara.`;
-  if (intent === "START_ORDER") return `Perfecto. Te ayudo a apartar/comprar ${productName}. ¿A qué número te escribe la tienda?`;
+  if (intent === "START_ORDER") return `Perfecto. Te ayudo a comprar ${productName}. ¿A qué número te escribe ${store.name}?`;
   return `${productName} puede ser buena opción si encaja con lo que buscas. Te puedo ayudar con características, medidas, precio o compra.`;
 }
 
@@ -319,7 +332,7 @@ export function buildAssistantMessage({
   const text = normalizeText(userMessage);
   const recommendationNames = recommendations.slice(0, 3).map((item) => item.name);
   const resolvedOfferType = offerType ?? resolveOfferType(store, product);
-  const foodMode = resolvedOfferType === "MENU" || isFoodRestaurantContext({ store, product, category: product?.category });
+  const foodMode = resolvedOfferType === "MENU";
 
   if (intent && intent !== "UNKNOWN") {
     if (foodMode && isInformationalSellerIntent(intent)) {
@@ -374,6 +387,12 @@ export function buildAssistantMessage({
 
   if (mode === "PRODUCT_ADVISOR") {
     if (!product) return "Cuéntame qué uso le quieres dar y te recomiendo una opción sin marearte.";
+    if (/\b(boda|matrimonio|evento|evento formal|formal|fiesta|celebracion|celebración)\b/.test(text)) {
+      if (/floral|midi/i.test(product.name)) {
+        return `${product.name} puede servir para una boda de día o un evento casual elegante. Si la boda es formal o de noche, miraría mejor Vestido Largo Satinado o Vestido Rojo de Fiesta.`;
+      }
+      return `${product.name} puede funcionar para evento si el código de vestimenta combina con su estilo. Para algo más formal, conviene confirmar largo, tela, color y disponibilidad con ${store.name}.`;
+    }
     if (wantsRecommendationAlternatives(userMessage) && recommendationNames.length === 0) {
       return "Por ahora te ayudo con este producto y dejamos la consulta clara para la tienda.";
     }
@@ -392,7 +411,7 @@ export function buildAssistantMessage({
       }
       return `${product.name} puede encajar si lo quieres para ${detectedNeed}. ¿Quieres confirmar disponibilidad, precio o envío con la tienda?`;
     }
-    return `${product.name} puede ser buena opción si encaja con el uso que tienes en mente. ¿Lo buscas para trabajo, regalo o uso diario?`;
+    return `${product.name} puede ser buena opción si encaja con el uso que tienes en mente. ¿Quieres revisar tallas, color, precio o disponibilidad?`;
   }
 
   if (detectedNeed === "regalo") {
@@ -595,7 +614,7 @@ export async function POST(request: Request) {
     offerType,
     intent: sellerIntent,
   });
-  const foodMode = isFoodRestaurantContext({ store: lead.store, product, category: product?.category });
+  const foodMode = offerType === "MENU";
   const shouldUseRulesForFoodMessage =
     foodMode &&
     (wantsIngredients(intentMessage) ||

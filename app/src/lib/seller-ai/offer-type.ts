@@ -53,9 +53,9 @@ export function resolveOfferType(store?: StoreLike | null, product?: ProductLike
 
   const categoryText = normalize(`${product?.category?.name ?? ""} ${product?.category?.slug ?? ""}`);
   const productText = normalize(`${product?.name ?? ""} ${product?.slug ?? ""} ${product?.description ?? ""} ${(product?.tags ?? []).join(" ")}`);
-  if (has(categoryText, menuPattern) || has(productText, menuPattern)) return "MENU";
   if (has(categoryText, servicePattern) || has(productText, servicePattern)) return "SERVICE";
   if (has(categoryText, productPattern) || has(productText, productPattern)) return "PRODUCT";
+  if (has(categoryText, menuPattern) || has(productText, menuPattern)) return "MENU";
 
   return "PRODUCT";
 }

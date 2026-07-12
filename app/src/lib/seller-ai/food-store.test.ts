@@ -188,7 +188,7 @@ test("non-food ecommerce products use product advisor chips", () => {
     category: { name: "Celulares" },
   });
 
-  assert.deepEqual(replies, ["Características", "Medidas", "Precio", "Comprar"]);
+  assert.deepEqual(replies, ["Tallas", "Colores", "Precio", "Comprar"]);
 });
 
 test("lead scoring still qualifies explicit purchase intent", () => {

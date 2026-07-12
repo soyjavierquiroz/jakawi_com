@@ -1,5 +1,5 @@
 import { sellerAiConfig } from "@/config/seller-ai";
-import { getFoodRestaurantQuickReplies, isFoodRestaurantContext } from "@/lib/seller-ai/context";
+import { getFoodRestaurantQuickReplies } from "@/lib/seller-ai/context";
 import type { SellerAiMode } from "@/lib/seller-ai/modes";
 import { resolveOfferType } from "@/lib/seller-ai/offer-type";
 import { getInitialQuickReplyLabels } from "@/lib/seller-ai/quick-replies";
@@ -138,7 +138,7 @@ export function buildNextQuickReplies({
   const recommended = recommendedProducts?.[0]?.name ? `Me interesa ${recommendedProducts[0].name}` : null;
   const contextStore = store ?? (commercialType ? { commercialType } : null);
   const offerType = resolveOfferType(contextStore, product ? { ...product, category } : null);
-  const foodMode = offerType === "MENU" || isFoodRestaurantContext({ store: contextStore, product, category });
+  const foodMode = offerType === "MENU";
 
   let replies: string[];
   if (foodMode && focus.lastKey === "ingredientes") {

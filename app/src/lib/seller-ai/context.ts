@@ -150,12 +150,12 @@ export function describeFoodProductFromName(productName?: string | null) {
 
 export function getProductCategoryKind(product?: ProductLike | null, category?: CategoryLike) {
   const raw = `${category?.name ?? product?.category?.name ?? ""} ${category?.slug ?? product?.category?.slug ?? ""} ${product?.name ?? ""}`.toLowerCase();
-  if (isFoodRestaurantContext({ product, category })) return "food";
-  if (/celular|iphone|samsung|telefono|teléfono|smartphone|tecnolog/.test(raw)) return "celular";
   if (/vestido|ropa|moda|camisa|polera|pantal/.test(raw)) return "ropa";
   if (/zapato|zapatilla|tenis|calzado/.test(raw)) return "zapatos";
   if (/maquillaje|belleza|labial|crema|cosmetic/.test(raw)) return "maquillaje";
   if (/regalo|detalle|sorpresa/.test(raw)) return "regalos";
+  if (isFoodRestaurantContext({ product, category })) return "food";
+  if (/celular|iphone|samsung|telefono|teléfono|smartphone|tecnolog/.test(raw)) return "celular";
   return "default";
 }
 
