@@ -4,7 +4,7 @@ import { buildAssistantMessage } from "@/app/api/seller-ai/chat/route";
 import { resolveSellerIntent } from "@/lib/seller-ai/intent-router";
 import { buildQuickRepliesForMode } from "@/lib/seller-ai/modes";
 import { resolveOfferType } from "@/lib/seller-ai/offer-type";
-import { getInitialQuickReplyLabels, toSellerQuickReplies } from "@/lib/seller-ai/quick-replies";
+import { toSellerQuickReplies } from "@/lib/seller-ai/quick-replies";
 
 const boutiqueStore = {
   slug: "boutique-luna",
@@ -49,9 +49,9 @@ test("PRODUCT quick replies include product commerce chips and no food/generic o
     product: floralDress,
     category: floralDress.category,
   });
-  const replies = toSellerQuickReplies(getInitialQuickReplyLabels("PRODUCT"), "PRODUCT");
+  const replies = toSellerQuickReplies(labels, "PRODUCT");
 
-  assert.deepEqual(labels, ["Tallas", "Colores", "Precio", "Comprar"]);
+  assert.deepEqual(labels, ["Tallas", "Colores", "Evento", "Precio", "Comprar"]);
   assert.deepEqual(replies.map((reply) => reply.label), labels);
   assert.doesNotMatch(labels.join(" "), /Ingredientes|Porción|Trabajo|Estudio|Viaje|Para regalar/i);
 });

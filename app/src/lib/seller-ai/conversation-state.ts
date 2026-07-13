@@ -1,5 +1,5 @@
 import { sellerAiConfig } from "@/config/seller-ai";
-import { getFoodRestaurantQuickReplies } from "@/lib/seller-ai/context";
+import { getFoodRestaurantQuickReplies, resolveAdvisorPlaybook } from "@/lib/seller-ai/context";
 import type { SellerAiMode } from "@/lib/seller-ai/modes";
 import { resolveOfferType } from "@/lib/seller-ai/offer-type";
 import { getInitialQuickReplyLabels } from "@/lib/seller-ai/quick-replies";
@@ -9,8 +9,8 @@ type MessageLike = { role?: string | null; content?: string | null };
 type BuildNextQuickRepliesParams = {
   mode: SellerAiMode;
   commercialType?: string | null;
-  product?: { name?: string | null } | null;
-  category?: { name?: string | null } | null;
+  product?: { name?: string | null; slug?: string | null; description?: string | null; category?: { name?: string | null; slug?: string | null } | null } | null;
+  category?: { name?: string | null; slug?: string | null } | null;
   store?: { slug?: string | null; name?: string | null; description?: string | null; commercialType?: string | null } | null;
   detectedNeed?: string | null;
   objections?: string[] | string | null;
@@ -139,6 +139,9 @@ export function buildNextQuickReplies({
   const contextStore = store ?? (commercialType ? { commercialType } : null);
   const offerType = resolveOfferType(contextStore, product ? { ...product, category } : null);
   const foodMode = offerType === "MENU";
+  const playbook = offerType === "PRODUCT" ? resolveAdvisorPlaybook(contextStore, product ? { ...product, category } : null) : null;
+  const isFashionBelt = playbook?.vertical === "fashion" && playbook.subcategory === "belt";
+  const isFashionDress = playbook?.vertical === "fashion" && playbook.subcategory === "dress";
 
   let replies: string[];
   if (foodMode && focus.lastKey === "ingredientes") {
@@ -165,6 +168,10 @@ export function buildNextQuickReplies({
     replies = ["Características", "Medidas", "Precio", "Comprar"];
   } else if (mode === "DECISION_SUPPORT") {
     replies = ["Características", "Disponibilidad", "Envío", "Comprar"];
+  } else if (isFashionBelt && mode === "PRODUCT_ADVISOR") {
+    replies = ["Combina con", "Medida / ajuste", "Precio", "Envío", "Comprar"];
+  } else if (isFashionDress && mode === "PRODUCT_ADVISOR") {
+    replies = ["Tallas", "Colores", "Evento", "Precio", "Comprar"];
   } else if (mode === "PRODUCT_ADVISOR") {
     replies = getInitialQuickReplyLabels("PRODUCT");
   } else if (mode === "DISCOVERY") {
@@ -179,6 +186,6 @@ export function buildNextQuickReplies({
     objections,
     usedReplies,
     lastUserMessage,
-    max: 4,
+    max: isFashionBelt || isFashionDress ? 5 : 4,
   });
 }

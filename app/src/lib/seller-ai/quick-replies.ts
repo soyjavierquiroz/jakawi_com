@@ -23,9 +23,12 @@ const menuActions: Record<string, SellerIntent> = {
 const productActions: Record<string, SellerIntent> = {
   Características: "ASK_FEATURES",
   Caracteristicas: "ASK_FEATURES",
+  "Combina con": "ASK_STYLE_ADVICE",
   Medidas: "ASK_SIZE",
+  "Medida / ajuste": "ASK_SIZE",
   Tallas: "ASK_SIZE",
   Colores: "ASK_COLOR",
+  Evento: "ASK_OCCASION",
   Precio: "ASK_PRICE",
   Disponibilidad: "ASK_AVAILABILITY",
   Envío: "ASK_SHIPPING",
@@ -81,14 +84,17 @@ export function quickReplyActionForLabel(label: string, offerType: SellerOfferTy
         ? findAction(label, serviceActions) ?? findAction(label, productActions)
         : findAction(label, productActions);
   if (action) return action;
+  if (/combina|queda con|chamarra|chaqueta|blazer|zapatos|bolso|look|estilo/i.test(label)) return "ASK_STYLE_ADVICE";
+  if (/medida|largo|ajuste|talla/i.test(label)) return "ASK_SIZE";
   if (/precio|cuanto|cuesta|vale|costo/i.test(label)) return "ASK_PRICE";
+  if (/envio|envío|entrega|delivery/i.test(label)) return "ASK_SHIPPING";
   if (/disponible|disponibilidad|stock|hay/i.test(label)) return "ASK_AVAILABILITY";
   if (/whatsapp|comprar|compra|pedir|pedido|interesa/i.test(label)) return "START_ORDER";
   return "UNKNOWN";
 }
 
 export function toSellerQuickReplies(labels: string[], offerType: SellerOfferType): SellerQuickReply[] {
-  return labels.slice(0, 4).map((label) => ({
+  return labels.slice(0, 5).map((label) => ({
     label,
     action: quickReplyActionForLabel(label, offerType),
   }));

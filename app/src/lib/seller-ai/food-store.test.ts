@@ -119,7 +119,7 @@ test("food ingredient fallback is honest without saying parece", () => {
   assert.match(reply, /WhatsApp/i);
 });
 
-test("explicit ingredient descriptions are used when present", () => {
+test("curated menu profile ingredients are used when present", () => {
   const reply = buildAssistantMessage({
     mode: "PRODUCT_ADVISOR",
     userMessage: "¿Cuáles son los ingredientes?",
@@ -131,7 +131,7 @@ test("explicit ingredient descriptions are used when present", () => {
     recommendations: [],
   });
 
-  assert.match(reply, /lechuga, pollo, crutones y aderezo César/i);
+  assert.match(reply, /lechuga fresca, pollo, aderezo César, queso parmesano, crutones/i);
 });
 
 test("food mode preserves WhatsApp handoff for qualified leads", () => {

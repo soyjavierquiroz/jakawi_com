@@ -94,14 +94,14 @@ function resolveLabel(label?: string | null, offerType: SellerOfferType = "PRODU
   if (offerType === "PRODUCT") {
     if (/\b(ocasion|ocasiones|evento|eventos|boda|fiesta|cena|graduacion)\b/.test(text)) return "ASK_OCCASION";
     if (/\b(sirve|queda bien|adecuado|adecuada|conviene)\b/.test(text)) return "ASK_SUITABILITY";
-    if (/\b(combina|zapatos|accesorios|estilo|look)\b/.test(text)) return "ASK_STYLE_ADVICE";
+    if (/\b(combina|queda con|zapatos|accesorios|estilo|look|chamarra|chaqueta|blazer|bolso)\b/.test(text)) return "ASK_STYLE_ADVICE";
     if (/\b(material|tela|de que esta hecho|de que esta hecha)\b/.test(text)) return "ASK_MATERIAL";
     if (/\b(comodo|comoda|ajuste|entalla|me queda|fit)\b/.test(text)) return "ASK_FIT";
-    if (/\b(compatible|sirve con|funciona con)\b/.test(text)) return "ASK_COMPATIBILITY";
+    if (/\b(compatible|sirve con|funciona con|lo puedo usar con)\b/.test(text)) return "ASK_COMPATIBILITY";
     if (/\b(caracteristicas|caracteristica|detalles|uso)\b/.test(text)) return "ASK_FEATURES";
-    if (/\b(medidas|medida|talla|tallas|tamano|tamaño)\b/.test(text)) return "ASK_SIZE";
+    if (/\b(medidas|medida|largo|talla|tallas|tamano|tamaño)\b/.test(text)) return "ASK_SIZE";
     if (/\b(color|colores)\b/.test(text)) return "ASK_COLOR";
-    if (/\b(envio|envío|entrega|delivery)\b/.test(text)) return "ASK_SHIPPING";
+    if (/\b(envio|envío|entrega|delivery|me lo mandan|mandan)\b/.test(text)) return "ASK_SHIPPING";
     if (/\b(comprar|compra|comprarlo|comprarla|apartar|apartarlo|apartarla|reservar|lo quiero|la quiero|lo llevo|hablar por whatsapp|hablemos por whatsapp)\b/.test(text)) return "START_ORDER";
   }
 
@@ -129,14 +129,14 @@ function resolveFreeText(text?: string | null, offerType: SellerOfferType = "PRO
 
   if (offerType === "PRODUCT" && /\b(para que evento|para que ocasion|en que ocasion|que ocasion|ocasion|ocasiones|evento|eventos|fiesta|fiestas|cena|cenas|graduacion|cumpleanos|cumpleaños|noche|dia|día)\b/.test(normalized)) return "ASK_OCCASION";
   if (offerType === "PRODUCT" && /\b(sirve para boda|sirve para fiesta|sirve para una cena|sirve para graduacion|sirve para evento|mas adecuado|más adecuado|adecuado|adecuada|queda bien para|conviene para)\b/.test(normalized)) return "ASK_SUITABILITY";
-  if (offerType === "PRODUCT" && /\b(combina con|que zapatos|qué zapatos|zapatos|accesorios|con que accesorios|con qué accesorios|estilo|look|como lo uso|cómo lo uso)\b/.test(normalized)) return "ASK_STYLE_ADVICE";
+  if (offerType === "PRODUCT" && /\b(combina con|queda con|lo puedo usar con|que zapatos|qué zapatos|zapatos|accesorios|con que accesorios|con qué accesorios|chamarra|chaqueta|blazer|bolso|estilo|look|como lo uso|cómo lo uso)\b/.test(normalized)) return "ASK_STYLE_ADVICE";
   if (offerType === "PRODUCT" && /\b(de que tela|de qué tela|tela|material|de que material|de qué material|de que esta hecho|de que esta hecha)\b/.test(normalized)) return "ASK_MATERIAL";
   if (offerType === "PRODUCT" && /\b(me queda|queda ajustado|queda suelto|ajuste|fit|entalla|comodidad|comodo|cómodo|comoda|cómoda)\b/.test(normalized)) return "ASK_FIT";
   if (offerType === "PRODUCT" && /\b(compatible|sirve con|funciona con|se puede usar con)\b/.test(normalized)) return "ASK_COMPATIBILITY";
   if (offerType === "PRODUCT" && /\b(caracteristicas|caracteristica|detalles|uso|para que sirve)\b/.test(normalized)) return "ASK_FEATURES";
-  if (offerType === "PRODUCT" && /\b(medidas|medida|talla|tallas|tamano|tamaño)\b/.test(normalized)) return "ASK_SIZE";
+  if (offerType === "PRODUCT" && /\b(medidas|medida|largo|talla|tallas|tamano|tamaño)\b/.test(normalized)) return "ASK_SIZE";
   if (offerType === "PRODUCT" && /\b(color|colores|tono|tonos)\b/.test(normalized)) return "ASK_COLOR";
-  if (offerType === "PRODUCT" && /\b(envio|envío|entrega|delivery|mandan|envian|envían)\b/.test(normalized)) return "ASK_SHIPPING";
+  if (offerType === "PRODUCT" && /\b(envio|envío|entrega|delivery|me lo mandan|mandan|envian|envían)\b/.test(normalized)) return "ASK_SHIPPING";
 
   if (offerType === "SERVICE" && /\b(que incluye|incluye|incluido|incluida|que trae)\b/.test(normalized)) return "ASK_SERVICE_INCLUDED";
   if (offerType === "SERVICE" && /\b(duracion|duración|cuanto dura|cuánto dura|tiempo)\b/.test(normalized)) return "ASK_DURATION";

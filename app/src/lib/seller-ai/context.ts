@@ -4,7 +4,7 @@ import type { SellerIntent } from "@/lib/seller-ai/intent-router";
 import { resolveOfferType, type SellerOfferType } from "@/lib/seller-ai/offer-type";
 
 type StoreLike = { id: string; name: string; city?: string | null };
-type CategoryLike = { id?: string; name: string; slug?: string } | null;
+type CategoryLike = { id?: string | null; name?: string | null; slug?: string | null } | null;
 type ProductLike = { id?: string; name?: string | null; slug?: string | null; description?: string | null; categoryId?: string | null; category?: CategoryLike };
 type ProductWithId = ProductLike & { id: string; name: string };
 type FoodCategoryLike = { id?: string | null; name?: string | null; slug?: string | null } | null;
@@ -22,22 +22,31 @@ export type MenuProductProfile = {
 };
 
 export type AdvisorVertical = "food" | "fashion" | "luggage" | "footwear" | "service" | "generic";
+export type FashionSubcategory = "dress" | "accessory" | "belt" | "footwear" | "bag" | "generic";
 
 export type FashionProductProfile = {
   vertical: "fashion";
   category: "dress" | "accessory" | "generic";
+  subcategory: FashionSubcategory;
   occasionSuitability: string[];
   styleNotes?: string[];
   weddingAdvice?: string;
   sizes?: string[];
   color?: string;
   material?: string | null;
+  usage?: string[];
+  effect?: string;
+  compatibleWith?: string[];
+  recommendedColors?: string[];
+  avoid?: string[];
+  exactMeasure?: string | null;
 };
 
 export type AdvisorPlaybook = {
   offerType: SellerOfferType;
   vertical: AdvisorVertical;
   category: string;
+  subcategory?: FashionSubcategory;
   tone: string;
   primaryFacts: string[];
   supportedIntents: SellerIntent[];
@@ -125,6 +134,7 @@ const boutiqueLunaFashionProfiles: Record<string, FashionProductProfile> = {
   "vestido-rojo-de-fiesta": {
     vertical: "fashion",
     category: "dress",
+    subcategory: "dress",
     occasionSuitability: ["fiestas", "celebraciones", "cumpleaños", "cenas", "eventos de noche", "ocasiones especiales"],
     styleNotes: ["look llamativo", "femenino", "ideal para destacar"],
     weddingAdvice:
@@ -136,6 +146,7 @@ const boutiqueLunaFashionProfiles: Record<string, FashionProductProfile> = {
   "vestido-floral-midi": {
     vertical: "fashion",
     category: "dress",
+    subcategory: "dress",
     occasionSuitability: ["salidas de día", "almuerzos", "eventos casuales", "brunch", "reuniones informales"],
     weddingAdvice:
       "Puede servir para una boda de día o evento campestre si el código es casual/elegante. Para boda formal, mejor Vestido Largo Satinado.",
@@ -144,37 +155,50 @@ const boutiqueLunaFashionProfiles: Record<string, FashionProductProfile> = {
   "vestido-negro-elegante": {
     vertical: "fashion",
     category: "dress",
+    subcategory: "dress",
     occasionSuitability: ["cenas", "reuniones", "eventos semi formales", "noche"],
     color: "negro",
   },
   "vestido-largo-satinado": {
     vertical: "fashion",
     category: "dress",
+    subcategory: "dress",
     occasionSuitability: ["eventos formales", "cenas elegantes", "bodas", "celebraciones especiales"],
   },
   "vestido-blanco-casual": {
     vertical: "fashion",
     category: "dress",
+    subcategory: "dress",
     occasionSuitability: ["día a día", "salida informal", "fin de semana", "clima cálido"],
     color: "blanco",
   },
   "vestido-verde-cruzado": {
     vertical: "fashion",
     category: "dress",
+    subcategory: "dress",
     occasionSuitability: ["reuniones de día", "salidas casuales", "almuerzos", "look fresco"],
     color: "verde",
   },
   "cinturon-delgado-dorado": {
     vertical: "fashion",
     category: "accessory",
-    occasionSuitability: ["complemento para vestidos", "eventos casuales o elegantes", "marcar cintura"],
+    subcategory: "belt",
+    occasionSuitability: ["casual", "elegante", "cena", "fiesta", "salida", "eventos de noche"],
+    styleNotes: ["complementa vestidos", "marca la cintura de forma sutil", "da un toque más arreglado a looks sencillos"],
+    usage: ["complementar vestidos", "marcar cintura de forma sutil"],
+    effect: "marcar cintura de forma sutil",
+    compatibleWith: ["vestidos", "faldas", "pantalones de tiro alto", "blazers", "chamarras simples"],
+    recommendedColors: ["negro", "blanco", "beige", "verde oscuro", "denim", "tonos neutros"],
+    avoid: ["looks con demasiados accesorios metálicos compitiendo"],
     color: "dorado",
+    material: null,
+    exactMeasure: null,
   },
 };
 
 const baseSupportedIntents: Record<AdvisorVertical, SellerIntent[]> = {
   food: ["ASK_INGREDIENTS", "ASK_PORTION", "ASK_PRICE", "ASK_AVAILABILITY", "START_ORDER"],
-  fashion: ["ASK_SIZE", "ASK_COLOR", "ASK_MATERIAL", "ASK_OCCASION", "ASK_SUITABILITY", "ASK_STYLE_ADVICE", "ASK_AVAILABILITY", "ASK_PRICE", "START_ORDER"],
+  fashion: ["ASK_SIZE", "ASK_COLOR", "ASK_MATERIAL", "ASK_OCCASION", "ASK_SUITABILITY", "ASK_STYLE_ADVICE", "ASK_COMPATIBILITY", "ASK_FIT", "ASK_SHIPPING", "ASK_AVAILABILITY", "ASK_PRICE", "START_ORDER"],
   luggage: ["ASK_SIZE", "ASK_COMPATIBILITY", "ASK_MATERIAL", "ASK_SUITABILITY", "ASK_AVAILABILITY", "ASK_PRICE", "START_ORDER"],
   footwear: ["ASK_SIZE", "ASK_COLOR", "ASK_MATERIAL", "ASK_OCCASION", "ASK_SUITABILITY", "ASK_FIT", "ASK_AVAILABILITY", "ASK_PRICE", "START_ORDER"],
   service: ["ASK_SERVICE_INCLUDED", "ASK_DURATION", "ASK_PRICE", "ASK_AVAILABILITY", "START_BOOKING", "START_ORDER"],
@@ -233,22 +257,34 @@ function getBoutiqueLunaProfile(store?: FoodStoreLike | null, product?: ProductL
   return boutiqueLunaFashionProfiles[name] ?? null;
 }
 
-function inferAdvisorVertical(store?: FoodStoreLike | null, product?: ProductLike | null, category?: CategoryLike): { vertical: AdvisorVertical; category: string; profile?: FashionProductProfile } {
+function inferFashionSubcategory(text: string): FashionSubcategory {
+  if (/\b(vestido|dress)\b/.test(text)) return "dress";
+  if (/\b(cinturon|cinturón|belt)\b/.test(text)) return "belt";
+  if (/\b(zapato|zapatilla|tenis|calzado|sandalia|botin|botín)\b/.test(text)) return "footwear";
+  if (/\b(bolso|cartera|bag)\b/.test(text)) return "bag";
+  if (/\b(accesorio|collar|arete|pulsera)\b/.test(text)) return "accessory";
+  return "generic";
+}
+
+function inferAdvisorVertical(store?: FoodStoreLike | null, product?: ProductLike | null, category?: CategoryLike): { vertical: AdvisorVertical; category: string; subcategory?: FashionSubcategory; profile?: FashionProductProfile } {
   const boutiqueProfile = getBoutiqueLunaProfile(store, product);
-  if (boutiqueProfile) return { vertical: "fashion", category: boutiqueProfile.category, profile: boutiqueProfile };
+  if (boutiqueProfile) return { vertical: "fashion", category: boutiqueProfile.category, subcategory: boutiqueProfile.subcategory, profile: boutiqueProfile };
 
   const text = textForPlaybook(store, product, category);
   if (isFoodRestaurantContext({ store, product, category })) return { vertical: "food", category: "food" };
   if (/\b(vestido|ropa|moda|blusa|camisa|falda|pantalon|pantalón|cinturon|cinturón|accesorio|boutique)\b/.test(text)) {
-    return { vertical: "fashion", category: /\b(vestido|dress)\b/.test(text) ? "dress" : "generic" };
+    const subcategory = inferFashionSubcategory(text);
+    return { vertical: "fashion", category: subcategory === "dress" ? "dress" : subcategory === "belt" || subcategory === "bag" || subcategory === "accessory" ? "accessory" : "generic", subcategory };
   }
   if (/\b(maleta|equipaje|carry on|carry-on|mochila|valija)\b/.test(text)) return { vertical: "luggage", category: "luggage" };
   if (/\b(zapato|zapatilla|tenis|calzado|sandalia|botin|botín)\b/.test(text)) return { vertical: "footwear", category: "footwear" };
   return { vertical: "generic", category: "generic" };
 }
 
-function playbookFacts(vertical: AdvisorVertical) {
+function playbookFacts(vertical: AdvisorVertical, subcategory?: FashionSubcategory) {
   if (vertical === "food") return ["ingredientes", "porción", "precio", "disponibilidad", "pedir"];
+  if (vertical === "fashion" && subcategory === "belt") return ["combinación", "medida", "ajuste", "color", "ocasión", "envío", "comprar"];
+  if (vertical === "fashion" && subcategory === "dress") return ["tallas", "colores", "material", "ocasión", "estilo", "disponibilidad", "comprar"];
   if (vertical === "fashion") return ["tallas", "colores", "material", "ocasión", "estilo", "disponibilidad", "comprar"];
   if (vertical === "luggage") return ["medidas", "capacidad", "material", "viaje", "garantía", "comprar"];
   if (vertical === "footwear") return ["tallas", "color", "material", "ocasión/uso", "comodidad", "comprar"];
@@ -284,8 +320,9 @@ export function resolveAdvisorPlaybook(store?: FoodStoreLike | null, product?: P
     offerType,
     vertical: inferred.vertical,
     category: inferred.category,
+    subcategory: inferred.subcategory,
     tone: "asesor comercial cercano",
-    primaryFacts: playbookFacts(inferred.vertical),
+    primaryFacts: playbookFacts(inferred.vertical, inferred.subcategory),
     supportedIntents: baseSupportedIntents[inferred.vertical],
     fashionProfile: inferred.profile,
   };

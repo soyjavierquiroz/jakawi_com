@@ -224,11 +224,15 @@ function buildProductAssistantMessage({
   const materialMatch = description?.match(/Material\s*:\s*([^\n.]+)/i);
   const playbook = resolveAdvisorPlaybook(store, product);
   const fashionProfile = playbook.fashionProfile;
-  const isDress = playbook.vertical === "fashion" && (fashionProfile?.category === "dress" || /vestido/i.test(productName));
+  const isDress = playbook.vertical === "fashion" && (fashionProfile?.subcategory === "dress" || fashionProfile?.category === "dress" || /vestido/i.test(productName));
+  const isBelt = playbook.vertical === "fashion" && (fashionProfile?.subcategory === "belt" || /cintur[oó]n/i.test(productName));
   const productLabel = isDress ? "Este vestido" : productName;
 
   if ((intent === "ASK_OCCASION" || intent === "ASK_SUITABILITY") && playbook.vertical === "fashion") {
     if (fashionProfile?.occasionSuitability.length) {
+      if (isBelt) {
+        return `El ${productName} funciona bien para completar looks casuales o elegantes: cenas, salidas, eventos de noche o para darle un toque más arreglado a un vestido sencillo. También ayuda a marcar la cintura de forma sutil.\n\n¿Quieres que te sugiera con qué color de vestido combinarlo?`;
+      }
       const occasions = fashionProfile.occasionSuitability.join(", ");
       if (normalizeText(product?.slug) === "vestido-rojo-de-fiesta" || /rojo de fiesta/i.test(productName)) {
         return `El ${productName} es más adecuado para celebraciones de noche, cumpleaños, cenas, fiestas y eventos donde quieras un look llamativo. ${fashionProfile.weddingAdvice}\n\n¿Quieres que te confirme tallas disponibles?`;
@@ -239,6 +243,14 @@ function buildProductAssistantMessage({
     }
     if (occasionMatch?.[1]) return `${productName} puede funcionar para ${occasionMatch[1].trim()}. ¿Quieres que te confirme tallas disponibles?`;
     return `${productName} puede funcionar si el estilo encaja con tu ocasión. Para no inventar, ${store.name} puede confirmar detalles de uso y disponibilidad. ¿Quieres ver el precio?`;
+  }
+
+  if ((intent === "ASK_STYLE_ADVICE" || intent === "ASK_COMPATIBILITY") && isBelt) {
+    if (/\b(chamarra|chaqueta|blazer)\b/.test(normalizeText(userMessage))) {
+      return `Sí, puede combinar con una chamarra si el look se mantiene limpio. Va muy bien con chamarra negra, beige, blanca, denim o verde oscuro. Como el cinturón es dorado, lo ideal es no cargar demasiado el resto de accesorios.\n\n¿Lo quieres para un look casual o más elegante?`;
+    }
+    const colors = fashionProfile?.recommendedColors?.join(", ") ?? "negro, blanco, beige, denim y tonos neutros";
+    return `El ${productName} combina bien con vestidos, faldas, pantalones de tiro alto y blazers o chamarras simples. Por el color dorado, funciona mejor con ${colors}, manteniendo el resto de accesorios más limpio.\n\n¿Lo quieres para un look casual o más elegante?`;
   }
 
   if (intent === "ASK_STYLE_ADVICE" && playbook.vertical === "fashion") {
@@ -259,6 +271,9 @@ function buildProductAssistantMessage({
       : `Aún no tengo características detalladas cargadas para ${productName}. Puedo ayudarte a consultar ${playbook.primaryFacts.slice(0, 3).join(", ")} con ${store.name}.`;
   }
   if (intent === "ASK_SIZE") {
+    if (isBelt) {
+      return `Para este cinturón lo ideal es confirmar medida o ajuste con ${store.name}, porque no tengo el largo exacto cargado. Puedo ayudarte a consultarlo por WhatsApp.`;
+    }
     const sizes = fashionProfile?.sizes?.length ? fashionProfile.sizes.join(" y ") : sizeMatch?.[1]?.trim();
     if (sizes) return `${productLabel} está registrado en tallas ${sizes}. La disponibilidad final de cada talla la confirma ${store.name} por WhatsApp.`;
     return `Las tallas o medidas de ${productName} conviene confirmarlas con ${store.name}. Puedo dejar esa consulta lista para la tienda.`;
@@ -268,15 +283,22 @@ function buildProductAssistantMessage({
     if (color) return `${productName} está registrado en color ${color}. Si buscas otro tono, ${store.name} puede confirmarte disponibilidad.`;
     return `Los colores disponibles de ${productName} los confirma ${store.name}.`;
   }
-  if (intent === "ASK_FIT") return `El ajuste de ${productName} conviene revisarlo con la talla disponible y cómo prefieres que te quede. ¿Quieres que te confirme tallas disponibles?`;
+  if (intent === "ASK_FIT") {
+    if (isBelt) return `El ajuste de ${productName} conviene confirmarlo por medida o largo, no por una talla genérica. No tengo el largo exacto cargado, así que ${store.name} debe confirmarlo.`;
+    return `El ajuste de ${productName} conviene revisarlo con la talla disponible y cómo prefieres que te quede. ¿Quieres que te confirme tallas disponibles?`;
+  }
   if (intent === "ASK_COMPATIBILITY") return `${productName} puede combinar o funcionar según el uso que tienes en mente. Cuéntame con qué lo quieres usar y te oriento sin inventar datos.`;
-  if (intent === "ASK_SHIPPING") return `El envío de ${productName} lo confirma ${store.name} según tu zona. Puedo dejar la consulta lista con el producto que estás viendo.`;
+  if (intent === "ASK_SHIPPING") {
+    if (isBelt) return `${store.name} confirma el envío según tu ciudad o zona. Dime dónde estás y te ayudo a dejar la consulta lista por WhatsApp con el ${productName}.`;
+    return `El envío de ${productName} lo confirma ${store.name} según tu zona. Puedo dejar la consulta lista con el producto que estás viendo.`;
+  }
   if (intent === "ASK_PRICE" && product) {
     if (!hasPublishedPrice(product)) return `El precio actualizado de ${productName} lo confirma ${store.name}.`;
     return priceLine({ product, store });
   }
   if (intent === "ASK_AVAILABILITY") return `La disponibilidad de ${productName} la confirma ${store.name}. Puedo ayudarte a apartarlo o dejar la consulta clara.`;
   if (intent === "START_ORDER") {
+    if (isBelt) return `Perfecto. Te ayudo a comprar ${productName}. ¿A qué número te escribe ${store.name} para confirmar medida, ajuste y disponibilidad?`;
     if (playbook.vertical === "fashion") return `Perfecto. Te ayudo a comprar ${productName}. ¿A qué número te escribe ${store.name} para confirmar talla y disponibilidad?`;
     return `Perfecto. Te ayudo a comprar ${productName}. ¿A qué número te escribe ${store.name}?`;
   }
