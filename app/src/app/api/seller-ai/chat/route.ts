@@ -315,18 +315,26 @@ function buildServiceAssistantMessage({
   store: StoreForReply;
 }) {
   const serviceName = product?.name ?? "este servicio";
+  const description = product?.description?.trim();
+  const durationMatch = description?.match(/duraci[oó]n aproximada:\s*([^.!?]+)/i);
+  const duration = durationMatch?.[1]?.trim();
   if (intent === "ASK_SERVICE_INCLUDED") {
-    const description = product?.description?.trim();
     return description ? `${serviceName}: ${description}. También puedo ayudarte con duración, precio o agenda.` : `Aún no tengo el detalle completo de qué incluye ${serviceName}. ${store.name} puede confirmarlo al coordinar.`;
   }
-  if (intent === "ASK_DURATION") return `La duración de ${serviceName} la confirma ${store.name} según disponibilidad y modalidad.`;
+  if (intent === "ASK_DURATION") {
+    if (duration) return `${serviceName} dura aproximadamente ${duration}. ${store.name} confirma el horario exacto al agendar.`;
+    return `La duración de ${serviceName} la confirma ${store.name} según disponibilidad y modalidad.`;
+  }
+  if (intent === "ASK_OCCASION" || intent === "ASK_SUITABILITY") {
+    return `${serviceName} puede servir para bodas, eventos, cenas, cumpleaños o sesiones de fotos si el estilo va con la ocasión. Lo ideal es confirmar con ${store.name} el estilo que buscas y el horario del evento.`;
+  }
   if (intent === "ASK_PRICE" && product) {
     if (!hasPublishedPrice(product)) return `El precio actualizado de ${serviceName} lo confirma ${store.name}.`;
     return priceLine({ product, store });
   }
   if (intent === "ASK_AVAILABILITY") return `${store.name} puede confirmar disponibilidad para ${serviceName}.`;
-  if (intent === "START_BOOKING") return `Perfecto. Te ayudo a coordinar ${serviceName}. ¿A qué número te contactan para agendar?`;
-  if (intent === "START_ORDER") return `Perfecto. Te ayudo a coordinar ${serviceName} por WhatsApp. ¿A qué número te contactan?`;
+  if (intent === "START_BOOKING") return `Perfecto. Te ayudo a agendar ${serviceName}. ¿A qué número te contacta ${store.name} para coordinar horario?`;
+  if (intent === "START_ORDER") return `Perfecto. Te ayudo a coordinar ${serviceName} por WhatsApp. ¿A qué número te contacta ${store.name}?`;
   return `Te ayudo con ${serviceName}: qué incluye, duración, precio o agenda.`;
 }
 

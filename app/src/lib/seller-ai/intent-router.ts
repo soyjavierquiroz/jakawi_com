@@ -108,6 +108,8 @@ function resolveLabel(label?: string | null, offerType: SellerOfferType = "PRODU
   if (offerType === "SERVICE") {
     if (/\b(que incluye|incluye|incluido|incluida)\b/.test(text)) return "ASK_SERVICE_INCLUDED";
     if (/\b(duracion|duración|cuanto dura|cuánto dura)\b/.test(text)) return "ASK_DURATION";
+    if (/\b(ocasion|ocasiones|evento|eventos|boda|fiesta|cena|cumpleanos|cumpleaños|fotos)\b/.test(text)) return "ASK_OCCASION";
+    if (/\b(sirve|adecuado|adecuada|queda bien|conviene)\b/.test(text)) return "ASK_SUITABILITY";
     if (/\b(agendar|agenda|cita|reservar|reserva)\b/.test(text)) return "START_BOOKING";
     if (/\b(whatsapp|hablar)\b/.test(text)) return "START_ORDER";
   }
@@ -140,6 +142,8 @@ function resolveFreeText(text?: string | null, offerType: SellerOfferType = "PRO
 
   if (offerType === "SERVICE" && /\b(que incluye|incluye|incluido|incluida|que trae)\b/.test(normalized)) return "ASK_SERVICE_INCLUDED";
   if (offerType === "SERVICE" && /\b(duracion|duración|cuanto dura|cuánto dura|tiempo)\b/.test(normalized)) return "ASK_DURATION";
+  if (offerType === "SERVICE" && /\b(para que evento|para que ocasion|en que ocasion|ocasion|ocasiones|evento|eventos|boda|fiesta|cena|cumpleanos|cumpleaños|sesion de fotos|sesión de fotos)\b/.test(normalized)) return "ASK_OCCASION";
+  if (offerType === "SERVICE" && /\b(sirve para|sirve|adecuado|adecuada|queda bien|conviene para)\b/.test(normalized)) return "ASK_SUITABILITY";
   if (offerType === "SERVICE" && /\b(agendar|agenda|cita|reservar|reserva|coordinar)\b/.test(normalized)) return "START_BOOKING";
 
   if (/\b(precio|cuanto vale|cuánto vale|cuanto cuesta|cuánto cuesta|cuesta|vale|costo)\b/.test(normalized)) return "ASK_PRICE";

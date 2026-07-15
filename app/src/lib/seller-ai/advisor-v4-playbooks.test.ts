@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildAssistantMessage } from "@/app/api/seller-ai/chat/route";
+import { buildNextQuickReplies } from "@/lib/seller-ai/conversation-state";
 import { resolveAdvisorPlaybook } from "@/lib/seller-ai/context";
 import { isInformationalSellerIntent, resolveSellerIntent } from "@/lib/seller-ai/intent-router";
 import { computeLeadQualification, shouldExposeWhatsappHandoffForIntent } from "@/lib/seller-ai/lead-qualification";
@@ -80,7 +81,7 @@ const serviceProduct = {
   id: "facial-demo",
   name: "Tratamiento facial",
   slug: "tratamiento-facial",
-  description: "Incluye limpieza facial, mascarilla hidratante y asesoría básica de cuidado.",
+  description: "Incluye limpieza facial, mascarilla hidratante y asesoría básica de cuidado. Duración aproximada: 45 a 60 minutos.",
   priceCents: 12000,
   currency: "BOB",
   categoryId: "servicios",
@@ -181,11 +182,17 @@ test("v4 service playbook uses service facts and not product/menu facts", () => 
   const offerType = resolveOfferType(serviceStore, serviceProduct);
   const included = buildAssistantMessage({ mode: "PRODUCT_ADVISOR", userMessage: "qué incluye?", product: serviceProduct, store: serviceStore, recommendations: [], offerType, intent: "ASK_SERVICE_INCLUDED" });
   const duration = buildAssistantMessage({ mode: "PRODUCT_ADVISOR", userMessage: "cuánto dura?", product: serviceProduct, store: serviceStore, recommendations: [], offerType, intent: "ASK_DURATION" });
+  const occasionIntent = resolveSellerIntent({ text: "¿Sirve para una boda?", offerType });
+  const occasion = buildAssistantMessage({ mode: "PRODUCT_ADVISOR", userMessage: "¿Sirve para una boda?", product: serviceProduct, store: serviceStore, recommendations: [], offerType, intent: occasionIntent });
   const booking = buildAssistantMessage({ mode: "CLOSING_PREP", userMessage: "quiero agendar", product: serviceProduct, store: serviceStore, recommendations: [], offerType, intent: "START_BOOKING" });
 
   assert.equal(offerType, "SERVICE");
+  assert.deepEqual(buildNextQuickReplies({ mode: "PRODUCT_ADVISOR", store: serviceStore, product: serviceProduct }), ["Qué incluye", "Duración", "Precio", "Disponibilidad", "Agendar"]);
   assert.match(included, /limpieza facial/i);
-  assert.match(duration, /duración/i);
+  assert.match(duration, /45 a 60 minutos/i);
+  assert.equal(occasionIntent, "ASK_OCCASION");
+  assert.match(occasion, /bodas|eventos/i);
+  assert.match(occasion, /horario/i);
   assert.match(booking, /agendar/i);
   assert.doesNotMatch([included, duration, booking].join(" "), /tallas|ingredientes/i);
 });

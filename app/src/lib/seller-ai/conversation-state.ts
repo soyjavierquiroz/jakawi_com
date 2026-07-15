@@ -186,6 +186,6 @@ export function buildNextQuickReplies({
     objections,
     usedReplies,
     lastUserMessage,
-    max: isFashionBelt || isFashionDress ? 5 : 4,
+    max: offerType === "SERVICE" || isFashionBelt || isFashionDress ? 5 : 4,
   });
 }

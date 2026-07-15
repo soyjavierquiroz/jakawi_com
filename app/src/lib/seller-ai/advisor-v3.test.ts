@@ -109,6 +109,7 @@ test("offer type quick replies expose explicit actions", () => {
     { label: "Qué incluye", action: "ASK_SERVICE_INCLUDED" },
     { label: "Duración", action: "ASK_DURATION" },
     { label: "Precio", action: "ASK_PRICE" },
+    { label: "Disponibilidad", action: "ASK_AVAILABILITY" },
     { label: "Agendar", action: "START_BOOKING" },
   ]);
 });

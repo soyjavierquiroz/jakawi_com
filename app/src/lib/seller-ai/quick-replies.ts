@@ -52,6 +52,7 @@ const serviceActions: Record<string, SellerIntent> = {
   Duración: "ASK_DURATION",
   Duracion: "ASK_DURATION",
   Precio: "ASK_PRICE",
+  Disponibilidad: "ASK_AVAILABILITY",
   Agendar: "START_BOOKING",
   "Hablar por WhatsApp": "START_ORDER",
   Cotizar: "ASK_PRICE",
@@ -102,6 +103,6 @@ export function toSellerQuickReplies(labels: string[], offerType: SellerOfferTyp
 
 export function getInitialQuickReplyLabels(offerType: SellerOfferType) {
   if (offerType === "MENU") return ["Ingredientes", "Porción", "Precio", "Pedir"];
-  if (offerType === "SERVICE") return ["Qué incluye", "Duración", "Precio", "Agendar"];
+  if (offerType === "SERVICE") return ["Qué incluye", "Duración", "Precio", "Disponibilidad", "Agendar"];
   return ["Tallas", "Colores", "Precio", "Comprar"];
 }
